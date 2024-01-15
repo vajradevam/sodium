@@ -1,0 +1,3 @@
+/home/pathak/Code/sodium/build/CMakeFiles/sodium.dir
+/home/pathak/Code/sodium/build/CMakeFiles/edit_cache.dir
+/home/pathak/Code/sodium/build/CMakeFiles/rebuild_cache.dir
