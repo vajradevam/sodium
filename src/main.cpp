@@ -6,12 +6,13 @@
 #include <vector>
 
 #include "./generation.hpp"
+#include "parser.hpp"
 
 int main(int argc, char* argv[]) {
 
     if (argc != 2) {
         std::cerr << "Holy shit. Yeh kya mazak hai?" << std::endl;
-        std::cerr << "Correct usage is -> sodium <filename.sm>" << std::endl;
+        std::cerr << "Correct usage is -> sodium <filename.cyan>" << std::endl;
         std::cerr << "Ram Ram!" << std::endl;
     }
 
@@ -28,18 +29,21 @@ int main(int argc, char* argv[]) {
     std::vector<Token> tokens = tokenizer.tokenize();
 
     Parser parser(std::move(tokens));
-    std::optional<NodeExit> tree = parser.parse();
+    std::optional<NodeProg> prog = parser.parse_prog();
 
-    if (!tree.has_value()) {
-        std:std::cerr << "No return statement found" << std::endl;
+    if (!prog.has_value()) {
+        std:std::cerr << "Invalid Program" << std::endl;
         exit(EXIT_FAILURE);
     }
 
-    Generator generator(tree.value());
+    Generator generator(prog.value());
     {
-        std::fstream file("../out.asm", std::ios::out);
-        file << generator.generate();
+        std::fstream file("./out.asm", std::ios::out);
+        file << generator.gen_prog();
     }
+
+    system("nasm -felf64 ./out.asm");
+    system("ld -o out ./out.o");
 
     return EXIT_SUCCESS;
 }
