@@ -1,95 +1,11 @@
+#include <cstdlib>
 #include <iostream>
 #include <fstream>
 #include <sstream>
 #include <optional>
 #include <vector>
 
-enum class TokenType {
-    exit, 
-    int_lit,
-    semi
-};
-
-struct Token {
-    TokenType type;
-    std::optional <std::string> value {};
-};
-
-std::vector<Token> tokenize(const std::string& str) {
-
-    std::vector<Token> tokens;
-    
-    std::string buf;
-    
-    for (int i = 0; i < str.length(); i++) {
-        char c = str.at(i);
-        if (std::isalpha(c)) {
-            buf.push_back(c);
-            i++;
-            while (std::isalnum(str.at(i))) {
-                buf.push_back(str.at(i));
-                i++;
-            }
-            i--;
-
-            if (buf == "return") {
-                tokens.push_back({.type = TokenType::exit});
-                buf.clear();
-                continue;
-            }
-            
-            else {
-                std::cerr << "Hypocrisy ki bhi koi seema hoti hai" << std::endl;
-                exit(EXIT_FAILURE);
-            }
-        }
-
-        else if (std::isdigit(c)) {
-            while (std::isdigit(str.at(i))) {
-                buf.push_back(str.at(i));
-                i++;
-            } 
-            i--;
-            tokens.push_back({.type = TokenType::int_lit, .value = buf});
-            buf.clear();
-        }
-
-        else if (c == ';') {
-            tokens.push_back({.type = TokenType::semi});
-        }
-
-        else if (std::isspace(c)) {
-            continue;
-        }
-
-        else {
-            std::cerr << "Hypocrisy ki bhi koi seema hoti hai" << std::endl;
-            exit(EXIT_FAILURE);            
-        }
-    }
-
-    return tokens;
-}
-
-std::string tokens_to_asm(const std::vector<Token>& tokens) {
-
-    std::stringstream output;
-    output << "gloabl _start\n_start:\n";
-
-    for (int i = 0; i < tokens.size(); i++) {
-        const Token& token = tokens.at(i);
-        if (token.type == TokenType::exit) {
-            if (i + 1 < tokens.size() && tokens.at(i + 1).type == TokenType::int_lit) {
-                if (i+ 2 < tokens.size() && tokens.at(i + 2).type == TokenType::semi) {
-                    output << "    mov rax, 60\n";
-                    output << "    mov rdi, " << tokens.at(i + 1).value.value() << "\n";
-                    output << "    syscall";
-                }
-            }
-        }
-    }
-    return output.str();
-}
+#include "./generation.hpp"
 
 int main(int argc, char* argv[]) {
 
@@ -97,7 +13,6 @@ int main(int argc, char* argv[]) {
         std::cerr << "Holy shit. Yeh kya mazak hai?" << std::endl;
         std::cerr << "Correct usage is -> sodium <filename.sm>" << std::endl;
         std::cerr << "Ram Ram!" << std::endl;
-        return EXIT_FAILURE;
     }
 
     std::string contents;    
@@ -109,11 +24,21 @@ int main(int argc, char* argv[]) {
     }
 
     //std::cout << contents << std::endl;
-    std::vector<Token> thing = tokenize(contents);
+    Tokenizer tokenizer(std::move(contents));
+    std::vector<Token> tokens = tokenizer.tokenize();
 
+    Parser parser(std::move(tokens));
+    std::optional<NodeExit> tree = parser.parse();
+
+    if (!tree.has_value()) {
+        std:std::cerr << "No return statement found" << std::endl;
+        exit(EXIT_FAILURE);
+    }
+
+    Generator generator(tree.value());
     {
         std::fstream file("../out.asm", std::ios::out);
-        file << tokens_to_asm(thing);
+        file << generator.generate();
     }
 
     return EXIT_SUCCESS;

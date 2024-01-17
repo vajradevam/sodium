@@ -1,5 +1,5 @@
 gloabl _start
 _start:
     mov rax, 60
-    mov rdi, 12
+    mov rdi, 100
     syscall
