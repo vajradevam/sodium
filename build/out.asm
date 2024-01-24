@@ -1,16 +1,16 @@
 global _start
 _start:
-    mov rax, 7
+    mov rax, 10
     push rax
-    mov rax, 8
+    mov rax, 1
     push rax
-    mov rax, 4
+    mov rax, 1
     push rax
     push QWORD [rsp + 0]
 
-    mov rax, 9
-    push rax
-    push QWORD [rsp + 8]
+    push QWORD [rsp + 0]
+
+    push QWORD [rsp + 32]
 
     mov rax, 60
     pop rdi

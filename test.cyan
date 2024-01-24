@@ -1,6 +1,6 @@
-let x = 7;
-let y = 8;
-let p = 4;
-let q = p;
-let m = 9;
-return (q);
+var a = 10;
+var b = 1;
+var c = 1;
+var d = c;
+var e = d;
+return             (a);

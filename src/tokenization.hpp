@@ -51,7 +51,7 @@ public:
                     continue;
                 }
 
-                else if (buf == "let") {
+                else if (buf == "var") {
                     tokens.push_back({ .type = TokenType::let });
                     buf.clear();
                     continue;
