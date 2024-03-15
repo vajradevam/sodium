@@ -5,6 +5,7 @@
 #include <optional>
 #include <vector>
 
+#include "arena.hpp"
 #include "./generation.hpp"
 #include "parser.hpp"
 
@@ -13,7 +14,6 @@ int main(int argc, char* argv[]) {
     if (argc != 2) {
         std::cerr << "Holy shit. Yeh kya mazak hai?" << std::endl;
         std::cerr << "Correct usage is -> sodium <filename.cyan>" << std::endl;
-        std::cerr << "Ram Ram!" << std::endl;
     }
 
     std::string contents;    
