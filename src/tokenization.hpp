@@ -59,7 +59,12 @@ enum class TokenType {
     shr,
     question,
     colon,
-    percenteq
+    percenteq,
+    ampeq,
+    pipeeq,
+    careteq,
+    shleq,
+    shreq
 };
 
 struct Token {
@@ -291,7 +296,11 @@ public:
 
             else if (peek().value() == '<') {
                 consume();
-                if (peek().has_value() && peek().value() == '<') {
+                if (peek().has_value() && peek().value() == '<'
+                    && peek(1).has_value() && peek(1).value() == '=') {
+                    consume(); consume();
+                    tokens.push_back({ .type = TokenType::shleq });
+                } else if (peek().has_value() && peek().value() == '<') {
                     consume();
                     tokens.push_back({ .type = TokenType::shl });
                 } else if (peek().has_value() && peek().value() == '=') {
@@ -305,7 +314,11 @@ public:
 
             else if (peek().value() == '>') {
                 consume();
-                if (peek().has_value() && peek().value() == '>') {
+                if (peek().has_value() && peek().value() == '>'
+                    && peek(1).has_value() && peek(1).value() == '=') {
+                    consume(); consume();
+                    tokens.push_back({ .type = TokenType::shreq });
+                } else if (peek().has_value() && peek().value() == '>') {
                     consume();
                     tokens.push_back({ .type = TokenType::shr });
                 } else if (peek().has_value() && peek().value() == '=') {
@@ -331,7 +344,10 @@ public:
 
             else if (peek().value() == '&') {
                 consume();
-                if (peek().has_value() && peek().value() == '&') {
+                if (peek().has_value() && peek().value() == '=') {
+                    consume();
+                    tokens.push_back({ .type = TokenType::ampeq });
+                } else if (peek().has_value() && peek().value() == '&') {
                     consume();
                     tokens.push_back({ .type = TokenType::and_t });
                 } else {
@@ -342,7 +358,10 @@ public:
 
             else if (peek().value() == '|') {
                 consume();
-                if (peek().has_value() && peek().value() == '|') {
+                if (peek().has_value() && peek().value() == '=') {
+                    consume();
+                    tokens.push_back({ .type = TokenType::pipeeq });
+                } else if (peek().has_value() && peek().value() == '|') {
                     consume();
                     tokens.push_back({ .type = TokenType::or_t });
                 } else {
@@ -353,7 +372,12 @@ public:
 
             else if (peek().value() == '^') {
                 consume();
-                tokens.push_back({ .type = TokenType::caret });
+                if (peek().has_value() && peek().value() == '=') {
+                    consume();
+                    tokens.push_back({ .type = TokenType::careteq });
+                } else {
+                    tokens.push_back({ .type = TokenType::caret });
+                }
                 continue;
             }
 

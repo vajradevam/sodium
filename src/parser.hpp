@@ -201,6 +201,11 @@ enum class AssignOp {
     mul_assign,
     div_assign,
     mod_assign,
+    bitand_assign,
+    bitor_assign,
+    bitxor_assign,
+    shl_assign,
+    shr_assign,
 };
 
 struct NodeStmtAssign {
@@ -1227,12 +1232,17 @@ public:
         } else if (
             peek().has_value() && peek().value().type == TokenType::ident
             && peek(1).has_value()
-            && (peek(1).value().type == TokenType::eq
-             || peek(1).value().type == TokenType::pluseq
-             || peek(1).value().type == TokenType::minuseq
-             || peek(1).value().type == TokenType::stareq
-             || peek(1).value().type == TokenType::slasheq
-             || peek(1).value().type == TokenType::percenteq)) {
+             && (peek(1).value().type == TokenType::eq
+              || peek(1).value().type == TokenType::pluseq
+              || peek(1).value().type == TokenType::minuseq
+              || peek(1).value().type == TokenType::stareq
+              || peek(1).value().type == TokenType::slasheq
+              || peek(1).value().type == TokenType::percenteq
+              || peek(1).value().type == TokenType::ampeq
+              || peek(1).value().type == TokenType::pipeeq
+              || peek(1).value().type == TokenType::careteq
+              || peek(1).value().type == TokenType::shleq
+              || peek(1).value().type == TokenType::shreq)) {
                 auto stmt_assign = m_allocator.alloc<NodeStmtAssign>();
                 stmt_assign->ident = consume();
                 auto op_token = consume();
@@ -1242,6 +1252,11 @@ public:
                     case TokenType::stareq: stmt_assign->op = AssignOp::mul_assign; break;
                     case TokenType::slasheq: stmt_assign->op = AssignOp::div_assign; break;
                     case TokenType::percenteq: stmt_assign->op = AssignOp::mod_assign; break;
+                    case TokenType::ampeq: stmt_assign->op = AssignOp::bitand_assign; break;
+                    case TokenType::pipeeq: stmt_assign->op = AssignOp::bitor_assign; break;
+                    case TokenType::careteq: stmt_assign->op = AssignOp::bitxor_assign; break;
+                    case TokenType::shleq: stmt_assign->op = AssignOp::shl_assign; break;
+                    case TokenType::shreq: stmt_assign->op = AssignOp::shr_assign; break;
                     default: stmt_assign->op = AssignOp::assign; break;
                 }
                 if (auto expr = parse_expr()) {

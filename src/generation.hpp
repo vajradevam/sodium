@@ -428,6 +428,18 @@ public:
                             gen->m_output << "    cqo\n";
                             gen->m_output << "    idiv rdi\n";
                             gen->m_output << "    mov rax, rdx\n"; break;
+                        case AssignOp::bitand_assign:
+                            gen->m_output << "    and rax, rdi\n"; break;
+                        case AssignOp::bitor_assign:
+                            gen->m_output << "    or rax, rdi\n"; break;
+                        case AssignOp::bitxor_assign:
+                            gen->m_output << "    xor rax, rdi\n"; break;
+                        case AssignOp::shl_assign:
+                            gen->m_output << "    mov rcx, rdi\n";
+                            gen->m_output << "    shl rax, cl\n"; break;
+                        case AssignOp::shr_assign:
+                            gen->m_output << "    mov rcx, rdi\n";
+                            gen->m_output << "    shr rax, cl\n"; break;
                         default:
                             break;
                     }

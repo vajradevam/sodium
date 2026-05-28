@@ -1,0 +1,11 @@
+var a = 6;
+a &= 3;
+var b = 6;
+b |= 3;
+var c = 6;
+c ^= 3;
+var d = 3;
+d <<= 2;
+var e = 16;
+e >>= 2;
+return a + b + c + d + e;
