@@ -16,7 +16,20 @@ enum class TokenType {
     close_paren,
     ident,
     let,
-    eq
+    eq,
+    plus,
+    star,
+    minus,
+    slash,
+    open_brace,
+    close_brace,
+    _if,
+    _else,
+    _while,
+    lt,
+    gt,
+    eq_eq,
+    neq
 };
 
 struct Token {
@@ -47,21 +60,29 @@ public:
 
                 if (buf == "return") {
                     tokens.push_back({ .type = TokenType::exit });
-                    buf.clear();
-                    continue;
                 }
 
                 else if (buf == "var") {
                     tokens.push_back({ .type = TokenType::let });
-                    buf.clear();
-                    continue;
+                }
+
+                else if (buf == "if") {
+                    tokens.push_back({ .type = TokenType::_if });
+                }
+
+                else if (buf == "else") {
+                    tokens.push_back({ .type = TokenType::_else });
+                }
+
+                else if (buf == "while") {
+                    tokens.push_back({ .type = TokenType::_while });
                 }
                 
                 else {
                     tokens.push_back({ .type = TokenType::ident, .value = buf });
-                    buf.clear();
-                    continue;
                 }
+                buf.clear();
+                continue;
             }
 
             else if (std::isdigit(peek().value())) {
@@ -87,6 +108,18 @@ public:
                 continue;
             }
 
+            else if (peek().value() == '{') {
+                consume();
+                tokens.push_back({ .type = TokenType::open_brace });
+                continue;
+            }
+
+            else if (peek().value() == '}') {
+                consume();
+                tokens.push_back({ .type = TokenType::close_brace });
+                continue;
+            }
+
             else if (peek().value() == ';') {
                 consume();
                 tokens.push_back({ .type = TokenType::semi });
@@ -95,7 +128,79 @@ public:
 
             else if (peek().value() == '=') {
                 consume();
-                tokens.push_back({ .type = TokenType::eq });
+                if (peek().has_value() && peek().value() == '=') {
+                    consume();
+                    tokens.push_back({ .type = TokenType::eq_eq });
+                } else {
+                    tokens.push_back({ .type = TokenType::eq });
+                }
+                continue;
+            }
+
+            else if (peek().value() == '+') {
+                consume();
+                tokens.push_back({ .type = TokenType::plus });
+                continue;
+            }
+
+            else if (peek().value() == '-') {
+                consume();
+                tokens.push_back({ .type = TokenType::minus });
+                continue;
+            }
+
+            else if (peek().value() == '*') {
+                consume();
+                tokens.push_back({ .type = TokenType::star });
+                continue;
+            }
+
+            else if (peek().value() == '/') {
+                if (peek(1).has_value() && peek(1).value() == '/') {
+                    while (peek().has_value() && peek().value() != '\n') {
+                        consume();
+                    }
+                    continue;
+                }
+                else if (peek(1).has_value() && peek(1).value() == '*') {
+                    consume(); consume();
+                    while (peek().has_value()) {
+                        if (peek().value() == '*' && peek(1).has_value() && peek(1).value() == '/') {
+                            consume(); consume();
+                            break;
+                        }
+                        consume();
+                    }
+                    continue;
+                }
+                else {
+                    consume();
+                    tokens.push_back({ .type = TokenType::slash });
+                    continue;
+                }
+            }
+
+            else if (peek().value() == '<') {
+                consume();
+                tokens.push_back({ .type = TokenType::lt });
+                continue;
+            }
+
+            else if (peek().value() == '>') {
+                consume();
+                tokens.push_back({ .type = TokenType::gt });
+                continue;
+            }
+
+            else if (peek().value() == '!') {
+                consume();
+                if (peek().has_value() && peek().value() == '=') {
+                    consume();
+                    tokens.push_back({ .type = TokenType::neq });
+                } else {
+                    std::cerr << "Bruh moment!" << std::endl;
+                    exit(EXIT_FAILURE);
+                }
                 continue;
             }
 

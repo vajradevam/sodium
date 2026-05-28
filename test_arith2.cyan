@@ -1,0 +1,5 @@
+var a = 10 + 2;
+var b = a - 3;
+var c = b * 4;
+var d = c / 5;
+return (d);

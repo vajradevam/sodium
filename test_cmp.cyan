@@ -1,0 +1,8 @@
+var a = 5;
+var b = 3;
+var lt = a < b;    // 0
+var gt = a > b;    // 1
+var eq = a == b;   // 0
+var neq = a != b;  // 1
+var result = lt + gt + eq + neq;
+return (result);

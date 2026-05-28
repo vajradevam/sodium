@@ -1,0 +1,9 @@
+var result = 0;
+var a = 5;
+var b = 3;
+if (a > b) {
+    result = 100;
+} else {
+    result = 200;
+}
+return (result);

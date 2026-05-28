@@ -14,6 +14,7 @@ int main(int argc, char* argv[]) {
     if (argc != 2) {
         std::cerr << "Holy shit. Yeh kya mazak hai?" << std::endl;
         std::cerr << "Correct usage is -> sodium <filename.cyan>" << std::endl;
+        exit(EXIT_FAILURE);
     }
 
     std::string contents;    
@@ -24,7 +25,6 @@ int main(int argc, char* argv[]) {
         contents = contents_stream.str();
     }
 
-    //std::cout << contents << std::endl;
     Tokenizer tokenizer(std::move(contents));
     std::vector<Token> tokens = tokenizer.tokenize();
 
@@ -32,7 +32,7 @@ int main(int argc, char* argv[]) {
     std::optional<NodeProg> prog = parser.parse_prog();
 
     if (!prog.has_value()) {
-        std:std::cerr << "Invalid Program" << std::endl;
+        std::cerr << "Invalid Program" << std::endl;
         exit(EXIT_FAILURE);
     }
 

@@ -1,0 +1,6 @@
+var a = 5;
+var b = 3;
+var c = a + b;
+var d = c * 2;
+var e = a + b * 2;
+return (e);
