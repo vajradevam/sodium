@@ -142,8 +142,11 @@ struct NodeExprTernary {
     NodeExpr* else_expr;
 };
 
+struct NodeExprRead {
+};
+
 struct NodeExpr {
-    std::variant<NodeExprIntLit*, NodeExprIdent*, BinExpr*, NodeExprCall*, NodeExprStringLit*, NodeExprIndex*, NodeExprBitNot*, NodeExprTernary*> var;
+    std::variant<NodeExprIntLit*, NodeExprIdent*, BinExpr*, NodeExprCall*, NodeExprStringLit*, NodeExprIndex*, NodeExprBitNot*, NodeExprTernary*, NodeExprRead*> var;
 };
 
 struct NodeStmtExit {
@@ -649,6 +652,27 @@ public:
             expr_int_lit->int_lit = consume();
             auto expr = m_allocator.alloc<NodeExpr>();
             expr->var = expr_int_lit;
+            return expr;
+        }
+        else if (peek().has_value() && peek().value().type == TokenType::ident
+                 && peek().value().value.has_value() && peek().value().value.value() == "read") {
+            if (!peek(1).has_value() || peek(1).value().type != TokenType::open_paren) {
+                auto expr_ident = m_allocator.alloc<NodeExprIdent>();
+                expr_ident->ident = consume();
+                auto expr = m_allocator.alloc<NodeExpr>();
+                expr->var = expr_ident;
+                return expr;
+            }
+            consume(); // read
+            consume(); // (
+            if (peek().has_value() && peek().value().type != TokenType::close_paren) {
+                std::cerr << "read() takes no arguments" << std::endl;
+                exit(EXIT_FAILURE);
+            }
+            consume(); // )
+            auto read_expr = m_allocator.alloc<NodeExprRead>();
+            auto expr = m_allocator.alloc<NodeExpr>();
+            expr->var = read_expr;
             return expr;
         }
         else if (peek().has_value() && peek().value().type == TokenType::ident) {

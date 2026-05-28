@@ -193,6 +193,46 @@ public:
                 gen->m_output << label_end << ":\n";
             }
 
+            void operator()(const NodeExprRead*) const
+            {
+                auto label_loop = gen->new_label();
+                auto label_done = gen->new_label();
+                auto label_pos = gen->new_label();
+
+                gen->m_output << "    sub rsp, 32\n";
+                gen->m_output << "    mov rax, 0\n";
+                gen->m_output << "    mov rdi, 0\n";
+                gen->m_output << "    mov rsi, rsp\n";
+                gen->m_output << "    mov rdx, 31\n";
+                gen->m_output << "    syscall\n";
+                gen->m_output << "    xor r8, r8\n";
+                gen->m_output << "    xor r9, r9\n";
+                gen->m_output << "    mov rcx, rsp\n";
+                gen->m_output << "    cmp byte [rcx], '-'\n";
+                gen->m_output << "    jne " << label_loop << "\n";
+                gen->m_output << "    inc rcx\n";
+                gen->m_output << "    mov r9, 1\n";
+                gen->m_output << label_loop << ":\n";
+                gen->m_output << "    cmp byte [rcx], 10\n";
+                gen->m_output << "    je " << label_done << "\n";
+                gen->m_output << "    cmp byte [rcx], 0\n";
+                gen->m_output << "    je " << label_done << "\n";
+                gen->m_output << "    movzx r10, byte [rcx]\n";
+                gen->m_output << "    sub r10, 48\n";
+                gen->m_output << "    imul r8, r8, 10\n";
+                gen->m_output << "    add r8, r10\n";
+                gen->m_output << "    inc rcx\n";
+                gen->m_output << "    jmp " << label_loop << "\n";
+                gen->m_output << label_done << ":\n";
+                gen->m_output << "    test r9, r9\n";
+                gen->m_output << "    jz " << label_pos << "\n";
+                gen->m_output << "    neg r8\n";
+                gen->m_output << label_pos << ":\n";
+                gen->m_output << "    add rsp, 32\n";
+                gen->m_output << "    push r8\n";
+                gen->m_stack_size++;
+            }
+
             void operator()(const NodeExprCall* expr_call)
             {
                 for (auto it = expr_call->args.rbegin(); it != expr_call->args.rend(); ++it) {

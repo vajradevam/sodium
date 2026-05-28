@@ -70,6 +70,10 @@ EXIT_TESTS["test_global_func.cyan"]=3
 declare -A STDOUT_TESTS
 STDOUT_TESTS["test_print.cyan"]=0
 
+# Tests requiring stdin input (testname|expected_exit|stdin_value)
+declare -A STDIN_TESTS
+STDIN_TESTS["test_read.cyan|42"]=42
+
 echo "========================================"
 echo "  Cyan Compiler Test Suite"
 echo "========================================"
@@ -117,9 +121,39 @@ for test_file in "${!EXIT_TESTS[@]}"; do
             echo "  Expected exit: $expected_exit, got: $actual_exit"
         fi
         if [ "$stdout_ok" -ne 1 ]; then
-            echo "  Expected stdout to be non-empty, but it was empty or had unexpected content"
+                    echo "  Expected stdout to be non-empty, but it was empty or had unexpected content"
             echo "  stdout: $(cat /tmp/cyan_stdout.txt)"
         fi
+        FAIL=$((FAIL + 1))
+    fi
+done
+
+for stdin_entry in "${!STDIN_TESTS[@]}"; do
+    IFS='|' read -r test_file stdin_value <<< "$stdin_entry"
+    expected_exit=${STDIN_TESTS["$stdin_entry"]}
+
+    if [ ! -f "$TEST_DIR/$test_file" ]; then
+        echo -e "${RED}[SKIP]${NC} $test_file (not found)"
+        continue
+    fi
+
+    echo -n "Testing $test_file (stdin: $stdin_value)... "
+
+    if ! $COMPILER "$TEST_DIR/$test_file" > /tmp/cyan_compile.log 2>&1; then
+        echo -e "${RED}COMPILE FAIL${NC}"
+        cat /tmp/cyan_compile.log
+        FAIL=$((FAIL + 1))
+        continue
+    fi
+
+    echo "$stdin_value" | ./out > /tmp/cyan_stdout.txt 2>&1; actual_exit=$?
+
+    if [ "$actual_exit" -eq "$expected_exit" ]; then
+        echo -e "${GREEN}PASS${NC} (exit: $actual_exit)"
+        PASS=$((PASS + 1))
+    else
+        echo -e "${RED}FAIL${NC}"
+        echo "  Expected exit: $expected_exit, got: $actual_exit"
         FAIL=$((FAIL + 1))
     fi
 done
