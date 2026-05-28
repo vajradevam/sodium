@@ -50,7 +50,13 @@ enum class TokenType {
     slasheq,
     plusplus,
     minusminus,
-    percent
+    percent,
+    amp,
+    pipe,
+    caret,
+    tilde,
+    shl,
+    shr
 };
 
 struct Token {
@@ -282,7 +288,10 @@ public:
 
             else if (peek().value() == '<') {
                 consume();
-                if (peek().has_value() && peek().value() == '=') {
+                if (peek().has_value() && peek().value() == '<') {
+                    consume();
+                    tokens.push_back({ .type = TokenType::shl });
+                } else if (peek().has_value() && peek().value() == '=') {
                     consume();
                     tokens.push_back({ .type = TokenType::lte });
                 } else {
@@ -293,7 +302,10 @@ public:
 
             else if (peek().value() == '>') {
                 consume();
-                if (peek().has_value() && peek().value() == '=') {
+                if (peek().has_value() && peek().value() == '>') {
+                    consume();
+                    tokens.push_back({ .type = TokenType::shr });
+                } else if (peek().has_value() && peek().value() == '=') {
                     consume();
                     tokens.push_back({ .type = TokenType::gte });
                 } else {
@@ -320,15 +332,8 @@ public:
                     consume();
                     tokens.push_back({ .type = TokenType::and_t });
                 } else {
-                    std::cerr << "Bruh moment!" << std::endl;
-                    exit(EXIT_FAILURE);
+                    tokens.push_back({ .type = TokenType::amp });
                 }
-                continue;
-            }
-
-            else if (peek().value() == '%') {
-                consume();
-                tokens.push_back({ .type = TokenType::percent });
                 continue;
             }
 
@@ -338,9 +343,26 @@ public:
                     consume();
                     tokens.push_back({ .type = TokenType::or_t });
                 } else {
-                    std::cerr << "Bruh moment!" << std::endl;
-                    exit(EXIT_FAILURE);
+                    tokens.push_back({ .type = TokenType::pipe });
                 }
+                continue;
+            }
+
+            else if (peek().value() == '^') {
+                consume();
+                tokens.push_back({ .type = TokenType::caret });
+                continue;
+            }
+
+            else if (peek().value() == '~') {
+                consume();
+                tokens.push_back({ .type = TokenType::tilde });
+                continue;
+            }
+
+            else if (peek().value() == '%') {
+                consume();
+                tokens.push_back({ .type = TokenType::percent });
                 continue;
             }
 

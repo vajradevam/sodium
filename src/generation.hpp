@@ -149,6 +149,14 @@ public:
                 gen->push("rax");
             }
 
+            void operator()(const NodeExprBitNot* bit_not)
+            {
+                gen->gen_expr(*bit_not->expr);
+                gen->pop("rax");
+                gen->m_output << "    not rax\n";
+                gen->push("rax");
+            }
+
             void operator()(const NodeExprCall* expr_call)
             {
                 for (auto it = expr_call->args.rbegin(); it != expr_call->args.rend(); ++it) {
@@ -304,6 +312,46 @@ public:
                         gen->m_output << true_label << ":\n";
                         gen->m_output << "    mov rax, 1\n";
                         gen->m_output << end_label << ":\n";
+                        gen->push("rax");
+                    }
+                    void operator()(const BinExprBitAnd* and_op) {
+                        gen->gen_expr(*and_op->lhs);
+                        gen->gen_expr(*and_op->rhs);
+                        gen->pop("rdi");
+                        gen->pop("rax");
+                        gen->m_output << "    and rax, rdi\n";
+                        gen->push("rax");
+                    }
+                    void operator()(const BinExprBitOr* or_op) {
+                        gen->gen_expr(*or_op->lhs);
+                        gen->gen_expr(*or_op->rhs);
+                        gen->pop("rdi");
+                        gen->pop("rax");
+                        gen->m_output << "    or rax, rdi\n";
+                        gen->push("rax");
+                    }
+                    void operator()(const BinExprXor* xor_op) {
+                        gen->gen_expr(*xor_op->lhs);
+                        gen->gen_expr(*xor_op->rhs);
+                        gen->pop("rdi");
+                        gen->pop("rax");
+                        gen->m_output << "    xor rax, rdi\n";
+                        gen->push("rax");
+                    }
+                    void operator()(const BinExprShl* shl_op) {
+                        gen->gen_expr(*shl_op->lhs);
+                        gen->gen_expr(*shl_op->rhs);
+                        gen->pop("rcx");
+                        gen->pop("rax");
+                        gen->m_output << "    shl rax, cl\n";
+                        gen->push("rax");
+                    }
+                    void operator()(const BinExprShr* shr_op) {
+                        gen->gen_expr(*shr_op->lhs);
+                        gen->gen_expr(*shr_op->rhs);
+                        gen->pop("rcx");
+                        gen->pop("rax");
+                        gen->m_output << "    shr rax, cl\n";
                         gen->push("rax");
                     }
             };

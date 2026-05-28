@@ -49,6 +49,8 @@ EXIT_TESTS["test_inc_dec_loop.cyan"]=55
 EXIT_TESTS["test_inc_dec_loop2.cyan"]=55
 EXIT_TESTS["test_mod.cyan"]=3
 EXIT_TESTS["test_mod_loop.cyan"]=25
+EXIT_TESTS["test_bitwise.cyan"]=26
+EXIT_TESTS["test_bitwise2.cyan"]=6
 
 # Tests that also check stdout
 declare -A STDOUT_TESTS

@@ -99,15 +99,45 @@ struct BinExprOr {
     NodeExpr* rhs;
 };
 
+struct BinExprBitAnd {
+    NodeExpr* lhs;
+    NodeExpr* rhs;
+};
+
+struct BinExprBitOr {
+    NodeExpr* lhs;
+    NodeExpr* rhs;
+};
+
+struct BinExprXor {
+    NodeExpr* lhs;
+    NodeExpr* rhs;
+};
+
+struct BinExprShl {
+    NodeExpr* lhs;
+    NodeExpr* rhs;
+};
+
+struct BinExprShr {
+    NodeExpr* lhs;
+    NodeExpr* rhs;
+};
+
 struct BinExpr {
     std::variant<BinExprAdd*, BinExprMulti*, BinExprSub*, BinExprDiv*, BinExprMod*,
                  BinExprLT*, BinExprGT*, BinExprLTE*, BinExprGTE*,
                  BinExprEQ*, BinExprNEQ*,
-                 BinExprAnd*, BinExprOr*> var;
+                 BinExprAnd*, BinExprOr*,
+                 BinExprBitAnd*, BinExprBitOr*, BinExprXor*, BinExprShl*, BinExprShr*> var;
+};
+
+struct NodeExprBitNot {
+    NodeExpr* expr;
 };
 
 struct NodeExpr {
-    std::variant<NodeExprIntLit*, NodeExprIdent*, BinExpr*, NodeExprCall*, NodeExprStringLit*, NodeExprIndex*> var;
+    std::variant<NodeExprIntLit*, NodeExprIdent*, BinExpr*, NodeExprCall*, NodeExprStringLit*, NodeExprIndex*, NodeExprBitNot*> var;
 };
 
 struct NodeStmtExit {
@@ -238,17 +268,89 @@ public:
 
     std::optional<NodeExpr*> parse_and_expr()
     {
-        auto lhs = parse_eq_expr();
+        auto lhs = parse_bitor_expr();
         if (!lhs) return {};
 
         while (peek().has_value() && peek().value().type == TokenType::and_t) {
             consume();
-            auto rhs = parse_eq_expr();
+            auto rhs = parse_bitor_expr();
             if (!rhs) {
                 std::cerr << "Expected expression after &&" << std::endl;
                 exit(EXIT_FAILURE);
             }
             auto node = m_allocator.alloc<BinExprAnd>();
+            node->lhs = lhs.value();
+            node->rhs = rhs.value();
+            auto bin = m_allocator.alloc<BinExpr>();
+            bin->var = node;
+            auto expr = m_allocator.alloc<NodeExpr>();
+            expr->var = bin;
+            lhs = expr;
+        }
+        return lhs;
+    }
+
+    std::optional<NodeExpr*> parse_bitor_expr()
+    {
+        auto lhs = parse_bitxor_expr();
+        if (!lhs) return {};
+
+        while (peek().has_value() && peek().value().type == TokenType::pipe) {
+            consume();
+            auto rhs = parse_bitxor_expr();
+            if (!rhs) {
+                std::cerr << "Expected expression after |" << std::endl;
+                exit(EXIT_FAILURE);
+            }
+            auto node = m_allocator.alloc<BinExprBitOr>();
+            node->lhs = lhs.value();
+            node->rhs = rhs.value();
+            auto bin = m_allocator.alloc<BinExpr>();
+            bin->var = node;
+            auto expr = m_allocator.alloc<NodeExpr>();
+            expr->var = bin;
+            lhs = expr;
+        }
+        return lhs;
+    }
+
+    std::optional<NodeExpr*> parse_bitxor_expr()
+    {
+        auto lhs = parse_bitand_expr();
+        if (!lhs) return {};
+
+        while (peek().has_value() && peek().value().type == TokenType::caret) {
+            consume();
+            auto rhs = parse_bitand_expr();
+            if (!rhs) {
+                std::cerr << "Expected expression after ^" << std::endl;
+                exit(EXIT_FAILURE);
+            }
+            auto node = m_allocator.alloc<BinExprXor>();
+            node->lhs = lhs.value();
+            node->rhs = rhs.value();
+            auto bin = m_allocator.alloc<BinExpr>();
+            bin->var = node;
+            auto expr = m_allocator.alloc<NodeExpr>();
+            expr->var = bin;
+            lhs = expr;
+        }
+        return lhs;
+    }
+
+    std::optional<NodeExpr*> parse_bitand_expr()
+    {
+        auto lhs = parse_eq_expr();
+        if (!lhs) return {};
+
+        while (peek().has_value() && peek().value().type == TokenType::amp) {
+            consume();
+            auto rhs = parse_eq_expr();
+            if (!rhs) {
+                std::cerr << "Expected expression after &" << std::endl;
+                exit(EXIT_FAILURE);
+            }
+            auto node = m_allocator.alloc<BinExprBitAnd>();
             node->lhs = lhs.value();
             node->rhs = rhs.value();
             auto bin = m_allocator.alloc<BinExpr>();
@@ -299,13 +401,13 @@ public:
 
     std::optional<NodeExpr*> parse_cmp_expr()
     {
-        auto lhs = parse_add_expr();
+        auto lhs = parse_shift_expr();
         if (!lhs) return {};
 
         while (peek().has_value() && (peek().value().type == TokenType::lt || peek().value().type == TokenType::gt
                || peek().value().type == TokenType::lte || peek().value().type == TokenType::gte)) {
             auto op = consume().type;
-            auto rhs = parse_add_expr();
+            auto rhs = parse_shift_expr();
             if (!rhs) {
                 std::cerr << "Expected expression after operator" << std::endl;
                 exit(EXIT_FAILURE);
@@ -350,6 +452,42 @@ public:
             }
         }
 
+        return lhs;
+    }
+
+    std::optional<NodeExpr*> parse_shift_expr()
+    {
+        auto lhs = parse_add_expr();
+        if (!lhs) return {};
+
+        while (peek().has_value() && (peek().value().type == TokenType::shl || peek().value().type == TokenType::shr)) {
+            auto op = consume().type;
+            auto rhs = parse_add_expr();
+            if (!rhs) {
+                std::cerr << "Expected expression after shift operator" << std::endl;
+                exit(EXIT_FAILURE);
+            }
+
+            if (op == TokenType::shl) {
+                auto node = m_allocator.alloc<BinExprShl>();
+                node->lhs = lhs.value();
+                node->rhs = rhs.value();
+                auto bin = m_allocator.alloc<BinExpr>();
+                bin->var = node;
+                auto expr = m_allocator.alloc<NodeExpr>();
+                expr->var = bin;
+                lhs = expr;
+            } else {
+                auto node = m_allocator.alloc<BinExprShr>();
+                node->lhs = lhs.value();
+                node->rhs = rhs.value();
+                auto bin = m_allocator.alloc<BinExpr>();
+                bin->var = node;
+                auto expr = m_allocator.alloc<NodeExpr>();
+                expr->var = bin;
+                lhs = expr;
+            }
+        }
         return lhs;
     }
 
@@ -521,6 +659,20 @@ public:
             bin->var = node;
             auto out = m_allocator.alloc<NodeExpr>();
             out->var = bin;
+            return out;
+        }
+
+        else if (peek().has_value() && peek().value().type == TokenType::tilde) {
+            consume();
+            auto expr = parse_primary_expr();
+            if (!expr) {
+                std::cerr << "Expected expression after '~'" << std::endl;
+                exit(EXIT_FAILURE);
+            }
+            auto node = m_allocator.alloc<NodeExprBitNot>();
+            node->expr = expr.value();
+            auto out = m_allocator.alloc<NodeExpr>();
+            out->var = node;
             return out;
         }
 
