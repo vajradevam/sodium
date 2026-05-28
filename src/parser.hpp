@@ -175,6 +175,11 @@ struct NodeStmtFor;
 struct NodeStmtBreak {};
 struct NodeStmtContinue {};
 
+struct NodeStmtDoWhile {
+    NodeExpr* cond;
+    NodeBlock* body;
+};
+
 struct NodeStmtIf {
     NodeExpr* cond;
     NodeBlock* then_block;
@@ -215,7 +220,7 @@ struct NodeStmtAssign {
 };
 
 struct NodeStmt {
-    std::variant<NodeStmtExit*, NodeStmtLet*, NodeStmtIf*, NodeStmtWhile*, NodeStmtAssign*, NodeStmtFor*, NodeStmtPrint*, NodeStmtBlock*, NodeStmtReturn*, NodeStmtArrDecl*, NodeStmtArrAssign*, NodeStmtBreak*, NodeStmtContinue*> var;
+    std::variant<NodeStmtExit*, NodeStmtLet*, NodeStmtIf*, NodeStmtWhile*, NodeStmtDoWhile*, NodeStmtAssign*, NodeStmtFor*, NodeStmtPrint*, NodeStmtBlock*, NodeStmtReturn*, NodeStmtArrDecl*, NodeStmtArrAssign*, NodeStmtBreak*, NodeStmtContinue*> var;
 };
 
 struct NodeStmtFor {
@@ -832,6 +837,47 @@ public:
         return NodeStmt { .var = stmt_while };
     }
 
+    std::optional<NodeStmt> parse_do_while_stmt()
+    {
+        consume(); // do
+        auto body = parse_block();
+
+        if (!peek().has_value() || peek().value().type != TokenType::_while) {
+            std::cerr << "Expected 'while' after do body" << std::endl;
+            exit(EXIT_FAILURE);
+        }
+        consume(); // while
+
+        if (!peek().has_value() || peek().value().type != TokenType::open_paren) {
+            std::cerr << "Expected '(' after while" << std::endl;
+            exit(EXIT_FAILURE);
+        }
+        consume(); // (
+
+        auto cond = parse_expr();
+        if (!cond) {
+            std::cerr << "Expected expression in do-while condition" << std::endl;
+            exit(EXIT_FAILURE);
+        }
+
+        if (!peek().has_value() || peek().value().type != TokenType::close_paren) {
+            std::cerr << "Expected ')' after do-while condition" << std::endl;
+            exit(EXIT_FAILURE);
+        }
+        consume(); // )
+
+        if (!peek().has_value() || peek().value().type != TokenType::semi) {
+            std::cerr << "Expected ';' after do-while" << std::endl;
+            exit(EXIT_FAILURE);
+        }
+        consume(); // ;
+
+        auto stmt_do_while = m_allocator.alloc<NodeStmtDoWhile>();
+        stmt_do_while->cond = cond.value();
+        stmt_do_while->body = body;
+        return NodeStmt { .var = stmt_do_while };
+    }
+
     std::optional<NodeStmt> parse_print_stmt()
     {
         consume(); // print
@@ -1066,6 +1112,8 @@ public:
                 return NodeStmt { .var = stmt_let };
         } else if (peek().has_value() && peek().value().type == TokenType::_if) {
             return parse_if_stmt();
+        } else if (peek().has_value() && peek().value().type == TokenType::_do) {
+            return parse_do_while_stmt();
         } else if (peek().has_value() && peek().value().type == TokenType::_while) {
             return parse_while_stmt();
         } else if (peek().has_value() && peek().value().type == TokenType::_for) {

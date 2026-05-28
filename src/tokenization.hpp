@@ -44,6 +44,7 @@ enum class TokenType {
     close_square,
     _break,
     _continue,
+    _do,
     pluseq,
     minuseq,
     stareq,
@@ -130,6 +131,9 @@ public:
                 }
                 else if (buf == "continue") {
                     tokens.push_back({ .type = TokenType::_continue });
+                }
+                else if (buf == "do") {
+                    tokens.push_back({ .type = TokenType::_do });
                 }
                 
                 else {

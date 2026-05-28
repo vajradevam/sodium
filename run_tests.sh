@@ -56,6 +56,9 @@ EXIT_TESTS["test_ternary.cyan"]=30
 EXIT_TESTS["test_ternary2.cyan"]=50
 EXIT_TESTS["test_mod_assign.cyan"]=1
 EXIT_TESTS["test_bitwise_assign.cyan"]=30
+EXIT_TESTS["test_do_while.cyan"]=10
+EXIT_TESTS["test_do_while_break.cyan"]=5
+EXIT_TESTS["test_do_while_continue.cyan"]=12
 
 # Tests that also check stdout
 declare -A STDOUT_TESTS

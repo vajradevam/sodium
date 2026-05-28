@@ -506,6 +506,32 @@ public:
                 gen->m_loop_stack.pop_back();
             }
 
+            void operator()(const NodeStmtDoWhile* stmt_do_while) const
+            {
+                auto label_begin = gen->new_label();
+                auto label_cont = gen->new_label();
+                auto label_end = gen->new_label();
+
+                gen->m_loop_stack.push_back({ .begin_label = label_begin, .end_label = label_end, .continue_label = label_cont });
+
+                gen->m_output << label_begin << ":\n";
+
+                gen->enter_scope();
+                for (const auto& s : stmt_do_while->body->stmts) {
+                    gen->gen_stmt(s);
+                }
+                gen->exit_scope();
+
+                gen->m_output << label_cont << ":\n";
+                gen->gen_expr(*stmt_do_while->cond);
+                gen->pop("rax");
+                gen->m_output << "    test rax, rax\n";
+                gen->m_output << "    jnz " << label_begin << "\n";
+                gen->m_output << label_end << ":\n";
+
+                gen->m_loop_stack.pop_back();
+            }
+
             void operator()(const NodeStmtArrDecl* stmt_arr) const
             {
                 size_t size = 0;
