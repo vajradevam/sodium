@@ -18,6 +18,7 @@ public:
     struct Var {
         size_t stack_loc;
         size_t array_size = 0;
+        IntType type = IntType::i64;
     };
 
     struct Scope {
@@ -91,13 +92,13 @@ public:
         m_scopes.pop_back();
     }
 
-    void declare_var(const std::string& name) {
+    void declare_var(const std::string& name, IntType type = IntType::i64) {
         auto& scope = m_scopes.back();
         if (scope.vars.contains(name)) {
             std::cerr << "Identifier already used in this scope: " << name << std::endl;
             exit(EXIT_FAILURE);
         }
-        scope.vars[name] = Var { .stack_loc = m_stack_size };
+        scope.vars[name] = Var { .stack_loc = m_stack_size, .type = type };
         scope.var_count++;
     }
 
@@ -129,9 +130,15 @@ public:
                 for (auto it = gen->m_scopes.rbegin(); it != gen->m_scopes.rend(); ++it) {
                     if (it->vars.contains(name)) {
                         const auto var = it->vars.at(name);
-                        std::stringstream offset;
-                        offset << "QWORD [rsp + " << (gen->m_stack_size - var.stack_loc - 1) * 8 << "]\n";
-                        gen->push(offset.str());
+                        if (var.array_size > 0 || var.type == IntType::i64 || var.type == IntType::u64) {
+                            std::stringstream offset;
+                            offset << "QWORD [rsp + " << (gen->m_stack_size - var.stack_loc - 1) * 8 << "]\n";
+                            gen->push(offset.str());
+                        } else {
+                            gen->m_output << "    mov rax, QWORD [rsp + " << (gen->m_stack_size - var.stack_loc - 1) * 8 << "]\n";
+                            gen->extend(var.type);
+                            gen->push("rax");
+                        }
                         return;
                     }
                 }
@@ -461,14 +468,18 @@ public:
 
             void operator()(const NodeStmtLet* stmt_let) const
             {
+                auto var_type = stmt_let->type.value_or(IntType::i64);
                 if (auto arr_lit = std::get_if<NodeExprArrLit*>(&stmt_let->expr->var)) {
                     auto& scope = gen->m_scopes.back();
-                    scope.vars[stmt_let->ident.value.value()] = Var { .stack_loc = gen->m_stack_size, .array_size = (*arr_lit)->elements.size() };
+                    scope.vars[stmt_let->ident.value.value()] = Var { .stack_loc = gen->m_stack_size, .array_size = (*arr_lit)->elements.size(), .type = var_type };
                     scope.var_count += (*arr_lit)->elements.size();
                     gen->gen_expr(*stmt_let->expr);
                 } else {
-                    gen->declare_var(stmt_let->ident.value.value());
+                    gen->declare_var(stmt_let->ident.value.value(), var_type);
                     gen->gen_expr(*stmt_let->expr);
+                    gen->pop("rax");
+                    gen->truncate(var_type);
+                    gen->push("rax");
                 }
             }
 
@@ -518,6 +529,9 @@ public:
                         if (stmt_assign->op == AssignOp::assign) {
                             gen->gen_expr(*stmt_assign->expr);
                             gen->pop("rax");
+                            if (var.array_size == 0 && var.type != IntType::i64 && var.type != IntType::u64) {
+                                gen->truncate(var.type);
+                            }
                             gen->m_output << "    mov QWORD [rsp + " << offset << "], rax\n";
                         } else {
                             gen->m_output << "    push QWORD [rsp + " << offset << "]\n";
@@ -525,6 +539,9 @@ public:
                             gen->gen_expr(*stmt_assign->expr);
                             gen->pop("rdi");
                             gen->pop("rax");
+                            if (var.array_size == 0 && var.type != IntType::i64 && var.type != IntType::u64) {
+                                gen->extend(var.type);
+                            }
                             switch (stmt_assign->op) {
                                 case AssignOp::add_assign:
                                     gen->m_output << "    add rax, rdi\n"; break;
@@ -553,6 +570,9 @@ public:
                                     gen->m_output << "    shr rax, cl\n"; break;
                                 default:
                                     break;
+                            }
+                            if (var.array_size == 0 && var.type != IntType::i64 && var.type != IntType::u64) {
+                                gen->truncate(var.type);
                             }
                             gen->m_output << "    mov QWORD [rsp + " << offset << "], rax\n";
                         }
@@ -996,6 +1016,32 @@ private:
     void pop(const std::string reg) {
         m_output << "    pop " << reg << "\n";
         m_stack_size--;
+    }
+
+    void truncate(IntType type) {
+        switch (type) {
+            case IntType::i8:
+            case IntType::u8:  m_output << "    and rax, 0xFF\n"; break;
+            case IntType::i16:
+            case IntType::u16: m_output << "    mov ecx, 0xFFFF\n    and rax, rcx\n"; break;
+            case IntType::i32:
+            case IntType::u32: m_output << "    mov eax, eax\n"; break;
+            case IntType::i64:
+            case IntType::u64: break;
+        }
+    }
+
+    void extend(IntType type) {
+        switch (type) {
+            case IntType::i8:  m_output << "    movsx rax, al\n"; break;
+            case IntType::i16: m_output << "    movsx rax, ax\n"; break;
+            case IntType::i32: m_output << "    movsxd rax, eax\n"; break;
+            case IntType::u8:  m_output << "    movzx eax, al\n"; break;
+            case IntType::u16: m_output << "    movzx eax, ax\n"; break;
+            case IntType::u32: m_output << "    mov eax, eax\n"; break;
+            case IntType::i64:
+            case IntType::u64: break;
+        }
     }
 
     const NodeProg m_prog;

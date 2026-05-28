@@ -70,7 +70,15 @@ enum class TokenType {
     pipeeq,
     careteq,
     shleq,
-    shreq
+    shreq,
+    _i8,
+    _i16,
+    _i32,
+    _i64,
+    _u8,
+    _u16,
+    _u32,
+    _u64
 };
 
 struct Token {
@@ -155,7 +163,30 @@ public:
                 else if (buf == "static") {
                     tokens.push_back({ .type = TokenType::_static });
                 }
-                
+                else if (buf == "i8") {
+                    tokens.push_back({ .type = TokenType::_i8 });
+                }
+                else if (buf == "i16") {
+                    tokens.push_back({ .type = TokenType::_i16 });
+                }
+                else if (buf == "i32") {
+                    tokens.push_back({ .type = TokenType::_i32 });
+                }
+                else if (buf == "i64") {
+                    tokens.push_back({ .type = TokenType::_i64 });
+                }
+                else if (buf == "u8") {
+                    tokens.push_back({ .type = TokenType::_u8 });
+                }
+                else if (buf == "u16") {
+                    tokens.push_back({ .type = TokenType::_u16 });
+                }
+                else if (buf == "u32") {
+                    tokens.push_back({ .type = TokenType::_u32 });
+                }
+                else if (buf == "u64") {
+                    tokens.push_back({ .type = TokenType::_u64 });
+                }
                 else {
                     tokens.push_back({ .type = TokenType::ident, .value = buf });
                 }

@@ -10,6 +10,11 @@
 #include "arena.hpp"
 #include "tokenization.hpp"
 
+enum class IntType {
+    i8, i16, i32, i64,
+    u8, u16, u32, u64
+};
+
 struct NodeExprIntLit {
     Token int_lit;
 };
@@ -175,6 +180,7 @@ struct NodeStmtArrAssign {
 struct NodeStmtLet {
     Token ident;
     NodeExpr* expr;
+    std::optional<IntType> type {};
 };
 
 struct NodeBlock;
@@ -1213,6 +1219,21 @@ public:
         return NodeStmt { .var = stmt_ret };
     }
 
+    std::optional<IntType> parse_type() {
+        if (!peek().has_value()) return {};
+        switch (peek().value().type) {
+            case TokenType::_i8: consume(); return IntType::i8;
+            case TokenType::_i16: consume(); return IntType::i16;
+            case TokenType::_i32: consume(); return IntType::i32;
+            case TokenType::_i64: consume(); return IntType::i64;
+            case TokenType::_u8: consume(); return IntType::u8;
+            case TokenType::_u16: consume(); return IntType::u16;
+            case TokenType::_u32: consume(); return IntType::u32;
+            case TokenType::_u64: consume(); return IntType::u64;
+            default: return {};
+        }
+    }
+
     std::optional<NodeStmt> parse_stmt() {
         if (peek().has_value() && peek().value().type == TokenType::let
             && peek(1).has_value() && peek(1).value().type == TokenType::ident
@@ -1238,6 +1259,38 @@ public:
                 }
                 consume(); // ;
                 return NodeStmt { .var = stmt_arr };
+        } else if (
+            peek().has_value() && peek().value().type == TokenType::let
+            && peek(1).has_value() && peek(1).value().type == TokenType::ident
+            && peek(2).has_value() && peek(2).value().type == TokenType::colon) {
+                consume();
+                auto stmt_let = m_allocator.alloc<NodeStmtLet>();
+                stmt_let->ident = consume();
+                consume(); // :
+                if (auto type = parse_type()) {
+                    stmt_let->type = type.value();
+                } else {
+                    std::cerr << "Expected type after ':'" << std::endl;
+                    exit(EXIT_FAILURE);
+                }
+                if (!peek().has_value() || peek().value().type != TokenType::eq) {
+                    std::cerr << "Expected '=' after type" << std::endl;
+                    exit(EXIT_FAILURE);
+                }
+                consume();
+                if (auto expr = parse_expr()) {
+                    stmt_let->expr = expr.value();
+                } else {
+                    std::cerr << "Invalid expression" << std::endl;
+                    exit(EXIT_FAILURE);
+                }
+                if (peek().has_value() && peek().value().type == TokenType::semi) {
+                    consume();
+                } else {
+                    std::cerr << "Expected ';'" << std::endl;
+                    exit(EXIT_FAILURE);
+                }
+                return NodeStmt { .var = stmt_let };
         } else if (
             peek().has_value() && peek().value().type == TokenType::let
             && peek(1).has_value() && peek(1).value().type == TokenType::ident
