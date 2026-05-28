@@ -1,0 +1,11 @@
+// pre and post increment/decrement
+var x = 5;
+++x;
+// x == 6
+x++;
+// x == 7
+--x;
+// x == 6
+x--;
+// x == 5
+return(x);

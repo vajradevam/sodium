@@ -44,6 +44,9 @@ EXIT_TESTS["test_continue_for.cyan"]=46
 EXIT_TESTS["test_nested_break.cyan"]=9
 EXIT_TESTS["test_compound_assign.cyan"]=6
 EXIT_TESTS["test_compound_assign2.cyan"]=55
+EXIT_TESTS["test_inc_dec.cyan"]=5
+EXIT_TESTS["test_inc_dec_loop.cyan"]=55
+EXIT_TESTS["test_inc_dec_loop2.cyan"]=55
 
 # Tests that also check stdout
 declare -A STDOUT_TESTS

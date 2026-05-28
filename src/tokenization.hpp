@@ -47,7 +47,9 @@ enum class TokenType {
     pluseq,
     minuseq,
     stareq,
-    slasheq
+    slasheq,
+    plusplus,
+    minusminus
 };
 
 struct Token {
@@ -210,7 +212,10 @@ public:
 
             else if (peek().value() == '+') {
                 consume();
-                if (peek().has_value() && peek().value() == '=') {
+                if (peek().has_value() && peek().value() == '+') {
+                    consume();
+                    tokens.push_back({ .type = TokenType::plusplus });
+                } else if (peek().has_value() && peek().value() == '=') {
                     consume();
                     tokens.push_back({ .type = TokenType::pluseq });
                 } else {
@@ -221,7 +226,10 @@ public:
 
             else if (peek().value() == '-') {
                 consume();
-                if (peek().has_value() && peek().value() == '=') {
+                if (peek().has_value() && peek().value() == '-') {
+                    consume();
+                    tokens.push_back({ .type = TokenType::minusminus });
+                } else if (peek().has_value() && peek().value() == '=') {
                     consume();
                     tokens.push_back({ .type = TokenType::minuseq });
                 } else {
