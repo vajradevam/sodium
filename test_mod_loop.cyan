@@ -1,0 +1,13 @@
+// sum 1..10 using modulo to skip evens
+var sum = 0;
+var i = 1;
+while (i <= 10) {
+    if (i % 2 == 0) {
+        i++;
+        continue;
+    }
+    sum = sum + i;
+    i++;
+}
+// sum = 1+3+5+7+9 = 25
+return(sum);

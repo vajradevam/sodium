@@ -49,7 +49,8 @@ enum class TokenType {
     stareq,
     slasheq,
     plusplus,
-    minusminus
+    minusminus,
+    percent
 };
 
 struct Token {
@@ -322,6 +323,12 @@ public:
                     std::cerr << "Bruh moment!" << std::endl;
                     exit(EXIT_FAILURE);
                 }
+                continue;
+            }
+
+            else if (peek().value() == '%') {
+                consume();
+                tokens.push_back({ .type = TokenType::percent });
                 continue;
             }
 

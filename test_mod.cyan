@@ -1,0 +1,8 @@
+// modulo operator
+var a = 10 % 3;
+// a == 1
+var b = 12 % 4;
+// b == 0
+var c = 7 % 5;
+// c == 2
+return(a + b + c);

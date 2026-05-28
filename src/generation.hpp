@@ -201,6 +201,15 @@ public:
                         gen->m_output << "    idiv rdi\n";
                         gen->push("rax");
                     }
+                    void operator()(const BinExprMod* mod) {
+                        gen->gen_expr(*mod->lhs);
+                        gen->gen_expr(*mod->rhs);
+                        gen->pop("rdi");
+                        gen->pop("rax");
+                        gen->m_output << "    cqo\n";
+                        gen->m_output << "    idiv rdi\n";
+                        gen->push("rdx");
+                    }
                     void operator()(const BinExprLT* lt) {
                         gen->gen_expr(*lt->lhs);
                         gen->gen_expr(*lt->rhs);

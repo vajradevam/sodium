@@ -54,6 +54,11 @@ struct BinExprDiv {
     NodeExpr* rhs;
 };
 
+struct BinExprMod {
+    NodeExpr* lhs;
+    NodeExpr* rhs;
+};
+
 struct BinExprLT {
     NodeExpr* lhs;
     NodeExpr* rhs;
@@ -95,7 +100,7 @@ struct BinExprOr {
 };
 
 struct BinExpr {
-    std::variant<BinExprAdd*, BinExprMulti*, BinExprSub*, BinExprDiv*,
+    std::variant<BinExprAdd*, BinExprMulti*, BinExprSub*, BinExprDiv*, BinExprMod*,
                  BinExprLT*, BinExprGT*, BinExprLTE*, BinExprGTE*,
                  BinExprEQ*, BinExprNEQ*,
                  BinExprAnd*, BinExprOr*> var;
@@ -390,7 +395,7 @@ public:
         auto lhs = parse_primary_expr();
         if (!lhs) return {};
 
-        while (peek().has_value() && (peek().value().type == TokenType::star || peek().value().type == TokenType::slash)) {
+        while (peek().has_value() && (peek().value().type == TokenType::star || peek().value().type == TokenType::slash || peek().value().type == TokenType::percent)) {
             auto op = consume().type;
             auto rhs = parse_primary_expr();
             if (!rhs) {
@@ -407,8 +412,17 @@ public:
                 auto expr = m_allocator.alloc<NodeExpr>();
                 expr->var = bin;
                 lhs = expr;
-            } else {
+            } else if (op == TokenType::slash) {
                 auto node = m_allocator.alloc<BinExprDiv>();
+                node->lhs = lhs.value();
+                node->rhs = rhs.value();
+                auto bin = m_allocator.alloc<BinExpr>();
+                bin->var = node;
+                auto expr = m_allocator.alloc<NodeExpr>();
+                expr->var = bin;
+                lhs = expr;
+            } else {
+                auto node = m_allocator.alloc<BinExprMod>();
                 node->lhs = lhs.value();
                 node->rhs = rhs.value();
                 auto bin = m_allocator.alloc<BinExpr>();
