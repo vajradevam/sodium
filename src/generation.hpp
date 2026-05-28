@@ -328,9 +328,32 @@ public:
             void operator()(const NodeStmtAssign* stmt_assign) const
             {
                 const auto var = gen->lookup_var(stmt_assign->ident.value.value());
-                gen->gen_expr(*stmt_assign->expr);
-                gen->pop("rax");
-                gen->m_output << "    mov QWORD [rsp + " << (gen->m_stack_size - var.stack_loc - 1) * 8 << "], rax\n";
+                size_t offset = (gen->m_stack_size - var.stack_loc - 1) * 8;
+                if (stmt_assign->op == AssignOp::assign) {
+                    gen->gen_expr(*stmt_assign->expr);
+                    gen->pop("rax");
+                    gen->m_output << "    mov QWORD [rsp + " << offset << "], rax\n";
+                } else {
+                    gen->m_output << "    push QWORD [rsp + " << offset << "]\n";
+                    gen->m_stack_size++;
+                    gen->gen_expr(*stmt_assign->expr);
+                    gen->pop("rdi");
+                    gen->pop("rax");
+                    switch (stmt_assign->op) {
+                        case AssignOp::add_assign:
+                            gen->m_output << "    add rax, rdi\n"; break;
+                        case AssignOp::sub_assign:
+                            gen->m_output << "    sub rax, rdi\n"; break;
+                        case AssignOp::mul_assign:
+                            gen->m_output << "    imul rax, rdi\n"; break;
+                        case AssignOp::div_assign:
+                            gen->m_output << "    cqo\n";
+                            gen->m_output << "    idiv rdi\n"; break;
+                        default:
+                            break;
+                    }
+                    gen->m_output << "    mov QWORD [rsp + " << offset << "], rax\n";
+                }
             }
 
             void operator()(const NodeStmtIf* stmt_if) const

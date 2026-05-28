@@ -43,7 +43,11 @@ enum class TokenType {
     open_square,
     close_square,
     _break,
-    _continue
+    _continue,
+    pluseq,
+    minuseq,
+    stareq,
+    slasheq
 };
 
 struct Token {
@@ -206,19 +210,34 @@ public:
 
             else if (peek().value() == '+') {
                 consume();
-                tokens.push_back({ .type = TokenType::plus });
+                if (peek().has_value() && peek().value() == '=') {
+                    consume();
+                    tokens.push_back({ .type = TokenType::pluseq });
+                } else {
+                    tokens.push_back({ .type = TokenType::plus });
+                }
                 continue;
             }
 
             else if (peek().value() == '-') {
                 consume();
-                tokens.push_back({ .type = TokenType::minus });
+                if (peek().has_value() && peek().value() == '=') {
+                    consume();
+                    tokens.push_back({ .type = TokenType::minuseq });
+                } else {
+                    tokens.push_back({ .type = TokenType::minus });
+                }
                 continue;
             }
 
             else if (peek().value() == '*') {
                 consume();
-                tokens.push_back({ .type = TokenType::star });
+                if (peek().has_value() && peek().value() == '=') {
+                    consume();
+                    tokens.push_back({ .type = TokenType::stareq });
+                } else {
+                    tokens.push_back({ .type = TokenType::star });
+                }
                 continue;
             }
 
@@ -238,6 +257,11 @@ public:
                         }
                         consume();
                     }
+                    continue;
+                }
+                else if (peek(1).has_value() && peek(1).value() == '=') {
+                    consume(); consume();
+                    tokens.push_back({ .type = TokenType::slasheq });
                     continue;
                 }
                 else {

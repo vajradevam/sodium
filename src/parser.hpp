@@ -153,9 +153,18 @@ struct NodeStmtPrint {
     NodeExpr* expr;
 };
 
+enum class AssignOp {
+    assign,
+    add_assign,
+    sub_assign,
+    mul_assign,
+    div_assign,
+};
+
 struct NodeStmtAssign {
     Token ident;
     NodeExpr* expr;
+    AssignOp op = AssignOp::assign;
 };
 
 struct NodeStmt {
@@ -911,10 +920,22 @@ public:
             return NodeStmt { .var = m_allocator.alloc<NodeStmtContinue>() };
         } else if (
             peek().has_value() && peek().value().type == TokenType::ident
-            && peek(1).has_value() && peek(1).value().type == TokenType::eq) {
+            && peek(1).has_value()
+            && (peek(1).value().type == TokenType::eq
+             || peek(1).value().type == TokenType::pluseq
+             || peek(1).value().type == TokenType::minuseq
+             || peek(1).value().type == TokenType::stareq
+             || peek(1).value().type == TokenType::slasheq)) {
                 auto stmt_assign = m_allocator.alloc<NodeStmtAssign>();
                 stmt_assign->ident = consume();
-                consume();
+                auto op_token = consume();
+                switch (op_token.type) {
+                    case TokenType::pluseq: stmt_assign->op = AssignOp::add_assign; break;
+                    case TokenType::minuseq: stmt_assign->op = AssignOp::sub_assign; break;
+                    case TokenType::stareq: stmt_assign->op = AssignOp::mul_assign; break;
+                    case TokenType::slasheq: stmt_assign->op = AssignOp::div_assign; break;
+                    default: stmt_assign->op = AssignOp::assign; break;
+                }
                 if (auto expr = parse_expr()) {
                     stmt_assign->expr = expr.value();
                 } else {
