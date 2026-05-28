@@ -1,0 +1,10 @@
+var a = 5;
+var b = 5;
+var r1 = a <= b;  // 1
+var r2 = a >= b;  // 1
+var c = 3;
+var r3 = a <= c;  // 0
+var r4 = a >= c;  // 1
+var r5 = c <= a;  // 1
+var r6 = c >= a;  // 0
+return (r1 + r2 + r3 + r4 + r5 + r6);

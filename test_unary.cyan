@@ -1,0 +1,6 @@
+var a = -5 + 3;
+var b = 10 + -3;
+var c = -(5 + 3);
+var d = -(-8);
+var result = a + b + c + d;
+return (result);

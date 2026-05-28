@@ -11,6 +11,7 @@
 enum class TokenType {
     exit, 
     int_lit,
+    string_lit,
     semi,
     open_paren,
     close_paren,
@@ -29,7 +30,18 @@ enum class TokenType {
     lt,
     gt,
     eq_eq,
-    neq
+    neq,
+    and_t,
+    or_t,
+    lte,
+    gte,
+    _for,
+    _print,
+    _function,
+    _return,
+    comma,
+    open_square,
+    close_square
 };
 
 struct Token {
@@ -59,7 +71,7 @@ public:
                 }
 
                 if (buf == "return") {
-                    tokens.push_back({ .type = TokenType::exit });
+                    tokens.push_back({ .type = TokenType::_return });
                 }
 
                 else if (buf == "var") {
@@ -77,10 +89,42 @@ public:
                 else if (buf == "while") {
                     tokens.push_back({ .type = TokenType::_while });
                 }
+
+                else if (buf == "for") {
+                    tokens.push_back({ .type = TokenType::_for });
+                }
+
+                else if (buf == "print") {
+                    tokens.push_back({ .type = TokenType::_print });
+                }
+
+                else if (buf == "function") {
+                    tokens.push_back({ .type = TokenType::_function });
+                }
+
+                else if (buf == "return") {
+                    tokens.push_back({ .type = TokenType::_return });
+                }
                 
                 else {
                     tokens.push_back({ .type = TokenType::ident, .value = buf });
                 }
+                buf.clear();
+                continue;
+            }
+
+            else if (peek().value() == '"') {
+                consume(); // "
+                buf.clear();
+                while (peek().has_value() && peek().value() != '"') {
+                    buf.push_back(consume());
+                }
+                if (!peek().has_value()) {
+                    std::cerr << "Unterminated string literal" << std::endl;
+                    exit(EXIT_FAILURE);
+                }
+                consume(); // "
+                tokens.push_back({ .type = TokenType::string_lit, .value = buf });
                 buf.clear();
                 continue;
             }
@@ -108,6 +152,18 @@ public:
                 continue;
             }
 
+            else if (peek().value() == '[') {
+                consume();
+                tokens.push_back({ .type = TokenType::open_square });
+                continue;
+            }
+
+            else if (peek().value() == ']') {
+                consume();
+                tokens.push_back({ .type = TokenType::close_square });
+                continue;
+            }
+
             else if (peek().value() == '{') {
                 consume();
                 tokens.push_back({ .type = TokenType::open_brace });
@@ -117,6 +173,12 @@ public:
             else if (peek().value() == '}') {
                 consume();
                 tokens.push_back({ .type = TokenType::close_brace });
+                continue;
+            }
+
+            else if (peek().value() == ',') {
+                consume();
+                tokens.push_back({ .type = TokenType::comma });
                 continue;
             }
 
@@ -182,13 +244,23 @@ public:
 
             else if (peek().value() == '<') {
                 consume();
-                tokens.push_back({ .type = TokenType::lt });
+                if (peek().has_value() && peek().value() == '=') {
+                    consume();
+                    tokens.push_back({ .type = TokenType::lte });
+                } else {
+                    tokens.push_back({ .type = TokenType::lt });
+                }
                 continue;
             }
 
             else if (peek().value() == '>') {
                 consume();
-                tokens.push_back({ .type = TokenType::gt });
+                if (peek().has_value() && peek().value() == '=') {
+                    consume();
+                    tokens.push_back({ .type = TokenType::gte });
+                } else {
+                    tokens.push_back({ .type = TokenType::gt });
+                }
                 continue;
             }
 
@@ -197,6 +269,30 @@ public:
                 if (peek().has_value() && peek().value() == '=') {
                     consume();
                     tokens.push_back({ .type = TokenType::neq });
+                } else {
+                    std::cerr << "Bruh moment!" << std::endl;
+                    exit(EXIT_FAILURE);
+                }
+                continue;
+            }
+
+            else if (peek().value() == '&') {
+                consume();
+                if (peek().has_value() && peek().value() == '&') {
+                    consume();
+                    tokens.push_back({ .type = TokenType::and_t });
+                } else {
+                    std::cerr << "Bruh moment!" << std::endl;
+                    exit(EXIT_FAILURE);
+                }
+                continue;
+            }
+
+            else if (peek().value() == '|') {
+                consume();
+                if (peek().has_value() && peek().value() == '|') {
+                    consume();
+                    tokens.push_back({ .type = TokenType::or_t });
                 } else {
                     std::cerr << "Bruh moment!" << std::endl;
                     exit(EXIT_FAILURE);

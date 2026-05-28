@@ -1,0 +1,4 @@
+var s1 = "hello, world";
+var s2 = "cyan language";
+var s3 = "special chars: !@#$%^&*()";
+return (0);
