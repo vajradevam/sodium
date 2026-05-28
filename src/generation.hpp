@@ -165,9 +165,12 @@ public:
                 gen->pop("rax");
                 gen->m_output << "    test rax, rax\n";
                 gen->m_output << "    jz " << label_false << "\n";
+                auto saved_stack = gen->m_stack_size;
                 gen->gen_expr(*ternary->then_expr);
+                gen->m_stack_size = saved_stack + 1;
                 gen->m_output << "    jmp " << label_end << "\n";
                 gen->m_output << label_false << ":\n";
+                gen->m_stack_size = saved_stack;
                 gen->gen_expr(*ternary->else_expr);
                 gen->m_output << label_end << ":\n";
             }
@@ -421,6 +424,10 @@ public:
                         case AssignOp::div_assign:
                             gen->m_output << "    cqo\n";
                             gen->m_output << "    idiv rdi\n"; break;
+                        case AssignOp::mod_assign:
+                            gen->m_output << "    cqo\n";
+                            gen->m_output << "    idiv rdi\n";
+                            gen->m_output << "    mov rax, rdx\n"; break;
                         default:
                             break;
                     }

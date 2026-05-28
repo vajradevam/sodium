@@ -200,6 +200,7 @@ enum class AssignOp {
     sub_assign,
     mul_assign,
     div_assign,
+    mod_assign,
 };
 
 struct NodeStmtAssign {
@@ -1230,7 +1231,8 @@ public:
              || peek(1).value().type == TokenType::pluseq
              || peek(1).value().type == TokenType::minuseq
              || peek(1).value().type == TokenType::stareq
-             || peek(1).value().type == TokenType::slasheq)) {
+             || peek(1).value().type == TokenType::slasheq
+             || peek(1).value().type == TokenType::percenteq)) {
                 auto stmt_assign = m_allocator.alloc<NodeStmtAssign>();
                 stmt_assign->ident = consume();
                 auto op_token = consume();
@@ -1239,6 +1241,7 @@ public:
                     case TokenType::minuseq: stmt_assign->op = AssignOp::sub_assign; break;
                     case TokenType::stareq: stmt_assign->op = AssignOp::mul_assign; break;
                     case TokenType::slasheq: stmt_assign->op = AssignOp::div_assign; break;
+                    case TokenType::percenteq: stmt_assign->op = AssignOp::mod_assign; break;
                     default: stmt_assign->op = AssignOp::assign; break;
                 }
                 if (auto expr = parse_expr()) {

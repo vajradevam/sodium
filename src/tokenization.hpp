@@ -58,7 +58,8 @@ enum class TokenType {
     shl,
     shr,
     question,
-    colon
+    colon,
+    percenteq
 };
 
 struct Token {
@@ -364,7 +365,12 @@ public:
 
             else if (peek().value() == '%') {
                 consume();
-                tokens.push_back({ .type = TokenType::percent });
+                if (peek().has_value() && peek().value() == '=') {
+                    consume();
+                    tokens.push_back({ .type = TokenType::percenteq });
+                } else {
+                    tokens.push_back({ .type = TokenType::percent });
+                }
                 continue;
             }
 
