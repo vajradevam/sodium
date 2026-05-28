@@ -31,6 +31,11 @@ public:
         std::string continue_label;
     };
 
+    struct GlobalInit {
+        std::string name;
+        NodeExpr* expr;
+    };
+
     inline explicit Generator(NodeProg root)
     : m_prog(std::move(root))
     {
@@ -120,10 +125,23 @@ public:
 
             void operator()(const NodeExprIdent* expr_ident)
             {
-                const auto var = gen->lookup_var(expr_ident->ident.value.value());
-                std::stringstream offset;
-                offset << "QWORD [rsp + " << (gen->m_stack_size - var.stack_loc - 1) * 8 << "]\n";
-                gen->push(offset.str());
+                const auto& name = expr_ident->ident.value.value();
+                for (auto it = gen->m_scopes.rbegin(); it != gen->m_scopes.rend(); ++it) {
+                    if (it->vars.contains(name)) {
+                        const auto var = it->vars.at(name);
+                        std::stringstream offset;
+                        offset << "QWORD [rsp + " << (gen->m_stack_size - var.stack_loc - 1) * 8 << "]\n";
+                        gen->push(offset.str());
+                        return;
+                    }
+                }
+                if (gen->m_globals.contains(name)) {
+                    gen->m_output << "    mov rax, [rel " << name << "]\n";
+                    gen->push("rax");
+                    return;
+                }
+                std::cerr << "Undeclared identifier: " << name << std::endl;
+                exit(EXIT_FAILURE);
             }
 
             void operator()(const NodeExprStringLit* expr_str)
@@ -400,51 +418,124 @@ public:
                 gen->gen_expr(*stmt_let->expr);
             }
 
+            void operator()(const NodeStmtGlobal* stmt_global) const
+            {
+                const auto& name = stmt_global->name.value.value();
+                gen->m_globals[name] = true;
+                if (stmt_global->expr) {
+                    if (auto int_lit = std::get_if<NodeExprIntLit*>(&stmt_global->expr->var)) {
+                        gen->m_data_entries.push_back({name, (*int_lit)->int_lit.value.value()});
+                    } else {
+                        gen->m_global_inits.push_back({name, stmt_global->expr});
+                    }
+                } else {
+                    gen->m_bss_entries.push_back(name);
+                }
+            }
+
+            void operator()(const NodeStmtExpr* stmt_expr) const
+            {
+                gen->gen_expr(*stmt_expr->expr);
+                gen->pop("rax");
+            }
+
             void operator()(const NodeStmtAssign* stmt_assign) const
             {
-                const auto var = gen->lookup_var(stmt_assign->ident.value.value());
-                size_t offset = (gen->m_stack_size - var.stack_loc - 1) * 8;
-                if (stmt_assign->op == AssignOp::assign) {
-                    gen->gen_expr(*stmt_assign->expr);
-                    gen->pop("rax");
-                    gen->m_output << "    mov QWORD [rsp + " << offset << "], rax\n";
-                } else {
-                    gen->m_output << "    push QWORD [rsp + " << offset << "]\n";
-                    gen->m_stack_size++;
-                    gen->gen_expr(*stmt_assign->expr);
-                    gen->pop("rdi");
-                    gen->pop("rax");
-                    switch (stmt_assign->op) {
-                        case AssignOp::add_assign:
-                            gen->m_output << "    add rax, rdi\n"; break;
-                        case AssignOp::sub_assign:
-                            gen->m_output << "    sub rax, rdi\n"; break;
-                        case AssignOp::mul_assign:
-                            gen->m_output << "    imul rax, rdi\n"; break;
-                        case AssignOp::div_assign:
-                            gen->m_output << "    cqo\n";
-                            gen->m_output << "    idiv rdi\n"; break;
-                        case AssignOp::mod_assign:
-                            gen->m_output << "    cqo\n";
-                            gen->m_output << "    idiv rdi\n";
-                            gen->m_output << "    mov rax, rdx\n"; break;
-                        case AssignOp::bitand_assign:
-                            gen->m_output << "    and rax, rdi\n"; break;
-                        case AssignOp::bitor_assign:
-                            gen->m_output << "    or rax, rdi\n"; break;
-                        case AssignOp::bitxor_assign:
-                            gen->m_output << "    xor rax, rdi\n"; break;
-                        case AssignOp::shl_assign:
-                            gen->m_output << "    mov rcx, rdi\n";
-                            gen->m_output << "    shl rax, cl\n"; break;
-                        case AssignOp::shr_assign:
-                            gen->m_output << "    mov rcx, rdi\n";
-                            gen->m_output << "    shr rax, cl\n"; break;
-                        default:
-                            break;
+                const auto& name = stmt_assign->ident.value.value();
+                for (auto it = gen->m_scopes.rbegin(); it != gen->m_scopes.rend(); ++it) {
+                    if (it->vars.contains(name)) {
+                        const auto var = it->vars.at(name);
+                        size_t offset = (gen->m_stack_size - var.stack_loc - 1) * 8;
+                        if (stmt_assign->op == AssignOp::assign) {
+                            gen->gen_expr(*stmt_assign->expr);
+                            gen->pop("rax");
+                            gen->m_output << "    mov QWORD [rsp + " << offset << "], rax\n";
+                        } else {
+                            gen->m_output << "    push QWORD [rsp + " << offset << "]\n";
+                            gen->m_stack_size++;
+                            gen->gen_expr(*stmt_assign->expr);
+                            gen->pop("rdi");
+                            gen->pop("rax");
+                            switch (stmt_assign->op) {
+                                case AssignOp::add_assign:
+                                    gen->m_output << "    add rax, rdi\n"; break;
+                                case AssignOp::sub_assign:
+                                    gen->m_output << "    sub rax, rdi\n"; break;
+                                case AssignOp::mul_assign:
+                                    gen->m_output << "    imul rax, rdi\n"; break;
+                                case AssignOp::div_assign:
+                                    gen->m_output << "    cqo\n";
+                                    gen->m_output << "    idiv rdi\n"; break;
+                                case AssignOp::mod_assign:
+                                    gen->m_output << "    cqo\n";
+                                    gen->m_output << "    idiv rdi\n";
+                                    gen->m_output << "    mov rax, rdx\n"; break;
+                                case AssignOp::bitand_assign:
+                                    gen->m_output << "    and rax, rdi\n"; break;
+                                case AssignOp::bitor_assign:
+                                    gen->m_output << "    or rax, rdi\n"; break;
+                                case AssignOp::bitxor_assign:
+                                    gen->m_output << "    xor rax, rdi\n"; break;
+                                case AssignOp::shl_assign:
+                                    gen->m_output << "    mov rcx, rdi\n";
+                                    gen->m_output << "    shl rax, cl\n"; break;
+                                case AssignOp::shr_assign:
+                                    gen->m_output << "    mov rcx, rdi\n";
+                                    gen->m_output << "    shr rax, cl\n"; break;
+                                default:
+                                    break;
+                            }
+                            gen->m_output << "    mov QWORD [rsp + " << offset << "], rax\n";
+                        }
+                        return;
                     }
-                    gen->m_output << "    mov QWORD [rsp + " << offset << "], rax\n";
                 }
+                if (gen->m_globals.contains(name)) {
+                    if (stmt_assign->op == AssignOp::assign) {
+                        gen->gen_expr(*stmt_assign->expr);
+                        gen->pop("rax");
+                        gen->m_output << "    mov [rel " << name << "], rax\n";
+                    } else {
+                        gen->m_output << "    mov rax, [rel " << name << "]\n";
+                        gen->push("rax");
+                        gen->gen_expr(*stmt_assign->expr);
+                        gen->pop("rdi");
+                        gen->pop("rax");
+                        switch (stmt_assign->op) {
+                            case AssignOp::add_assign:
+                                gen->m_output << "    add rax, rdi\n"; break;
+                            case AssignOp::sub_assign:
+                                gen->m_output << "    sub rax, rdi\n"; break;
+                            case AssignOp::mul_assign:
+                                gen->m_output << "    imul rax, rdi\n"; break;
+                            case AssignOp::div_assign:
+                                gen->m_output << "    cqo\n";
+                                gen->m_output << "    idiv rdi\n"; break;
+                            case AssignOp::mod_assign:
+                                gen->m_output << "    cqo\n";
+                                gen->m_output << "    idiv rdi\n";
+                                gen->m_output << "    mov rax, rdx\n"; break;
+                            case AssignOp::bitand_assign:
+                                gen->m_output << "    and rax, rdi\n"; break;
+                            case AssignOp::bitor_assign:
+                                gen->m_output << "    or rax, rdi\n"; break;
+                            case AssignOp::bitxor_assign:
+                                gen->m_output << "    xor rax, rdi\n"; break;
+                            case AssignOp::shl_assign:
+                                gen->m_output << "    mov rcx, rdi\n";
+                                gen->m_output << "    shl rax, cl\n"; break;
+                            case AssignOp::shr_assign:
+                                gen->m_output << "    mov rcx, rdi\n";
+                                gen->m_output << "    shr rax, cl\n"; break;
+                            default:
+                                break;
+                        }
+                        gen->m_output << "    mov [rel " << name << "], rax\n";
+                    }
+                    return;
+                }
+                std::cerr << "Undeclared identifier: " << name << std::endl;
+                exit(EXIT_FAILURE);
             }
 
             void operator()(const NodeStmtIf* stmt_if) const
@@ -778,6 +869,12 @@ public:
     {
         m_output << "global _start\n_start:\n";
 
+        for (const auto& init : m_global_inits) {
+            gen_expr(*init.expr);
+            pop("rax");
+            m_output << "    mov [rel " << init.name << "], rax\n";
+        }
+
         for (const NodeStmt& stmt : m_prog.stmts) {
             gen_stmt(stmt);
         }
@@ -790,7 +887,19 @@ public:
             gen_func_def(*func);
         }
 
-        if (!m_strings.empty()) {
+        if (!m_data_entries.empty() || !m_bss_entries.empty() || !m_strings.empty()) {
+            m_output << "section .data\n";
+            for (const auto& entry : m_data_entries) {
+                m_output << entry.name << ": dq " << entry.value << "\n";
+            }
+            for (const auto& entry : m_strings) {
+                m_output << entry.label << ": db \"" << entry.value << "\", 0\n";
+            }
+            m_output << "section .bss\n";
+            for (const auto& entry : m_bss_entries) {
+                m_output << entry << ": resq 1\n";
+            }
+        } else if (!m_strings.empty()) {
             m_output << "section .rodata\n";
             for (const auto& entry : m_strings) {
                 m_output << entry.label << ": db \"" << entry.value << "\", 0\n";
@@ -834,4 +943,12 @@ private:
     std::vector<Scope> m_scopes;
     std::vector<StringEntry> m_strings;
     std::vector<LoopContext> m_loop_stack;
+    std::unordered_map<std::string, bool> m_globals;
+    std::vector<GlobalInit> m_global_inits;
+    struct DataEntry {
+        std::string name;
+        std::string value;
+    };
+    std::vector<DataEntry> m_data_entries;
+    std::vector<std::string> m_bss_entries;
 };

@@ -1,0 +1,11 @@
+global var counter = 0;
+
+function increment() {
+    counter = counter + 1;
+    return counter;
+}
+
+increment();
+increment();
+var result = increment();
+return (result);

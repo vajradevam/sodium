@@ -48,6 +48,8 @@ enum class TokenType {
     _switch,
     _case,
     _default,
+    _global,
+    _static,
     pluseq,
     minuseq,
     stareq,
@@ -146,6 +148,12 @@ public:
                 }
                 else if (buf == "default") {
                     tokens.push_back({ .type = TokenType::_default });
+                }
+                else if (buf == "global") {
+                    tokens.push_back({ .type = TokenType::_global });
+                }
+                else if (buf == "static") {
+                    tokens.push_back({ .type = TokenType::_static });
                 }
                 
                 else {

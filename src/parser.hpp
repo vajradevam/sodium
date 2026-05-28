@@ -173,6 +173,8 @@ struct NodeStmtLet {
 struct NodeBlock;
 struct NodeStmtFor;
 struct NodeStmtSwitch;
+struct NodeStmtGlobal;
+struct NodeStmtExpr;
 struct NodeStmtBreak {};
 struct NodeStmtContinue {};
 
@@ -221,7 +223,16 @@ struct NodeStmtAssign {
 };
 
 struct NodeStmt {
-    std::variant<NodeStmtExit*, NodeStmtLet*, NodeStmtIf*, NodeStmtWhile*, NodeStmtDoWhile*, NodeStmtSwitch*, NodeStmtAssign*, NodeStmtFor*, NodeStmtPrint*, NodeStmtBlock*, NodeStmtReturn*, NodeStmtArrDecl*, NodeStmtArrAssign*, NodeStmtBreak*, NodeStmtContinue*> var;
+    std::variant<NodeStmtExit*, NodeStmtLet*, NodeStmtIf*, NodeStmtWhile*, NodeStmtDoWhile*, NodeStmtSwitch*, NodeStmtGlobal*, NodeStmtExpr*, NodeStmtAssign*, NodeStmtFor*, NodeStmtPrint*, NodeStmtBlock*, NodeStmtReturn*, NodeStmtArrDecl*, NodeStmtArrAssign*, NodeStmtBreak*, NodeStmtContinue*> var;
+};
+
+struct NodeStmtGlobal {
+    Token name;
+    NodeExpr* expr; // nullptr = zero-init (.bss)
+};
+
+struct NodeStmtExpr {
+    NodeExpr* expr;
 };
 
 struct SwitchCase {
@@ -1205,6 +1216,35 @@ public:
             return parse_do_while_stmt();
         } else if (peek().has_value() && peek().value().type == TokenType::_switch) {
             return parse_switch_stmt();
+        } else if (peek().has_value() && peek().value().type == TokenType::_global) {
+            consume();
+            if (!peek().has_value() || peek().value().type != TokenType::let) {
+                std::cerr << "Expected 'var' after 'global'" << std::endl;
+                exit(EXIT_FAILURE);
+            }
+            consume();
+            if (!peek().has_value() || peek().value().type != TokenType::ident) {
+                std::cerr << "Expected identifier after 'global var'" << std::endl;
+                exit(EXIT_FAILURE);
+            }
+            auto stmt_global = m_allocator.alloc<NodeStmtGlobal>();
+            stmt_global->name = consume();
+            stmt_global->expr = nullptr;
+            if (peek().has_value() && peek().value().type == TokenType::eq) {
+                consume();
+                if (auto expr = parse_expr()) {
+                    stmt_global->expr = expr.value();
+                } else {
+                    std::cerr << "Expected expression in global declaration" << std::endl;
+                    exit(EXIT_FAILURE);
+                }
+            }
+            if (!peek().has_value() || peek().value().type != TokenType::semi) {
+                std::cerr << "Expected ';' after global declaration" << std::endl;
+                exit(EXIT_FAILURE);
+            }
+            consume();
+            return NodeStmt { .var = stmt_global };
         } else if (peek().has_value() && peek().value().type == TokenType::_while) {
             return parse_while_stmt();
         } else if (peek().has_value() && peek().value().type == TokenType::_for) {
@@ -1413,6 +1453,22 @@ public:
                 }
 
                 return NodeStmt { .var = stmt_assign };
+        } else if (
+            peek().has_value() && peek().value().type == TokenType::ident
+            && peek(1).has_value() && peek(1).value().type == TokenType::open_paren) {
+            auto stmt_expr = m_allocator.alloc<NodeStmtExpr>();
+            auto expr = parse_primary_expr();
+            if (!expr) {
+                std::cerr << "Invalid expression statement" << std::endl;
+                exit(EXIT_FAILURE);
+            }
+            stmt_expr->expr = expr.value();
+            if (!peek().has_value() || peek().value().type != TokenType::semi) {
+                std::cerr << "Expected ';' after expression" << std::endl;
+                exit(EXIT_FAILURE);
+            }
+            consume();
+            return NodeStmt { .var = stmt_expr };
         } else if (peek().has_value() && peek().value().type == TokenType::open_brace) {
             auto stmt_block = m_allocator.alloc<NodeStmtBlock>();
             stmt_block->block = parse_block();

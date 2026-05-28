@@ -1,0 +1,4 @@
+global var x = 10;
+global var y;
+y = x + 5;
+return (y);
