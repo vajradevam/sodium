@@ -1,0 +1,7 @@
+// ternary conditional
+var x = 5;
+var r = (x > 3) ? 10 : 20;
+// r == 10
+var s = (x < 3) ? 10 : 20;
+// s == 20
+return(r + s);

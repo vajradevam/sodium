@@ -56,7 +56,9 @@ enum class TokenType {
     caret,
     tilde,
     shl,
-    shr
+    shr,
+    question,
+    colon
 };
 
 struct Token {
@@ -363,6 +365,18 @@ public:
             else if (peek().value() == '%') {
                 consume();
                 tokens.push_back({ .type = TokenType::percent });
+                continue;
+            }
+
+            else if (peek().value() == '?') {
+                consume();
+                tokens.push_back({ .type = TokenType::question });
+                continue;
+            }
+
+            else if (peek().value() == ':') {
+                consume();
+                tokens.push_back({ .type = TokenType::colon });
                 continue;
             }
 

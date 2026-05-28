@@ -136,8 +136,14 @@ struct NodeExprBitNot {
     NodeExpr* expr;
 };
 
+struct NodeExprTernary {
+    NodeExpr* cond;
+    NodeExpr* then_expr;
+    NodeExpr* else_expr;
+};
+
 struct NodeExpr {
-    std::variant<NodeExprIntLit*, NodeExprIdent*, BinExpr*, NodeExprCall*, NodeExprStringLit*, NodeExprIndex*, NodeExprBitNot*> var;
+    std::variant<NodeExprIntLit*, NodeExprIdent*, BinExpr*, NodeExprCall*, NodeExprStringLit*, NodeExprIndex*, NodeExprBitNot*, NodeExprTernary*> var;
 };
 
 struct NodeStmtExit {
@@ -239,7 +245,36 @@ public:
 
     std::optional<NodeExpr*> parse_expr()
     {
-        return parse_or_expr();
+        auto lhs = parse_or_expr();
+        if (!lhs) return {};
+
+        if (peek().has_value() && peek().value().type == TokenType::question) {
+            consume(); // ?
+            auto then_expr = parse_expr();
+            if (!then_expr) {
+                std::cerr << "Expected expression after '?'" << std::endl;
+                exit(EXIT_FAILURE);
+            }
+            if (!peek().has_value() || peek().value().type != TokenType::colon) {
+                std::cerr << "Expected ':' in ternary expression" << std::endl;
+                exit(EXIT_FAILURE);
+            }
+            consume(); // :
+            auto else_expr = parse_expr();
+            if (!else_expr) {
+                std::cerr << "Expected expression after ':'" << std::endl;
+                exit(EXIT_FAILURE);
+            }
+            auto node = m_allocator.alloc<NodeExprTernary>();
+            node->cond = lhs.value();
+            node->then_expr = then_expr.value();
+            node->else_expr = else_expr.value();
+            auto out = m_allocator.alloc<NodeExpr>();
+            out->var = node;
+            return out;
+        }
+
+        return lhs;
     }
 
     std::optional<NodeExpr*> parse_or_expr()

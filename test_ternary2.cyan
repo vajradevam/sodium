@@ -1,0 +1,6 @@
+// nested ternary
+var x = 1;
+var y = 2;
+var r = (x > y) ? 100 : ((x < y) ? 50 : 0);
+// r == 50
+return(r);

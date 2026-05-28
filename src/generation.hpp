@@ -157,6 +157,21 @@ public:
                 gen->push("rax");
             }
 
+            void operator()(const NodeExprTernary* ternary)
+            {
+                auto label_false = gen->new_label();
+                auto label_end = gen->new_label();
+                gen->gen_expr(*ternary->cond);
+                gen->pop("rax");
+                gen->m_output << "    test rax, rax\n";
+                gen->m_output << "    jz " << label_false << "\n";
+                gen->gen_expr(*ternary->then_expr);
+                gen->m_output << "    jmp " << label_end << "\n";
+                gen->m_output << label_false << ":\n";
+                gen->gen_expr(*ternary->else_expr);
+                gen->m_output << label_end << ":\n";
+            }
+
             void operator()(const NodeExprCall* expr_call)
             {
                 for (auto it = expr_call->args.rbegin(); it != expr_call->args.rend(); ++it) {
