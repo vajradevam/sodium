@@ -572,7 +572,12 @@ public:
         NodeBlock* else_block = nullptr;
         if (peek().has_value() && peek().value().type == TokenType::_else) {
             consume(); // else
-            else_block = parse_block();
+            if (peek().has_value() && peek().value().type == TokenType::_if) {
+                else_block = m_allocator.alloc<NodeBlock>();
+                else_block->stmts.push_back(parse_if_stmt().value());
+            } else {
+                else_block = parse_block();
+            }
         }
 
         auto stmt_if = m_allocator.alloc<NodeStmtIf>();

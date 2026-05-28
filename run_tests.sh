@@ -33,6 +33,10 @@ EXIT_TESTS["test_strings.cyan"]=0
 EXIT_TESTS["test_standalone_block.cyan"]=6
 EXIT_TESTS["test_nested_loops.cyan"]=225
 EXIT_TESTS["test_nested_if_while.cyan"]=15
+EXIT_TESTS["test_else_if.cyan"]=0
+EXIT_TESTS["test_else_if2.cyan"]=0
+EXIT_TESTS["test_else_if3.cyan"]=0
+EXIT_TESTS["test_else_if4.cyan"]=0
 
 # Tests that also check stdout
 declare -A STDOUT_TESTS
