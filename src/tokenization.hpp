@@ -45,6 +45,9 @@ enum class TokenType {
     _break,
     _continue,
     _do,
+    _switch,
+    _case,
+    _default,
     pluseq,
     minuseq,
     stareq,
@@ -134,6 +137,15 @@ public:
                 }
                 else if (buf == "do") {
                     tokens.push_back({ .type = TokenType::_do });
+                }
+                else if (buf == "switch") {
+                    tokens.push_back({ .type = TokenType::_switch });
+                }
+                else if (buf == "case") {
+                    tokens.push_back({ .type = TokenType::_case });
+                }
+                else if (buf == "default") {
+                    tokens.push_back({ .type = TokenType::_default });
                 }
                 
                 else {

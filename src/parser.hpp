@@ -172,6 +172,7 @@ struct NodeStmtLet {
 
 struct NodeBlock;
 struct NodeStmtFor;
+struct NodeStmtSwitch;
 struct NodeStmtBreak {};
 struct NodeStmtContinue {};
 
@@ -220,7 +221,17 @@ struct NodeStmtAssign {
 };
 
 struct NodeStmt {
-    std::variant<NodeStmtExit*, NodeStmtLet*, NodeStmtIf*, NodeStmtWhile*, NodeStmtDoWhile*, NodeStmtAssign*, NodeStmtFor*, NodeStmtPrint*, NodeStmtBlock*, NodeStmtReturn*, NodeStmtArrDecl*, NodeStmtArrAssign*, NodeStmtBreak*, NodeStmtContinue*> var;
+    std::variant<NodeStmtExit*, NodeStmtLet*, NodeStmtIf*, NodeStmtWhile*, NodeStmtDoWhile*, NodeStmtSwitch*, NodeStmtAssign*, NodeStmtFor*, NodeStmtPrint*, NodeStmtBlock*, NodeStmtReturn*, NodeStmtArrDecl*, NodeStmtArrAssign*, NodeStmtBreak*, NodeStmtContinue*> var;
+};
+
+struct SwitchCase {
+    NodeExpr* value;
+    std::vector<NodeStmt> stmts;
+};
+
+struct NodeStmtSwitch {
+    NodeExpr* expr;
+    std::vector<SwitchCase> cases;
 };
 
 struct NodeStmtFor {
@@ -878,6 +889,84 @@ public:
         return NodeStmt { .var = stmt_do_while };
     }
 
+    std::optional<NodeStmt> parse_switch_stmt()
+    {
+        consume(); // switch
+        if (!peek().has_value() || peek().value().type != TokenType::open_paren) {
+            std::cerr << "Expected '(' after switch" << std::endl;
+            exit(EXIT_FAILURE);
+        }
+        consume(); // (
+        auto expr = parse_expr();
+        if (!expr) {
+            std::cerr << "Expected expression in switch" << std::endl;
+            exit(EXIT_FAILURE);
+        }
+        if (!peek().has_value() || peek().value().type != TokenType::close_paren) {
+            std::cerr << "Expected ')' after switch expression" << std::endl;
+            exit(EXIT_FAILURE);
+        }
+        consume(); // )
+        if (!peek().has_value() || peek().value().type != TokenType::open_brace) {
+            std::cerr << "Expected '{' after switch" << std::endl;
+            exit(EXIT_FAILURE);
+        }
+        consume(); // {
+
+        auto stmt_switch = m_allocator.alloc<NodeStmtSwitch>();
+        stmt_switch->expr = expr.value();
+
+        while (peek().has_value() && peek().value().type != TokenType::close_brace) {
+            SwitchCase sc;
+            if (peek().value().type == TokenType::_case) {
+                consume(); // case
+                auto val = parse_expr();
+                if (!val) {
+                    std::cerr << "Expected value after 'case'" << std::endl;
+                    exit(EXIT_FAILURE);
+                }
+                sc.value = val.value();
+                if (!peek().has_value() || peek().value().type != TokenType::colon) {
+                    std::cerr << "Expected ':' after case value" << std::endl;
+                    exit(EXIT_FAILURE);
+                }
+                consume(); // :
+            } else if (peek().value().type == TokenType::_default) {
+                consume(); // default
+                sc.value = nullptr;
+                if (!peek().has_value() || peek().value().type != TokenType::colon) {
+                    std::cerr << "Expected ':' after default" << std::endl;
+                    exit(EXIT_FAILURE);
+                }
+                consume(); // :
+            } else {
+                std::cerr << "Expected 'case' or 'default' in switch" << std::endl;
+                exit(EXIT_FAILURE);
+            }
+
+            while (peek().has_value()
+                   && peek().value().type != TokenType::close_brace
+                   && peek().value().type != TokenType::_case
+                   && peek().value().type != TokenType::_default) {
+                if (auto s = parse_stmt()) {
+                    sc.stmts.push_back(s.value());
+                } else {
+                    std::cerr << "Invalid statement in switch case" << std::endl;
+                    exit(EXIT_FAILURE);
+                }
+            }
+            stmt_switch->cases.push_back(std::move(sc));
+        }
+
+        if (!peek().has_value() || peek().value().type != TokenType::close_brace) {
+            std::cerr << "Expected '}' after switch body" << std::endl;
+            exit(EXIT_FAILURE);
+        }
+        consume(); // }
+
+        return NodeStmt { .var = stmt_switch };
+    }
+
     std::optional<NodeStmt> parse_print_stmt()
     {
         consume(); // print
@@ -1114,6 +1203,8 @@ public:
             return parse_if_stmt();
         } else if (peek().has_value() && peek().value().type == TokenType::_do) {
             return parse_do_while_stmt();
+        } else if (peek().has_value() && peek().value().type == TokenType::_switch) {
+            return parse_switch_stmt();
         } else if (peek().has_value() && peek().value().type == TokenType::_while) {
             return parse_while_stmt();
         } else if (peek().has_value() && peek().value().type == TokenType::_for) {

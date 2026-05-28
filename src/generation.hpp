@@ -532,6 +532,52 @@ public:
                 gen->m_loop_stack.pop_back();
             }
 
+            void operator()(const NodeStmtSwitch* stmt_switch) const
+            {
+                auto label_end = gen->new_label();
+                gen->m_loop_stack.push_back({ .begin_label = "", .end_label = label_end, .continue_label = "" });
+
+                gen->gen_expr(*stmt_switch->expr);
+
+                std::vector<std::string> case_labels;
+                size_t default_idx = stmt_switch->cases.size();
+                for (size_t i = 0; i < stmt_switch->cases.size(); i++) {
+                    case_labels.push_back(gen->new_label());
+                    if (stmt_switch->cases[i].value == nullptr) {
+                        default_idx = i;
+                    }
+                }
+
+                for (size_t i = 0; i < stmt_switch->cases.size(); i++) {
+                    if (stmt_switch->cases[i].value == nullptr) continue;
+                    gen->m_output << "    push QWORD [rsp]\n";
+                    gen->m_stack_size++;
+                    gen->gen_expr(*stmt_switch->cases[i].value);
+                    gen->pop("rdi");
+                    gen->pop("rax");
+                    gen->m_output << "    cmp rax, rdi\n";
+                    gen->m_output << "    je " << case_labels[i] << "\n";
+                }
+
+                gen->m_output << "    pop rax\n";
+                gen->m_stack_size--;
+
+                if (default_idx < stmt_switch->cases.size()) {
+                    gen->m_output << "    jmp " << case_labels[default_idx] << "\n";
+                }
+                gen->m_output << "    jmp " << label_end << "\n";
+
+                for (size_t i = 0; i < stmt_switch->cases.size(); i++) {
+                    gen->m_output << case_labels[i] << ":\n";
+                    for (const auto& s : stmt_switch->cases[i].stmts) {
+                        gen->gen_stmt(s);
+                    }
+                }
+
+                gen->m_output << label_end << ":\n";
+                gen->m_loop_stack.pop_back();
+            }
+
             void operator()(const NodeStmtArrDecl* stmt_arr) const
             {
                 size_t size = 0;
@@ -713,11 +759,14 @@ public:
 
             void operator()(const NodeStmtContinue*) const
             {
-                if (gen->m_loop_stack.empty()) {
-                    std::cerr << "continue outside loop" << std::endl;
-                    exit(EXIT_FAILURE);
+                for (auto it = gen->m_loop_stack.rbegin(); it != gen->m_loop_stack.rend(); ++it) {
+                    if (!it->continue_label.empty()) {
+                        gen->m_output << "    jmp " << it->continue_label << "\n";
+                        return;
+                    }
                 }
-                gen->m_output << "    jmp " << gen->m_loop_stack.back().continue_label << "\n";
+                std::cerr << "continue outside loop" << std::endl;
+                exit(EXIT_FAILURE);
             }
         };
 
