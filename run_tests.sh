@@ -1,6 +1,7 @@
 #!/bin/bash
 
 COMPILER="./build/sodium"
+TEST_DIR="tests"
 PASS=0
 FAIL=0
 
@@ -68,14 +69,14 @@ echo ""
 for test_file in "${!EXIT_TESTS[@]}"; do
     expected_exit=${EXIT_TESTS[$test_file]}
 
-    if [ ! -f "$test_file" ]; then
+    if [ ! -f "$TEST_DIR/$test_file" ]; then
         echo -e "${RED}[SKIP]${NC} $test_file (not found)"
         continue
     fi
 
     echo -n "Testing $test_file... "
 
-    if ! $COMPILER "$test_file" > /tmp/cyan_compile.log 2>&1; then
+    if ! $COMPILER "$TEST_DIR/$test_file" > /tmp/cyan_compile.log 2>&1; then
         echo -e "${RED}COMPILE FAIL${NC}"
         cat /tmp/cyan_compile.log
         FAIL=$((FAIL + 1))
