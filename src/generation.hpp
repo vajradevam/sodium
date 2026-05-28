@@ -25,6 +25,12 @@ public:
         std::unordered_map<std::string, Var> vars;
     };
 
+    struct LoopContext {
+        std::string begin_label;
+        std::string end_label;
+        std::string continue_label;
+    };
+
     inline explicit Generator(NodeProg root)
     : m_prog(std::move(root))
     {
@@ -366,6 +372,8 @@ public:
                 auto label_begin = gen->new_label();
                 auto label_end = gen->new_label();
 
+                gen->m_loop_stack.push_back({ .begin_label = label_begin, .end_label = label_end, .continue_label = label_begin });
+
                 gen->m_output << label_begin << ":\n";
                 gen->gen_expr(*stmt_while->cond);
                 gen->pop("rax");
@@ -380,6 +388,8 @@ public:
 
                 gen->m_output << "    jmp " << label_begin << "\n";
                 gen->m_output << label_end << ":\n";
+
+                gen->m_loop_stack.pop_back();
             }
 
             void operator()(const NodeStmtArrDecl* stmt_arr) const
@@ -518,7 +528,10 @@ public:
                 }
 
                 auto label_begin = gen->new_label();
+                auto label_cont = gen->new_label();
                 auto label_end = gen->new_label();
+
+                gen->m_loop_stack.push_back({ .begin_label = label_begin, .end_label = label_end, .continue_label = label_cont });
 
                 gen->m_output << label_begin << ":\n";
 
@@ -535,6 +548,7 @@ public:
                 }
                 gen->exit_scope();
 
+                gen->m_output << label_cont << ":\n";
                 if (stmt_for->update) {
                     const auto var = gen->lookup_var(stmt_for->update->ident.value.value());
                     gen->gen_expr(*stmt_for->update->expr);
@@ -544,6 +558,26 @@ public:
 
                 gen->m_output << "    jmp " << label_begin << "\n";
                 gen->m_output << label_end << ":\n";
+
+                gen->m_loop_stack.pop_back();
+            }
+
+            void operator()(const NodeStmtBreak*) const
+            {
+                if (gen->m_loop_stack.empty()) {
+                    std::cerr << "break outside loop" << std::endl;
+                    exit(EXIT_FAILURE);
+                }
+                gen->m_output << "    jmp " << gen->m_loop_stack.back().end_label << "\n";
+            }
+
+            void operator()(const NodeStmtContinue*) const
+            {
+                if (gen->m_loop_stack.empty()) {
+                    std::cerr << "continue outside loop" << std::endl;
+                    exit(EXIT_FAILURE);
+                }
+                gen->m_output << "    jmp " << gen->m_loop_stack.back().continue_label << "\n";
             }
         };
 
@@ -610,4 +644,5 @@ private:
     bool m_in_function = false;
     std::vector<Scope> m_scopes;
     std::vector<StringEntry> m_strings;
+    std::vector<LoopContext> m_loop_stack;
 };

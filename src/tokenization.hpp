@@ -41,7 +41,9 @@ enum class TokenType {
     _return,
     comma,
     open_square,
-    close_square
+    close_square,
+    _break,
+    _continue
 };
 
 struct Token {
@@ -102,8 +104,11 @@ public:
                     tokens.push_back({ .type = TokenType::_function });
                 }
 
-                else if (buf == "return") {
-                    tokens.push_back({ .type = TokenType::_return });
+                else if (buf == "break") {
+                    tokens.push_back({ .type = TokenType::_break });
+                }
+                else if (buf == "continue") {
+                    tokens.push_back({ .type = TokenType::_continue });
                 }
                 
                 else {

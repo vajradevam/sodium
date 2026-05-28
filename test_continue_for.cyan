@@ -1,0 +1,13 @@
+// continue in for loop: sum 1..10 skipping 3 and 6
+var sum = 0;
+for (var i = 1; i <= 10; i = i + 1) {
+    if (i == 3) {
+        continue;
+    }
+    if (i == 6) {
+        continue;
+    }
+    sum = sum + i;
+}
+// 1+2+4+5+7+8+9+10 = 46
+return(sum);

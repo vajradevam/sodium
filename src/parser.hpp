@@ -131,6 +131,8 @@ struct NodeStmtLet {
 
 struct NodeBlock;
 struct NodeStmtFor;
+struct NodeStmtBreak {};
+struct NodeStmtContinue {};
 
 struct NodeStmtIf {
     NodeExpr* cond;
@@ -157,7 +159,7 @@ struct NodeStmtAssign {
 };
 
 struct NodeStmt {
-    std::variant<NodeStmtExit*, NodeStmtLet*, NodeStmtIf*, NodeStmtWhile*, NodeStmtAssign*, NodeStmtFor*, NodeStmtPrint*, NodeStmtBlock*, NodeStmtReturn*, NodeStmtArrDecl*, NodeStmtArrAssign*> var;
+    std::variant<NodeStmtExit*, NodeStmtLet*, NodeStmtIf*, NodeStmtWhile*, NodeStmtAssign*, NodeStmtFor*, NodeStmtPrint*, NodeStmtBlock*, NodeStmtReturn*, NodeStmtArrDecl*, NodeStmtArrAssign*, NodeStmtBreak*, NodeStmtContinue*> var;
 };
 
 struct NodeStmtFor {
@@ -891,6 +893,22 @@ public:
                     exit(EXIT_FAILURE);
                 }
                 return NodeStmt { .var = stmt_arr_assign };
+        } else if (peek().has_value() && peek().value().type == TokenType::_break) {
+            consume();
+            if (!peek().has_value() || peek().value().type != TokenType::semi) {
+                std::cerr << "Expected ';' after break" << std::endl;
+                exit(EXIT_FAILURE);
+            }
+            consume();
+            return NodeStmt { .var = m_allocator.alloc<NodeStmtBreak>() };
+        } else if (peek().has_value() && peek().value().type == TokenType::_continue) {
+            consume();
+            if (!peek().has_value() || peek().value().type != TokenType::semi) {
+                std::cerr << "Expected ';' after continue" << std::endl;
+                exit(EXIT_FAILURE);
+            }
+            consume();
+            return NodeStmt { .var = m_allocator.alloc<NodeStmtContinue>() };
         } else if (
             peek().has_value() && peek().value().type == TokenType::ident
             && peek(1).has_value() && peek(1).value().type == TokenType::eq) {

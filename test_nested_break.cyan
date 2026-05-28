@@ -1,0 +1,15 @@
+// break inside nested loops: break only inner loop
+var i = 0;
+var sum = 0;
+while (i < 3) {
+    var j = 0;
+    while (j < 10) {
+        if (j == 2) {
+            break;
+        }
+        j = j + 1;
+    }
+    sum = sum + j + i;
+    i = i + 1;
+}
+return(sum);

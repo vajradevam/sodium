@@ -37,6 +37,11 @@ EXIT_TESTS["test_else_if.cyan"]=0
 EXIT_TESTS["test_else_if2.cyan"]=0
 EXIT_TESTS["test_else_if3.cyan"]=0
 EXIT_TESTS["test_else_if4.cyan"]=0
+EXIT_TESTS["test_break.cyan"]=3
+EXIT_TESTS["test_continue.cyan"]=43
+EXIT_TESTS["test_break_for.cyan"]=10
+EXIT_TESTS["test_continue_for.cyan"]=46
+EXIT_TESTS["test_nested_break.cyan"]=9
 
 # Tests that also check stdout
 declare -A STDOUT_TESTS

@@ -1,0 +1,15 @@
+// continue in a while loop: sum 1..10 skipping 5 and 7
+var i = 0;
+var sum = 0;
+while (i < 10) {
+    i = i + 1;
+    if (i == 5) {
+        continue;
+    }
+    if (i == 7) {
+        continue;
+    }
+    sum = sum + i;
+}
+// 1+2+3+4+6+8+9+10 = 43
+return(sum);
