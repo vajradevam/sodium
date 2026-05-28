@@ -65,6 +65,7 @@ EXIT_TESTS["test_switch_default.cyan"]=99
 EXIT_TESTS["test_switch_continue.cyan"]=12
 EXIT_TESTS["test_global.cyan"]=15
 EXIT_TESTS["test_global_func.cyan"]=3
+EXIT_TESTS["test_arr_lit.cyan"]=150
 
 # Tests that also check stdout
 declare -A STDOUT_TESTS

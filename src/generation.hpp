@@ -233,6 +233,13 @@ public:
                 gen->m_stack_size++;
             }
 
+            void operator()(const NodeExprArrLit* arr_lit) const
+            {
+                for (size_t i = 0; i < arr_lit->elements.size(); i++) {
+                    gen->gen_expr(*arr_lit->elements[i]);
+                }
+            }
+
             void operator()(const NodeExprCall* expr_call)
             {
                 for (auto it = expr_call->args.rbegin(); it != expr_call->args.rend(); ++it) {
@@ -454,8 +461,15 @@ public:
 
             void operator()(const NodeStmtLet* stmt_let) const
             {
-                gen->declare_var(stmt_let->ident.value.value());
-                gen->gen_expr(*stmt_let->expr);
+                if (auto arr_lit = std::get_if<NodeExprArrLit*>(&stmt_let->expr->var)) {
+                    auto& scope = gen->m_scopes.back();
+                    scope.vars[stmt_let->ident.value.value()] = Var { .stack_loc = gen->m_stack_size, .array_size = (*arr_lit)->elements.size() };
+                    scope.var_count += (*arr_lit)->elements.size();
+                    gen->gen_expr(*stmt_let->expr);
+                } else {
+                    gen->declare_var(stmt_let->ident.value.value());
+                    gen->gen_expr(*stmt_let->expr);
+                }
             }
 
             void operator()(const NodeStmtGlobal* stmt_global) const
@@ -486,6 +500,21 @@ public:
                     if (it->vars.contains(name)) {
                         const auto var = it->vars.at(name);
                         size_t offset = (gen->m_stack_size - var.stack_loc - 1) * 8;
+                        if (stmt_assign->op == AssignOp::assign && var.array_size > 0) {
+                            if (auto arr_lit = std::get_if<NodeExprArrLit*>(&stmt_assign->expr->var)) {
+                                if ((*arr_lit)->elements.size() != var.array_size) {
+                                    std::cerr << "Array size mismatch" << std::endl;
+                                    exit(EXIT_FAILURE);
+                                }
+                                size_t base_offset = (gen->m_stack_size - var.stack_loc - 1) * 8;
+                                for (size_t i = 0; i < var.array_size; i++) {
+                                    gen->gen_expr(*(*arr_lit)->elements[i]);
+                                    gen->pop("rax");
+                                    gen->m_output << "    mov QWORD [rsp + " << (base_offset - i * 8) << "], rax\n";
+                                }
+                                return;
+                            }
+                        }
                         if (stmt_assign->op == AssignOp::assign) {
                             gen->gen_expr(*stmt_assign->expr);
                             gen->pop("rax");

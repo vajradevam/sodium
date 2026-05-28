@@ -145,8 +145,12 @@ struct NodeExprTernary {
 struct NodeExprRead {
 };
 
+struct NodeExprArrLit {
+    std::vector<NodeExpr*> elements;
+};
+
 struct NodeExpr {
-    std::variant<NodeExprIntLit*, NodeExprIdent*, BinExpr*, NodeExprCall*, NodeExprStringLit*, NodeExprIndex*, NodeExprBitNot*, NodeExprTernary*, NodeExprRead*> var;
+    std::variant<NodeExprIntLit*, NodeExprIdent*, BinExpr*, NodeExprCall*, NodeExprStringLit*, NodeExprIndex*, NodeExprBitNot*, NodeExprTernary*, NodeExprRead*, NodeExprArrLit*> var;
 };
 
 struct NodeStmtExit {
@@ -780,6 +784,29 @@ public:
                 exit(EXIT_FAILURE);
             }
             consume();
+            return expr;
+        }
+        else if (peek().has_value() && peek().value().type == TokenType::open_square) {
+            consume(); // [
+            auto arr_lit = m_allocator.alloc<NodeExprArrLit>();
+            while (peek().has_value() && peek().value().type != TokenType::close_square) {
+                if (auto elem = parse_expr()) {
+                    arr_lit->elements.push_back(elem.value());
+                } else {
+                    std::cerr << "Expected expression in array literal" << std::endl;
+                    exit(EXIT_FAILURE);
+                }
+                if (peek().has_value() && peek().value().type == TokenType::comma) {
+                    consume();
+                }
+            }
+            if (!peek().has_value() || peek().value().type != TokenType::close_square) {
+                std::cerr << "Expected ']'" << std::endl;
+                exit(EXIT_FAILURE);
+            }
+            consume(); // ]
+            auto expr = m_allocator.alloc<NodeExpr>();
+            expr->var = arr_lit;
             return expr;
         }
         else {
