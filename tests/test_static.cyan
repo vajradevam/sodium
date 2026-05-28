@@ -1,0 +1,10 @@
+function counter() {
+    static var x: i32 = 0;
+    x = x + 1;
+    return(x);
+}
+
+var a = counter();
+var b = counter();
+var c = counter();
+return(a * 100 + b * 10 + c);

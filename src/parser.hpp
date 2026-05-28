@@ -1320,6 +1320,42 @@ public:
             return parse_do_while_stmt();
         } else if (peek().has_value() && peek().value().type == TokenType::_switch) {
             return parse_switch_stmt();
+        } else if (peek().has_value() && peek().value().type == TokenType::_static) {
+            consume();
+            if (!peek().has_value() || peek().value().type != TokenType::let) {
+                std::cerr << "Expected 'var' after 'static'" << std::endl;
+                exit(EXIT_FAILURE);
+            }
+            consume();
+            if (!peek().has_value() || peek().value().type != TokenType::ident) {
+                std::cerr << "Expected identifier after 'static var'" << std::endl;
+                exit(EXIT_FAILURE);
+            }
+            auto stmt_global = m_allocator.alloc<NodeStmtGlobal>();
+            stmt_global->name = consume();
+            stmt_global->expr = nullptr;
+            if (peek().has_value() && peek().value().type == TokenType::colon) {
+                consume();
+                if (!parse_type()) {
+                    std::cerr << "Expected type after ':'" << std::endl;
+                    exit(EXIT_FAILURE);
+                }
+            }
+            if (peek().has_value() && peek().value().type == TokenType::eq) {
+                consume();
+                if (auto expr = parse_expr()) {
+                    stmt_global->expr = expr.value();
+                } else {
+                    std::cerr << "Expected expression in static declaration" << std::endl;
+                    exit(EXIT_FAILURE);
+                }
+            }
+            if (!peek().has_value() || peek().value().type != TokenType::semi) {
+                std::cerr << "Expected ';' after static declaration" << std::endl;
+                exit(EXIT_FAILURE);
+            }
+            consume();
+            return NodeStmt { .var = stmt_global };
         } else if (peek().has_value() && peek().value().type == TokenType::_global) {
             consume();
             if (!peek().has_value() || peek().value().type != TokenType::let) {
