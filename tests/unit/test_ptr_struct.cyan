@@ -1,0 +1,15 @@
+// Test: address-of struct fields
+struct Point {
+    var x;
+    var y;
+};
+var p: Point;
+p.x = 10;
+p.y = 20;
+var px = &p.x;
+var py = &p.y;
+print(*px);
+print(*py);
+*px = 30;
+print(p.x);
+return(p.x + *py);

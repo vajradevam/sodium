@@ -31,14 +31,19 @@
 - [x] Multiple struct types in one program
 - [x] Tests (69 tests pass)
 
-## Phase 4: Pointers & Heap Allocation ☐
+## Phase 4: Pointers & Heap Allocation ✅
 
-- [ ] Pointer types (`int*`, `char*`)
-- [ ] Address-of operator (`&`)
-- [ ] Dereference operator (`*`)
-- [ ] `malloc` / `free` builtins
-- [ ] Pointer arithmetic
-- [ ] Null pointer safety
+- [x] Address-of operator (`&`)
+- [x] Dereference operator (`*`)
+- [x] `malloc` / `free` builtins (bump allocator via `brk` syscall, free is no-op)
+- [x] Assignment through pointer (`*ptr = expr`)
+- [x] Compound assignment through pointer (`*ptr += expr`)
+- [x] Pointer to pointer (double deref)
+- [x] Pointer to struct fields (`&p.x`)
+- [x] Pointer to global variables
+- [x] Dereference in expressions and function calls
+- [x] Compile-time error for `&` on non-lvalue expressions
+- [x] Tests (84 tests pass)
 
 ## Phase 5: File I/O ☐
 

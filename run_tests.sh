@@ -78,6 +78,14 @@ UNIT_TESTS["test_static2.cyan"]=56
 UNIT_TESTS["test_struct.cyan"]=91
 UNIT_TESTS["test_struct_fields.cyan"]=91
 UNIT_TESTS["test_struct_scope.cyan"]=20
+UNIT_TESTS["test_ptr_basic.cyan"]=42
+UNIT_TESTS["test_ptr_assign.cyan"]=94
+UNIT_TESTS["test_malloc.cyan"]=123
+UNIT_TESTS["test_ptr_global.cyan"]=250
+UNIT_TESTS["test_ptr_double.cyan"]=14
+UNIT_TESTS["test_ptr_struct.cyan"]=50
+UNIT_TESTS["test_ptr_expr.cyan"]=15
+UNIT_TESTS["test_ptr_func.cyan"]=42
 
 # Unit tests that should fail to compile
 declare -a COMPILE_FAIL_UNIT
@@ -86,6 +94,7 @@ COMPILE_FAIL_UNIT+=("test_struct_bad_field.cyan")
 COMPILE_FAIL_UNIT+=("test_struct_not_struct.cyan")
 COMPILE_FAIL_UNIT+=("test_struct_unknown_type.cyan")
 COMPILE_FAIL_UNIT+=("test_struct_bad_read.cyan")
+COMPILE_FAIL_UNIT+=("test_ptr_bad_addr.cyan")
 
 # Unit tests that check stdout
 declare -A STDOUT_TESTS

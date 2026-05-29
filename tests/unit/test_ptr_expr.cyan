@@ -1,0 +1,10 @@
+// Test: pointer deref in complex expression
+var x = 5;
+var y = 10;
+var px = &x;
+var py = &y;
+var sum = *px + *py;
+print(sum);
+*px = *px + *py;
+print(x);
+return(sum);

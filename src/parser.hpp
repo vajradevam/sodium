@@ -40,6 +40,18 @@ struct NodeExprFieldAccess {
     Token field_name;
 };
 
+// Address-of expression: &var
+struct NodeExprAddrOf {
+    Token ampersand; // the & token (for source location)
+    NodeExpr* expr;  // the variable being addressed
+};
+
+// Dereference expression: *ptr
+struct NodeExprDeref {
+    Token star;      // the * token (for source location)
+    NodeExpr* expr;  // the pointer expression
+};
+
 struct BinExprAdd  { NodeExpr* lhs; NodeExpr* rhs; };
 struct BinExprMulti { NodeExpr* lhs; NodeExpr* rhs; };
 struct BinExprSub  { NodeExpr* lhs; NodeExpr* rhs; };
@@ -82,7 +94,7 @@ struct NodeExprArrLit {
 };
 
 struct NodeExpr {
-    std::variant<NodeExprIntLit*, NodeExprIdent*, BinExpr*, NodeExprCall*, NodeExprStringLit*, NodeExprIndex*, NodeExprBitNot*, NodeExprTernary*, NodeExprRead*, NodeExprArrLit*, NodeExprFieldAccess*> var;
+    std::variant<NodeExprIntLit*, NodeExprIdent*, BinExpr*, NodeExprCall*, NodeExprStringLit*, NodeExprIndex*, NodeExprBitNot*, NodeExprTernary*, NodeExprRead*, NodeExprArrLit*, NodeExprFieldAccess*, NodeExprAddrOf*, NodeExprDeref*> var;
 };
 
 // ── Statement AST nodes ────────────────────────────────────────────────────
@@ -168,12 +180,20 @@ struct NodeStmtFieldAssign {
     AssignOp op = AssignOp::assign;
 };
 
+// Assignment through pointer dereference: *ptr = expr, *ptr += expr
+struct NodeStmtDerefAssign {
+    Token star;       // the * token
+    NodeExpr* ptr_expr;  // the pointer expression
+    NodeExpr* expr;   // the value
+    AssignOp op = AssignOp::assign;
+};
+
 struct NodeStmt {
     std::variant<NodeStmtExit*, NodeStmtLet*, NodeStmtIf*, NodeStmtWhile*,
                  NodeStmtDoWhile*, NodeStmtSwitch*, NodeStmtGlobal*, NodeStmtConst*,
                  NodeStmtExpr*, NodeStmtAssign*, NodeStmtFor*, NodeStmtPrint*,
                  NodeStmtBlock*, NodeStmtReturn*, NodeStmtArrDecl*, NodeStmtArrAssign*,
-                 NodeStmtBreak*, NodeStmtContinue*, NodeStmtFieldAssign*> var;
+                 NodeStmtBreak*, NodeStmtContinue*, NodeStmtFieldAssign*, NodeStmtDerefAssign*> var;
 };
 
 struct NodeStmtGlobal {

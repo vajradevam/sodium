@@ -1,0 +1,7 @@
+// Test: malloc and free
+var ptr = malloc(8);
+*ptr = 123;
+var val = *ptr;
+print(val);
+// free(ptr);  // free is a no-op for now
+return(val);

@@ -377,6 +377,36 @@ std::optional<NodeExpr*> Parser::parse_mul_expr()
 
 std::optional<NodeExpr*> Parser::parse_primary_expr()
     {
+        // Pointer dereference: *expr
+        if (peek().has_value() && peek().value().type == TokenType::star) {
+            auto deref = m_allocator.alloc<NodeExprDeref>();
+            deref->star = consume();
+            if (auto inner = parse_primary_expr()) {
+                deref->expr = inner.value();
+            } else {
+                if (g_lsp_mode) { g_lsp_errors.push_back({deref->star.loc, "Expected expression after '*'"}); throw LSPAbort(); }
+                lsp_exit(deref->star.loc, "Expected expression after '*'");
+            }
+            auto expr = m_allocator.alloc<NodeExpr>();
+            expr->var = deref;
+            return expr;
+        }
+
+        // Address-of: &expr
+        if (peek().has_value() && peek().value().type == TokenType::amp) {
+            auto addr = m_allocator.alloc<NodeExprAddrOf>();
+            addr->ampersand = consume();
+            if (auto inner = parse_primary_expr()) {
+                addr->expr = inner.value();
+            } else {
+                if (g_lsp_mode) { g_lsp_errors.push_back({addr->ampersand.loc, "Expected expression after '&'"}); throw LSPAbort(); }
+                lsp_exit(addr->ampersand.loc, "Expected expression after '&'");
+            }
+            auto expr = m_allocator.alloc<NodeExpr>();
+            expr->var = addr;
+            return expr;
+        }
+
         if (peek().has_value() && peek().value().type == TokenType::int_lit) {
             auto expr_int_lit = m_allocator.alloc<NodeExprIntLit>();
             expr_int_lit->int_lit = consume();
@@ -1506,6 +1536,64 @@ std::optional<NodeStmt> Parser::parse_stmt() {
             auto stmt_block = m_allocator.alloc<NodeStmtBlock>();
             stmt_block->block = parse_block();
             return NodeStmt { .var = stmt_block };
+        } else if (peek().has_value() && peek().value().type == TokenType::star) {
+            // Dereference assignment: *ptr = expr, *ptr += expr, etc.
+            auto stmt_deref = m_allocator.alloc<NodeStmtDerefAssign>();
+            stmt_deref->star = consume();
+
+            // Parse the pointer expression
+            if (auto ptr_expr = parse_primary_expr()) {
+                stmt_deref->ptr_expr = ptr_expr.value();
+            } else {
+                if (g_lsp_mode) { g_lsp_errors.push_back({stmt_deref->star.loc, "Expected pointer expression after '*'"}); throw LSPAbort(); }
+                lsp_exit(stmt_deref->star.loc, "Expected pointer expression after '*'");
+            }
+
+            // Check for assignment operator
+            if (!peek().has_value() ||
+                (peek().value().type != TokenType::eq &&
+                 peek().value().type != TokenType::pluseq &&
+                 peek().value().type != TokenType::minuseq &&
+                 peek().value().type != TokenType::stareq &&
+                 peek().value().type != TokenType::slasheq &&
+                 peek().value().type != TokenType::percenteq &&
+                 peek().value().type != TokenType::ampeq &&
+                 peek().value().type != TokenType::pipeeq &&
+                 peek().value().type != TokenType::careteq &&
+                 peek().value().type != TokenType::shleq &&
+                 peek().value().type != TokenType::shreq)) {
+                if (g_lsp_mode) { g_lsp_errors.push_back({stmt_deref->star.loc, "Expected '=' or compound assignment after pointer dereference"}); throw LSPAbort(); }
+                lsp_exit(stmt_deref->star.loc, "Expected '=' or compound assignment after pointer dereference");
+            }
+
+            auto op_token = consume();
+            switch (op_token.type) {
+                case TokenType::pluseq: stmt_deref->op = AssignOp::add_assign; break;
+                case TokenType::minuseq: stmt_deref->op = AssignOp::sub_assign; break;
+                case TokenType::stareq: stmt_deref->op = AssignOp::mul_assign; break;
+                case TokenType::slasheq: stmt_deref->op = AssignOp::div_assign; break;
+                case TokenType::percenteq: stmt_deref->op = AssignOp::mod_assign; break;
+                case TokenType::ampeq: stmt_deref->op = AssignOp::bitand_assign; break;
+                case TokenType::pipeeq: stmt_deref->op = AssignOp::bitor_assign; break;
+                case TokenType::careteq: stmt_deref->op = AssignOp::bitxor_assign; break;
+                case TokenType::shleq: stmt_deref->op = AssignOp::shl_assign; break;
+                case TokenType::shreq: stmt_deref->op = AssignOp::shr_assign; break;
+                default: stmt_deref->op = AssignOp::assign; break;
+            }
+
+            if (auto expr = parse_expr()) {
+                stmt_deref->expr = expr.value();
+            } else {
+                if (g_lsp_mode) { g_lsp_errors.push_back({stmt_deref->star.loc, "Invalid expression in pointer dereference assignment"}); throw LSPAbort(); }
+                lsp_exit(stmt_deref->star.loc, "Invalid expression in pointer dereference assignment");
+            }
+
+            if (!peek().has_value() || peek().value().type != TokenType::semi) {
+                if (g_lsp_mode) { g_lsp_errors.push_back({stmt_deref->star.loc, "Expected ';' after pointer dereference assignment"}); throw LSPAbort(); }
+                lsp_exit(stmt_deref->star.loc, "Expected ';' after pointer dereference assignment");
+            }
+            consume();
+            return NodeStmt { .var = stmt_deref };
         } else {
             return {};
         }

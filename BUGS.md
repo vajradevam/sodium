@@ -25,12 +25,7 @@ included files), the caret pointer from `print_code_context()` points to
 the wrong line in the expanded source. The error message's file:line:col
 is correct, but the inline code preview shows the wrong source line.
 
-### 4. No heap allocation
-
-No `malloc`/`free`, so dynamic data structures (linked lists, growable
-arrays) are not possible.
-
-### 5. Struct limitations
+### 4. Struct limitations
 
 Structs can be declared, variables can be typed with struct types (`var p: Point;`),
 fields can be read and assigned. **Not yet supported:**
@@ -41,6 +36,16 @@ fields can be read and assigned. **Not yet supported:**
 - Arrays of structs
 - Struct literal initializers (`{ .x = 10 }`)
 - Pointer/reference semantics
+
+### 5. Pointer limitations
+
+Pointers are supported via `&` and `*`. **Not yet supported:**
+
+- Pointer arithmetic (`ptr + 1` to advance by 8 bytes)
+- Null pointer safety (dereferencing null will segfault)
+- Pointer type annotations (`var p: int*` syntax — pointers are untyped)
+- Array-to-pointer decay
+- `free()` is a no-op (bump allocator cannot reclaim memory)
 
 ## Resolved
 
@@ -65,3 +70,4 @@ fields can be read and assigned. **Not yet supported:**
 | — | Undefined function compile-time check | `e8ff257` |
 | — | Include mechanism (`#include`, `#pragma once`, `-I`) | (Phase 2) |
 | — | Struct declarations and field access | (Phase 3) |
+| — | Pointers (`&`, `*`), `malloc`/`free` builtins | (Phase 4) |

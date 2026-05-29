@@ -1,0 +1,9 @@
+// Test: deref in function call
+function double_it(v) {
+    return(v * 2);
+}
+var x = 21;
+var px = &x;
+var result = double_it(*px);
+print(result);
+return(result);

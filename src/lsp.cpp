@@ -275,6 +275,7 @@ void walk_stmt(const NodeStmt& stmt, SymbolTable& table) {
         void operator()(const NodeStmtBreak*) {}
         void operator()(const NodeStmtContinue*) {}
         void operator()(const NodeStmtFieldAssign*) {}
+        void operator()(const NodeStmtDerefAssign*) {}
     };
     std::visit(Walker{table}, stmt.var);
 }

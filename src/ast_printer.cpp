@@ -60,6 +60,14 @@ void print_ast_expr(const NodeExpr& expr, int indent) {
         [indent](const NodeExprFieldAccess* e) {
             std::cout << std::string(indent, ' ') << "FieldAccess(" << e->obj_name.value.value() << "." << e->field_name.value.value() << ")\n";
         },
+        [indent](const NodeExprAddrOf* e) {
+            std::cout << std::string(indent, ' ') << "AddrOf\n";
+            print_ast_expr(e->expr, indent + 2);
+        },
+        [indent](const NodeExprDeref* e) {
+            std::cout << std::string(indent, ' ') << "Deref\n";
+            print_ast_expr(e->expr, indent + 2);
+        },
         [indent](const NodeExprBitNot* e) {
             std::cout << std::string(indent, ' ') << "BitNot\n";
             print_ast_expr(e->expr, indent + 2);
@@ -204,6 +212,16 @@ void print_ast_stmt(const NodeStmt& stmt, int indent) {
         },
         [indent](const NodeStmtContinue*) {
             std::cout << std::string(indent, ' ') << "Continue\n";
+        },
+        [indent](const NodeStmtDerefAssign* e) {
+            static const char* op_names[] = {
+                "=", "+=", "-=", "*=", "/=", "%=", "&=", "|=", "^=", "<<=", ">>="
+            };
+            int op_idx = static_cast<int>(e->op);
+            const char* op_str = (op_idx >= 0 && op_idx < 11) ? op_names[op_idx] : "?";
+            std::cout << std::string(indent, ' ') << "DerefAssign(" << op_str << " ...)\n";
+            print_ast_expr(e->ptr_expr, indent + 2);
+            print_ast_expr(e->expr, indent + 2);
         },
     }, stmt.var);
 }

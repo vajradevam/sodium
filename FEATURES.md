@@ -40,6 +40,11 @@
 | Struct variable declarations (`var p: Point;`) | ✅ |
 | Field access (`p.x`) | ✅ |
 | Field assignment and compound assignment (`p.x += 5`, `p.x *= 2`) | ✅ |
+| Address-of operator (`&var`, `&p.x`) | ✅ |
+| Dereference operator (`*ptr`) | ✅ |
+| Assignment through pointer (`*ptr = expr`) | ✅ |
+| Compound assignment through pointer (`*ptr += expr`) | ✅ |
+| `malloc()` / `free()` builtins (bump allocator via `brk`) | ✅ |
 
 ### Tooling & Infrastructure
 | Feature | Status |

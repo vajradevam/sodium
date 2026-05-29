@@ -1,0 +1,6 @@
+// Basic pointer test: & and *
+var x = 42;
+var ptr = &x;
+var y = *ptr;
+print(y);
+return(y);

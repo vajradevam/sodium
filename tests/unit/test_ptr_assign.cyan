@@ -1,0 +1,10 @@
+// Test: assignment and compound assignment through pointer
+var x = 10;
+var ptr = &x;
+*ptr = 42;
+print(x);
+*ptr += 5;
+print(x);
+*ptr *= 2;
+print(x);
+return(x);

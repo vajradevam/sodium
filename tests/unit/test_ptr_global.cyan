@@ -1,0 +1,7 @@
+// Test: pointer to global variable
+global var g = 100;
+var ptr = &g;
+print(*ptr);
+*ptr = 250;
+print(g);
+return(g);

@@ -1,0 +1,9 @@
+// Test: pointer to pointer (double deref)
+var x = 7;
+var p1 = &x;
+var p2 = &p1;
+var val = **p2;
+print(val);
+**p2 = 14;
+print(x);
+return(x);

@@ -261,9 +261,89 @@ void Generator::gen_expr(const NodeExpr& expr)
                 gen->push("rax");
             }
 
+            void operator()(const NodeExprAddrOf* addr_of) const
+            {
+                // &var — push the stack address of the variable
+                // For now we only support simple identifiers
+                auto* inner = addr_of->expr;
+                if (auto* ident = std::get_if<NodeExprIdent*>(&inner->var)) {
+                    const auto& name = (*ident)->ident.value.value();
+                    for (auto it = gen->m_scopes.rbegin(); it != gen->m_scopes.rend(); ++it) {
+                        if (it->vars.contains(name)) {
+                            const auto var = it->vars.at(name);
+                            size_t offset = (gen->m_stack_size - var.stack_loc - 1) * 8;
+                            gen->m_output << "    lea rax, [rsp + " << offset << "]\n";
+                            gen->push("rax");
+                            return;
+                        }
+                    }
+                    if (gen->m_globals.contains(name)) {
+                        gen->m_output << "    lea rax, [rel " << name << "]\n";
+                        gen->push("rax");
+                        return;
+                    }
+                    lsp_exit(addr_of->ampersand.loc, "Undeclared identifier: " + name);
+                } else if (auto* field = std::get_if<NodeExprFieldAccess*>(&inner->var)) {
+                    // &obj.field
+                    const auto& obj_name = (*field)->obj_name.value.value();
+                    const auto& field_name = (*field)->field_name.value.value();
+                    auto var = gen->lookup_var(obj_name, (*field)->obj_name.loc);
+                    if (var.struct_type.empty()) {
+                        lsp_exit((*field)->obj_name.loc, "Not a struct variable: " + obj_name);
+                    }
+                    auto struct_info = gen->get_struct_info(var.struct_type);
+                    if (!struct_info.has_value()) {
+                        lsp_exit((*field)->field_name.loc, "Unknown struct type: " + var.struct_type);
+                    }
+                    auto offset_it = struct_info.value().field_offsets.find(field_name);
+                    if (offset_it == struct_info.value().field_offsets.end()) {
+                        lsp_exit((*field)->field_name.loc, "Unknown field '" + field_name + "' in struct '" + var.struct_type + "'");
+                    }
+                    size_t field_offset = offset_it->second;
+                    size_t base_offset = (gen->m_stack_size - var.stack_loc - 1) * 8;
+                    size_t field_addr_offset = base_offset - field_offset * 8;
+                    gen->m_output << "    lea rax, [rsp + " << field_addr_offset << "]\n";
+                    gen->push("rax");
+                } else {
+                    lsp_exit(addr_of->ampersand.loc, "Cannot take address of this expression");
+                }
+            }
+
+            void operator()(const NodeExprDeref* deref) const
+            {
+                // *ptr — evaluate ptr, then load from that address
+                gen->gen_expr(*deref->expr);
+                gen->pop("rax");
+                gen->m_output << "    mov rax, [rax]\n";
+                gen->push("rax");
+            }
+
             void operator()(const NodeExprCall* expr_call)
             {
                 const auto& fname = expr_call->name.value.value();
+
+                // Handle malloc/free specially
+                if (fname == "malloc") {
+                    // Call the internal malloc helper
+                    for (auto it = expr_call->args.rbegin(); it != expr_call->args.rend(); ++it) {
+                        gen->gen_expr(**it);
+                    }
+                    gen->pop("rdi");  // size in rdi
+                    gen->m_output << "    call _sodium_malloc\n";
+                    gen->m_output << "    push rax\n";
+                    gen->m_stack_size++;
+                    return;
+                }
+                if (fname == "free") {
+                    // Call the internal free helper
+                    for (auto it = expr_call->args.rbegin(); it != expr_call->args.rend(); ++it) {
+                        gen->gen_expr(**it);
+                    }
+                    gen->pop("rdi");  // pointer in rdi
+                    gen->m_output << "    call _sodium_free\n";
+                    return;
+                }
+
                 if (!gen->m_func_names.contains(fname)) {
                     lsp_exit(expr_call->name.loc, "Undefined function: " + fname);
                 }
@@ -1073,6 +1153,69 @@ void Generator::gen_stmt(const NodeStmt& stmt)
                     gen->m_output << "    mov QWORD [rsp + " << field_addr_offset << "], rax\n";
                 }
             }
+
+            void operator()(const NodeStmtDerefAssign* stmt_deref) const
+            {
+                const auto& name = stmt_deref->ptr_expr;
+                if (stmt_deref->op == AssignOp::assign) {
+                    // *ptr = expr:
+                    //   1. evaluate expr (value on stack)
+                    //   2. evaluate ptr (address on stack)
+                    //   3. pop address into rbx, pop value into rax
+                    //   4. mov [rbx], rax
+                    gen->gen_expr(*stmt_deref->expr);
+                    gen->gen_expr(*stmt_deref->ptr_expr);
+                    gen->pop("rbx");
+                    gen->pop("rax");
+                    gen->m_output << "    mov [rbx], rax\n";
+                } else {
+                    // *ptr += expr:
+                    //   1. evaluate ptr (address on stack)
+                    //   2. pop address into rbx
+                    //   3. push [rbx] (current value)
+                    //   4. evaluate expr
+                    //   5. pop rdi (value), pop rax (current)
+                    //   6. apply op
+                    //   7. mov [rbx], rax
+                    gen->gen_expr(*stmt_deref->ptr_expr);
+                    gen->pop("rbx");
+                    gen->m_output << "    push QWORD [rbx]\n";
+                    gen->m_stack_size++;
+                    gen->gen_expr(*stmt_deref->expr);
+                    gen->pop("rdi");
+                    gen->pop("rax");
+                    switch (stmt_deref->op) {
+                        case AssignOp::add_assign:
+                            gen->m_output << "    add rax, rdi\n"; break;
+                        case AssignOp::sub_assign:
+                            gen->m_output << "    sub rax, rdi\n"; break;
+                        case AssignOp::mul_assign:
+                            gen->m_output << "    imul rax, rdi\n"; break;
+                        case AssignOp::div_assign:
+                            gen->m_output << "    cqo\n";
+                            gen->m_output << "    idiv rdi\n"; break;
+                        case AssignOp::mod_assign:
+                            gen->m_output << "    cqo\n";
+                            gen->m_output << "    idiv rdi\n";
+                            gen->m_output << "    mov rax, rdx\n"; break;
+                        case AssignOp::bitand_assign:
+                            gen->m_output << "    and rax, rdi\n"; break;
+                        case AssignOp::bitor_assign:
+                            gen->m_output << "    or rax, rdi\n"; break;
+                        case AssignOp::bitxor_assign:
+                            gen->m_output << "    xor rax, rdi\n"; break;
+                        case AssignOp::shl_assign:
+                            gen->m_output << "    mov rcx, rdi\n";
+                            gen->m_output << "    shl rax, cl\n"; break;
+                        case AssignOp::shr_assign:
+                            gen->m_output << "    mov rcx, rdi\n";
+                            gen->m_output << "    shr rax, cl\n"; break;
+                        default:
+                            break;
+                    }
+                    gen->m_output << "    mov [rbx], rax\n";
+                }
+            }
         };
 
         StmtVisitor visitor { .gen = this };
@@ -1217,6 +1360,8 @@ void Generator::gen_stmt(const NodeStmt& stmt)
             void operator()(const NodeExprRead*) {}
             void operator()(const NodeExprArrLit*) {}
             void operator()(const NodeExprFieldAccess*) {}
+            void operator()(const NodeExprAddrOf*) {}
+            void operator()(const NodeExprDeref*) {}
         };
 
         ConstEvalVisitor visitor{this, std::nullopt};
@@ -1357,6 +1502,25 @@ void Generator::collect_globals(const std::vector<NodeStmt>& stmts)
                 }
             }
         }
+
+        // Heap allocator (bump allocator using brk syscall)
+        m_output << "section .text\n";
+        m_output << "_sodium_malloc:\n";
+        m_output << "    ; rdi = size\n";
+        m_output << "    push rdi\n";
+        m_output << "    mov rax, 12\n";  // brk syscall
+        m_output << "    xor rdi, rdi\n";  // get current break
+        m_output << "    syscall\n";
+        m_output << "    pop rdi\n";
+        m_output << "    push rax\n";      // save old break (allocated address)
+        m_output << "    add rdi, rax\n";   // new break = old + size
+        m_output << "    mov rax, 12\n";    // brk syscall
+        m_output << "    syscall\n";
+        m_output << "    pop rax\n";        // return old break
+        m_output << "    ret\n";
+        m_output << "_sodium_free:\n";
+        m_output << "    ; rdi = ptr (ignored - bump allocator, no-op free)\n";
+        m_output << "    ret\n";
 
         return m_output.str();
 }
