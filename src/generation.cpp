@@ -62,10 +62,7 @@ void Generator::exit_scope()
 void Generator::declare_var(const std::string& name, IntType type, SourceLoc loc) {
     auto& scope = m_scopes.back();
         if (scope.vars.contains(name)) {
-            std::cerr << format_err(loc, "Identifier already used in this scope: " + name) << std::endl;
-            print_code_context(loc);
-
-            exit(EXIT_FAILURE);
+            lsp_exit(loc, "Identifier already used in this scope: " + name);
         }
         scope.vars[name] = Var { .stack_loc = m_stack_size, .type = type };
         scope.var_count++;
@@ -77,10 +74,7 @@ Var Generator::lookup_var(const std::string& name, SourceLoc loc) {
                 return it->vars.at(name);
             }
         }
-        std::cerr << format_err(loc, "Undeclared identifier: " + name) << std::endl;
-        print_code_context(loc);
-
-        exit(EXIT_FAILURE);
+        lsp_exit(loc, "Undeclared identifier: " + name);
 }
 
 void Generator::gen_expr(const NodeExpr& expr)
@@ -123,10 +117,7 @@ void Generator::gen_expr(const NodeExpr& expr)
                     gen->push("rax");
                     return;
                 }
-                std::cerr << format_err(expr_ident->ident.loc, "Undeclared identifier: " + name) << std::endl;
-                print_code_context(expr_ident->ident.loc);
-
-                exit(EXIT_FAILURE);
+                lsp_exit(expr_ident->ident.loc, "Undeclared identifier: " + name);
             }
 
             void operator()(const NodeExprStringLit* expr_str)
@@ -493,10 +484,7 @@ void Generator::gen_stmt(const NodeStmt& stmt)
                         if (stmt_assign->op == AssignOp::assign && var.array_size > 0) {
                             if (auto arr_lit = std::get_if<NodeExprArrLit*>(&stmt_assign->expr->var)) {
                                 if ((*arr_lit)->elements.size() != var.array_size) {
-                                    std::cerr << format_err(stmt_assign->ident.loc, "Array size mismatch") << std::endl;
-                                    print_code_context(stmt_assign->ident.loc);
-
-                                    exit(EXIT_FAILURE);
+                                    lsp_exit(stmt_assign->ident.loc, "Array size mismatch");
                                 }
                                 size_t base_offset = (gen->m_stack_size - var.stack_loc - 1) * 8;
                                 for (size_t i = 0; i < var.array_size; i++) {
@@ -508,8 +496,7 @@ void Generator::gen_stmt(const NodeStmt& stmt)
                             }
                         }
                         if (var.array_size > 0) {
-                            std::cerr << format_err(stmt_assign->ident.loc, "Array assignment requires an array literal (e.g., arr = [1, 2, 3])") << std::endl;
-                            exit(EXIT_FAILURE);
+                            lsp_exit(stmt_assign->ident.loc, "Array assignment requires an array literal (e.g., arr = [1, 2, 3])");
                         }
                         if (stmt_assign->op == AssignOp::assign) {
                             gen->gen_expr(*stmt_assign->expr);
@@ -609,15 +596,9 @@ void Generator::gen_stmt(const NodeStmt& stmt)
                     return;
                 }
                 if (gen->m_constants.contains(name)) {
-                    std::cerr << format_err(stmt_assign->ident.loc, "Cannot assign to constant '" + name + "'") << std::endl;
-                    print_code_context(stmt_assign->ident.loc);
-
-                    exit(EXIT_FAILURE);
+                    lsp_exit(stmt_assign->ident.loc, "Cannot assign to constant '" + name + "'");
                 }
-                std::cerr << format_err(stmt_assign->ident.loc, "Undeclared identifier: " + name) << std::endl;
-                print_code_context(stmt_assign->ident.loc);
-
-                exit(EXIT_FAILURE);
+                lsp_exit(stmt_assign->ident.loc, "Undeclared identifier: " + name);
             }
 
             void operator()(const NodeStmtIf* stmt_if) const
@@ -760,10 +741,7 @@ void Generator::gen_stmt(const NodeStmt& stmt)
                 // Evaluate size expression at compile time (must be constant).
                 auto const_size = gen->eval_const_expr(stmt_arr->size);
                 if (!const_size.has_value()) {
-                    std::cerr << format_err(stmt_arr->loc, "Array size must be a compile-time constant expression") << std::endl;
-                    print_code_context(stmt_arr->loc);
-
-                    exit(EXIT_FAILURE);
+                    lsp_exit(stmt_arr->loc, "Array size must be a compile-time constant expression");
                 }
                 size_t size = static_cast<size_t>(const_size.value());
                 auto& scope = gen->m_scopes.back();
@@ -807,10 +785,7 @@ void Generator::gen_stmt(const NodeStmt& stmt)
                     gen->m_output << "    jmp " << gen->m_func_epilogue_label << "\n";
                 } else {
                     if (!stmt_ret->expr) {
-                        std::cerr << format_err(stmt_ret->loc, "return with no value at top level") << std::endl;
-                        print_code_context(stmt_ret->loc);
-
-                        exit(EXIT_FAILURE);
+                        lsp_exit(stmt_ret->loc, "return with no value at top level");
                     }
                     gen->gen_expr(*stmt_ret->expr);
                     gen->m_output << "    mov rax, 60\n";
@@ -931,10 +906,7 @@ void Generator::gen_stmt(const NodeStmt& stmt)
             void operator()(const NodeStmtBreak* stmt_break) const
             {
                 if (gen->m_break_stack.empty()) {
-                    std::cerr << format_err(stmt_break->loc, "break outside loop or switch") << std::endl;
-                    print_code_context(stmt_break->loc);
-
-                    exit(EXIT_FAILURE);
+                    lsp_exit(stmt_break->loc, "break outside loop or switch");
                 }
                 gen->m_output << "    jmp " << gen->m_break_stack.back() << "\n";
             }
@@ -947,10 +919,7 @@ void Generator::gen_stmt(const NodeStmt& stmt)
                         return;
                     }
                 }
-                std::cerr << format_err(stmt_continue->loc, "continue outside loop") << std::endl;
-                print_code_context(stmt_continue->loc);
-
-                exit(EXIT_FAILURE);
+                lsp_exit(stmt_continue->loc, "continue outside loop");
             }
         };
 
@@ -1125,10 +1094,7 @@ void Generator::collect_globals(const std::vector<NodeStmt>& stmts)
                 const auto& name = (*const_stmt)->name.value.value();
                 auto val = eval_const_expr((*const_stmt)->expr);
                 if (!val.has_value()) {
-                    std::cerr << format_err((*const_stmt)->name.loc, "Const initializer is not a compile-time constant expression") << std::endl;
-                    print_code_context((*const_stmt)->name.loc);
-
-                    exit(EXIT_FAILURE);
+                    lsp_exit((*const_stmt)->name.loc, "Const initializer is not a compile-time constant expression");
                 }
                 m_constants[name] = val.value();
             } else if (auto* block_stmt = std::get_if<NodeStmtBlock*>(&stmt.var)) {

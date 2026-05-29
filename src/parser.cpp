@@ -902,10 +902,7 @@ std::optional<NodeStmt> Parser::parse_return_stmt()
                     g_lsp_errors.push_back({ret_loc, "Invalid expression in return"});
                     throw LSPAbort();
                 }
-                std::cerr << format_err(ret_loc, "Invalid expression in return") << std::endl;
-                print_code_context(ret_loc);
-
-                exit(EXIT_FAILURE);
+                lsp_exit(ret_loc, "Invalid expression in return");
             }
         } else {
             stmt_ret = m_allocator.alloc<NodeStmtReturn>();
@@ -917,10 +914,7 @@ std::optional<NodeStmt> Parser::parse_return_stmt()
                 g_lsp_errors.push_back({ret_loc, "Expected ';' after return"});
                 throw LSPAbort();
             }
-            std::cerr << format_err(ret_loc, "Expected ';' after return") << std::endl;
-            print_code_context(ret_loc);
-
-            exit(EXIT_FAILURE);
+            lsp_exit(ret_loc, "Expected ';' after return");
         }
         consume(); // ;
         return NodeStmt { .var = stmt_ret };
@@ -958,20 +952,14 @@ std::optional<NodeStmt> Parser::parse_stmt() {
                         g_lsp_errors.push_back({arr_loc, "Expected array size"});
                         throw LSPAbort();
                     }
-                    std::cerr << format_err(arr_loc, "Expected array size") << std::endl;
-                    print_code_context(arr_loc);
-
-                    exit(EXIT_FAILURE);
+                    lsp_exit(arr_loc, "Expected array size");
                 }
                 if (!peek().has_value() || peek().value().type != TokenType::close_square) {
                     if (g_lsp_mode) {
                         g_lsp_errors.push_back({arr_loc, "Expected ']'"});
                         throw LSPAbort();
                     }
-                    std::cerr << format_err(arr_loc, "Expected ']'") << std::endl;
-                    print_code_context(arr_loc);
-
-                    exit(EXIT_FAILURE);
+                    lsp_exit(arr_loc, "Expected ']'");
                 }
                 consume(); // ]
                 if (!peek().has_value() || peek().value().type != TokenType::semi) {
@@ -979,10 +967,7 @@ std::optional<NodeStmt> Parser::parse_stmt() {
                         g_lsp_errors.push_back({arr_loc, "Expected ';'"});
                         throw LSPAbort();
                     }
-                    std::cerr << format_err(arr_loc, "Expected ';'") << std::endl;
-                    print_code_context(arr_loc);
-
-                    exit(EXIT_FAILURE);
+                    lsp_exit(arr_loc, "Expected ';'");
                 }
                 consume(); // ;
                 return NodeStmt { .var = stmt_arr };
@@ -1164,10 +1149,7 @@ std::optional<NodeStmt> Parser::parse_stmt() {
                     g_lsp_errors.push_back({brk_loc, "Expected ';' after break"});
                     throw LSPAbort();
                 }
-                std::cerr << format_err(brk_loc, "Expected ';' after break") << std::endl;
-                print_code_context(brk_loc);
-
-                exit(EXIT_FAILURE);
+                lsp_exit(brk_loc, "Expected ';' after break");
             }
             consume();
             auto stmt_break = m_allocator.alloc<NodeStmtBreak>();
@@ -1181,10 +1163,7 @@ std::optional<NodeStmt> Parser::parse_stmt() {
                     g_lsp_errors.push_back({cont_loc, "Expected ';' after continue"});
                     throw LSPAbort();
                 }
-                std::cerr << format_err(cont_loc, "Expected ';' after continue") << std::endl;
-                print_code_context(cont_loc);
-
-                exit(EXIT_FAILURE);
+                lsp_exit(cont_loc, "Expected ';' after continue");
             }
             consume();
             auto stmt_continue = m_allocator.alloc<NodeStmtContinue>();
@@ -1261,9 +1240,7 @@ std::optional<NodeStmt> Parser::parse_stmt() {
                         g_lsp_errors.push_back({ident.loc, "Expected ';' after " + std::string(is_inc ? "i++" : "i--")});
                         throw LSPAbort();
                     }
-                    std::cerr << format_err(ident.loc, "Expected ';' after " + std::string(is_inc ? "i++" : "i--")) << std::endl;
-                    print_code_context(ident.loc);
-                    exit(EXIT_FAILURE);
+                    lsp_exit(ident.loc, "Expected ';' after " + std::string(is_inc ? "i++" : "i--"));
                 }
                 consume();
                 auto stmt = m_allocator.alloc<NodeStmtAssign>();

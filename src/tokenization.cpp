@@ -30,6 +30,25 @@ void print_code_context(const SourceLoc& loc) {
     std::cerr << "^\n";
 }
 
+void lsp_exit(const SourceLoc& loc, const std::string& msg) {
+    if (g_lsp_mode) {
+        g_lsp_errors.push_back({loc, msg});
+        throw LSPAbort();
+    }
+    std::cerr << format_err(loc, msg) << std::endl;
+    if (g_show_code) print_code_context(loc);
+    exit(EXIT_FAILURE);
+}
+
+void lsp_exit(const std::string& msg) {
+    if (g_lsp_mode) {
+        g_lsp_errors.push_back({{}, msg});
+        throw LSPAbort();
+    }
+    std::cerr << msg << std::endl;
+    exit(EXIT_FAILURE);
+}
+
 char Tokenizer::consume() {
     char c = m_src.at(m_index++);
     if (c == '\n') {
@@ -152,6 +171,10 @@ std::vector<Token> Tokenizer::tokenize() {
                 buf.push_back(consume());
             }
             if (!peek().has_value()) {
+                if (g_lsp_mode) {
+                    g_lsp_errors.push_back({loc, "Unterminated string literal"});
+                    throw LSPAbort();
+                }
                 std::cerr << format_err(loc, "Unterminated string literal") << std::endl;
                 exit(EXIT_FAILURE);
             }

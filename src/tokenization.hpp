@@ -126,6 +126,11 @@ struct LSPAbort : std::exception {
 // Print the source line and a caret pointing to the error column.
 void print_code_context(const SourceLoc& loc);
 
+// LSP-aware error handler: in LSP mode collects the error and throws LSPAbort;
+// in normal mode prints the error and calls exit(EXIT_FAILURE).
+[[noreturn]] void lsp_exit(const SourceLoc& loc, const std::string& msg);
+[[noreturn]] void lsp_exit(const std::string& msg);
+
 class Tokenizer {
 public:
     inline explicit Tokenizer(std::string src, std::string filename = "")
