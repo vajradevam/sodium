@@ -1,0 +1,128 @@
+global var g = 0;
+
+function inc_g() {
+    g = g + 1;
+    return(g);
+}
+
+function make_id() {
+    static var sid = 0;
+    sid = sid + 1;
+    return(sid);
+}
+
+function fib(n) {
+    if (n <= 1) return(n);
+    var a = 0;
+    var b = 1;
+    var i = 2;
+    while (i <= n) {
+        var t = a + b;
+        a = b;
+        b = t;
+        i = i + 1;
+    }
+    return(b);
+}
+
+function classify(x) {
+    switch (x) {
+        case 0: return(0);
+        case 1: return(10);
+        case 2: return(20);
+        default: return(99);
+    }
+}
+
+function grade(s) {
+    if (s >= 90) return(4);
+    else if (s >= 80) return(3);
+    else if (s >= 70) return(2);
+    else if (s >= 60) return(1);
+    else return(0);
+}
+
+var result = 0;
+
+// global
+result = result + inc_g();
+result = result + inc_g();
+
+// static
+result = result + make_id();
+result = result + make_id();
+
+// typed vars
+var tx: i32 = 10;
+var ty: u8 = 5;
+result = result + tx + ty;
+
+// compound + typed compound
+tx += 5;
+ty += 251;
+result = result + tx + ty;
+
+// array literal
+var arr = [tx, ty, 3];
+result = result + arr[0] + arr[1] + arr[2];
+
+// inc/dec
+var iv = 10;
+iv++;
+++iv;
+result = result + iv;
+
+// for loop
+var fsum = 0;
+for (var i = 0; i < 4; i = i + 1) {
+    fsum = fsum + i;
+}
+result = result + fsum;
+
+// do-while
+var dws = 0;
+var j = 0;
+do {
+    dws = dws + j;
+    j = j + 1;
+} while (j < 4);
+result = result + dws;
+
+// continue/break
+var cbsum = 0;
+for (var k = 0; k < 10; k = k + 1) {
+    if (k % 2 == 0) continue;
+    if (k > 5) break;
+    cbsum = cbsum + k;
+}
+result = result + cbsum;
+
+// switch
+result = result + classify(0);
+result = result + classify(2);
+result = result + classify(5);
+
+// else-if chain
+result = result + grade(95);
+result = result + grade(75);
+result = result + grade(55);
+
+// ternary
+var tern = (g == 2) ? 7 : 0;
+result = result + tern;
+
+// bitwise
+var bv1 = 0x3C & 0x0F;
+var bv2 = 0xF0 >> 2;
+var bv3 = bv1 | bv2;
+result = result + bv3;
+
+// logical
+result = result + (1 && 1);
+result = result + (1 && 0);
+result = result + (0 || 1);
+result = result + (0 || 0);
+result = result + (99 > 10);
+result = result + (3 < 1);
+
+return(result);

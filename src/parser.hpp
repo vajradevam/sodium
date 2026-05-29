@@ -829,7 +829,7 @@ public:
                 if (auto stmt = parse_stmt()) {
                     block->stmts.push_back(stmt.value());
                 } else {
-                    std::cerr << "Invalidddd" << std::endl;
+                    std::cerr << "Invalid statement" << std::endl;
                     exit(EXIT_FAILURE);
                 }
             }
@@ -843,7 +843,7 @@ public:
             if (auto stmt = parse_stmt()) {
                 block->stmts.push_back(stmt.value());
             } else {
-                std::cerr << "Invalidddd" << std::endl;
+                std::cerr << "Invalid statement" << std::endl;
                 exit(EXIT_FAILURE);
             }
         }
@@ -1302,7 +1302,7 @@ public:
                 if (auto expr = parse_expr()) {
                     stmt_let->expr = expr.value();
                 } else {
-                    std::cerr << "Just looking like a wow... maa chuda madarchod" << std::endl;
+                    std::cerr << "Invalid expression in variable declaration" << std::endl;
                     exit(EXIT_FAILURE);
                 }
 
@@ -1626,7 +1626,7 @@ public:
             } else if (auto stmt = parse_stmt()) {
                 prog.stmts.push_back(stmt.value());
             } else {
-                std::cerr << "Invalidddd" << std::endl;
+                std::cerr << "Invalid statement at top level" << std::endl;
                 exit(EXIT_FAILURE);
             }
         }

@@ -101,9 +101,9 @@ public:
         std::string buf;
 
         while (peek().has_value()) {
-            if (std::isalpha(peek().value())) {
+            if (std::isalpha(peek().value()) || peek().value() == '_') {
                 buf.push_back(consume());
-                while (peek().has_value() && std::isalnum(peek().value())) {
+                while (peek().has_value() && (std::isalnum(peek().value()) || peek().value() == '_')) {
                     buf.push_back(consume());
                 }
 
@@ -391,7 +391,7 @@ public:
                     consume();
                     tokens.push_back({ .type = TokenType::neq });
                 } else {
-                    std::cerr << "Bruh moment!" << std::endl;
+                    std::cerr << "Expected '!='" << std::endl;
                     exit(EXIT_FAILURE);
                 }
                 continue;
@@ -471,7 +471,7 @@ public:
             }
             
             else {
-                std::cerr << "Bruh moment!" << std::endl;
+                std::cerr << "Unexpected character: '" << peek().value() << "'" << std::endl;
                 exit(EXIT_FAILURE);
             }
         }

@@ -12,8 +12,7 @@
 int main(int argc, char* argv[]) {
 
     if (argc != 2) {
-        std::cerr << "Holy shit. Yeh kya mazak hai?" << std::endl;
-        std::cerr << "Correct usage is -> sodium <filename.cyan>" << std::endl;
+        std::cerr << "Usage: sodium <filename.cyan>" << std::endl;
         exit(EXIT_FAILURE);
     }
 
