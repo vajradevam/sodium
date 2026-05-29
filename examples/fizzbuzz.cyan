@@ -1,0 +1,16 @@
+// ── FizzBuzz ───────────────────────────────────────────────────────
+// Classic FizzBuzz from 1 to 20 using loops and conditionals.
+// Prints: 3 for Fizz, 5 for Buzz, 0 for FizzBuzz, or the number itself.
+
+for (var i = 1; i <= 20; i++) {
+    if (i % 3 == 0 && i % 5 == 0) {
+        print(0);  // FizzBuzz
+    } else if (i % 3 == 0) {
+        print(3);  // Fizz
+    } else if (i % 5 == 0) {
+        print(5);  // Buzz
+    } else {
+        print(i);
+    }
+}
+return(0);

@@ -800,7 +800,81 @@ std::optional<NodeStmt> Parser::parse_for_stmt()
 
         NodeStmtAssign* update = nullptr;
         if (!(peek().has_value() && peek().value().type == TokenType::close_paren)) {
+            // ident++ / ident--
             if (peek().has_value() && peek().value().type == TokenType::ident
+                && peek(1).has_value()
+                && (peek(1).value().type == TokenType::plusplus
+                 || peek(1).value().type == TokenType::minusminus)) {
+                auto ident = consume();
+                bool is_inc = consume().type == TokenType::plusplus;
+                update = m_allocator.alloc<NodeStmtAssign>();
+                update->ident = ident;
+                update->op = AssignOp::assign;
+                auto one = m_allocator.alloc<NodeExpr>();
+                one->var = m_allocator.alloc<NodeExprIntLit>();
+                std::get<NodeExprIntLit*>(one->var)->int_lit = Token { .type = TokenType::int_lit, .value = "1" };
+                auto lhs = m_allocator.alloc<NodeExpr>();
+                lhs->var = m_allocator.alloc<NodeExprIdent>();
+                std::get<NodeExprIdent*>(lhs->var)->ident = ident;
+                if (is_inc) {
+                    auto add = m_allocator.alloc<BinExpr>();
+                    auto bin_add = m_allocator.alloc<BinExprAdd>();
+                    bin_add->lhs = lhs;
+                    bin_add->rhs = one;
+                    add->var = bin_add;
+                    auto add_expr = m_allocator.alloc<NodeExpr>();
+                    add_expr->var = add;
+                    update->expr = add_expr;
+                } else {
+                    auto sub = m_allocator.alloc<BinExpr>();
+                    auto bin_sub = m_allocator.alloc<BinExprSub>();
+                    bin_sub->lhs = lhs;
+                    bin_sub->rhs = one;
+                    sub->var = bin_sub;
+                    auto sub_expr = m_allocator.alloc<NodeExpr>();
+                    sub_expr->var = sub;
+                    update->expr = sub_expr;
+                }
+            }
+            // ++ident / --ident
+            else if (peek().has_value()
+                && (peek().value().type == TokenType::plusplus
+                 || peek().value().type == TokenType::minusminus)) {
+                bool is_inc = consume().type == TokenType::plusplus;
+                if (!peek().has_value() || peek().value().type != TokenType::ident) {
+                    error("Expected identifier after '++' or '--'");
+                }
+                auto ident = consume();
+                update = m_allocator.alloc<NodeStmtAssign>();
+                update->ident = ident;
+                update->op = AssignOp::assign;
+                auto one = m_allocator.alloc<NodeExpr>();
+                one->var = m_allocator.alloc<NodeExprIntLit>();
+                std::get<NodeExprIntLit*>(one->var)->int_lit = Token { .type = TokenType::int_lit, .value = "1" };
+                auto lhs = m_allocator.alloc<NodeExpr>();
+                lhs->var = m_allocator.alloc<NodeExprIdent>();
+                std::get<NodeExprIdent*>(lhs->var)->ident = ident;
+                if (is_inc) {
+                    auto add = m_allocator.alloc<BinExpr>();
+                    auto bin_add = m_allocator.alloc<BinExprAdd>();
+                    bin_add->lhs = lhs;
+                    bin_add->rhs = one;
+                    add->var = bin_add;
+                    auto add_expr = m_allocator.alloc<NodeExpr>();
+                    add_expr->var = add;
+                    update->expr = add_expr;
+                } else {
+                    auto sub = m_allocator.alloc<BinExpr>();
+                    auto bin_sub = m_allocator.alloc<BinExprSub>();
+                    bin_sub->lhs = lhs;
+                    bin_sub->rhs = one;
+                    sub->var = bin_sub;
+                    auto sub_expr = m_allocator.alloc<NodeExpr>();
+                    sub_expr->var = sub;
+                    update->expr = sub_expr;
+                }
+            }
+            else if (peek().has_value() && peek().value().type == TokenType::ident
                 && peek(1).has_value()
                 && (peek(1).value().type == TokenType::eq
                  || peek(1).value().type == TokenType::pluseq

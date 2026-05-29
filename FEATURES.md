@@ -1,45 +1,96 @@
 # Cyan Language — Feature Roadmap
 
-## High Priority (core language completeness)
+## ✅ Implemented
 
-- **`else if` chaining** — currently only `else { if ... }` is possible
-- **`break` / `continue`** — essential for loop control
-- **Compound assignment** — `+=`, `-=`, `*=`, `/=`, `%=`
-- **Increment/decrement** — `++i`, `i++`, `--i`, `i--`
-- **Modulo operator** — `%`
-- **Bitwise operators** — `&`, `|`, `^`, `~`, `<<`, `>>`
-- **Ternary conditional** — `cond ? a : b`
-- **Variable initializers** — `var x = 5;` for scalars
-- **More integer types** — `char`, `bool`, `byte`
-- **`do-while` loops**
+### Core Language
+| Feature | Status |
+|---------|--------|
+| Integer literals | ✅ |
+| Arithmetic (`+`, `-`, `*`, `/`, `%`) | ✅ |
+| Comparison (`<`, `>`, `<=`, `>=`, `==`, `!=`) | ✅ |
+| Logical (`&&`, `\|\|`) | ✅ |
+| Bitwise (`&`, `\|`, `^`, `~`, `<<`, `>>`) | ✅ |
+| Compound assignment (`+=`, `-=`, `*=`, `/=`, `%=`, `&=`, `\|=`, `^=`, `<<=`, `>>=`) | ✅ |
+| Increment/decrement (`++x`, `x++`, `--x`, `x--`) | ✅ |
+| Ternary conditional (`cond ? a : b`) | ✅ |
+| Variable declarations (`var x = expr`) | ✅ |
+| Type annotations (`var x: i32 = expr`) | ✅ |
+| Integer types (`i8`, `i16`, `i32`, `i64`, `u8`, `u16`, `u32`, `u64`) | ✅ |
+| Constant expressions (`const NAME = expr`) | ✅ |
+| Arrays (declaration, indexing, assignment, literals) | ✅ |
+| Functions (definition, parameters, return values) | ✅ |
+| Recursion | ✅ |
+| `if` / `else if` / `else` | ✅ |
+| `while` loops | ✅ |
+| `do-while` loops | ✅ |
+| `for` loops (init; cond; update) | ✅ |
+| `break` / `continue` | ✅ |
+| `switch` / `case` / `default` | ✅ |
+| Global variables (`global var`) | ✅ |
+| Static variables (`static var inside functions`) | ✅ |
+| `print()` builtin (integer to stdout) | ✅ |
+| `read()` builtin (integer from stdin) | ✅ |
+| Top-level statements (outside functions) | ✅ |
+| String literals (`"hello"`) | ✅ |
 
-## Medium Priority (expressiveness)
+### Tooling & Infrastructure
+| Feature | Status |
+|---------|--------|
+| Source locations in errors (file:line:col) | ✅ |
+| Source code annotation (`^` caret pointing to error) | ✅ |
+| `--print-ast` CLI flag | ✅ |
+| Separate compilation units (`.hpp` + `.cpp`) | ✅ |
+| Chained arena allocator (no fixed size limit) | ✅ |
+| NASM x86-64 code generation | ✅ |
+| Linux ELF binary output | ✅ |
+| LSP server (`cyan-lsp`) | ✅ |
+| VS Code extension (syntax + theme + LSP) | ✅ |
+| Go-to-definition | ✅ |
+| Document symbols | ✅ |
+| Hover information | ✅ |
+| Completions | ✅ |
+| Compile-failure test support | ✅ |
+| Professional error messages | ✅ |
+| Install script (`install.sh`) | ✅ |
 
-- **Arrays as function parameters** (pass pointer/reference)
-- **Array literal initializers** — `var arr[] = {1, 2, 3};`
-- **String operations** — escape sequences, concatenation, `.length`
-- **Global/static variables** (`.data` section)
-- **Input built-in** — `read()` for stdin
-- **Type annotations** — optional explicit typing
-- **Multi-dimensional arrays**
-- **`switch`/`case` statements**
+## 🔜 High Priority (next)
 
-## Lower Priority (advanced features)
+| Feature | Notes |
+|---------|-------|
+| Include mechanism | `#include` or `import` — multi-file compilation |
+| Structs | Compound data types |
+| `global var arr[size]` syntax | Global array declarations |
+| For-loop scoping | `for (var i = ...)` should scope `i` to the loop body |
+| String operations | Concatenation, comparison, length |
+| Undefined function check | Clean compile error instead of linker error |
 
-- **Structs** — compound data types
-- **Pointers** — `*` dereference, `&` address-of
-- **Enum types**
-- **Type aliases** (`typedef`)
-- **Include mechanism** — multi-file compilation
-- **Function pointers**
-- **Inline assembly**
-- **Basic optimization** — constant folding, dead code elimination
-- **Error recovery** — report multiple errors instead of aborting on first
-- **Self-hosting** — compiler written in Cyan itself
+## 🧭 Medium Priority
 
-## Infrastructure
+| Feature | Notes |
+|---------|-------|
+| Pointers | `*` dereference, `&` address-of |
+| Heap allocation | `malloc` / `free` builtins |
+| File I/O | `fopen`, `fread`, `fwrite`, `fprintf` |
+| Runtime library | `memcpy`, `strlen`, helpers |
+| Multi-dimensional arrays | `arr[x][y]` |
 
-- **Source locations in errors** — file, line, column for all error messages
-- **IR / intermediate representation** — enables optimization and alternative backends
-- **Runtime library** — pre-compiled helpers (`memcpy`, `printf`-style formatting, etc.)
-- **Better test framework** — parameterized tests, expected-failure tests
+## 🚀 Long-term
+
+| Feature | Notes |
+|---------|-------|
+| Error recovery | Report multiple errors instead of aborting |
+| Basic optimization | Constant folding, dead code elimination |
+| Function pointers | |
+| Enum types | |
+| Type aliases | `typedef` |
+| Inline assembly | |
+| Struct methods / methods on types | |
+| Bounds checking | Opt-in array bounds checks |
+| Self-hosting | Compiler written in Cyan itself |
+
+## Infrastructure Ideas
+
+- IR / intermediate representation (enables optimization + alternative backends)
+- WASM backend
+- Better test framework (parameterized tests, expected-failure tests more ergonomic)
+- Package manager / standard library
