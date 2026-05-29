@@ -24,7 +24,7 @@ int main(int argc, char* argv[]) {
         contents = contents_stream.str();
     }
 
-    Tokenizer tokenizer(std::move(contents));
+    Tokenizer tokenizer(std::move(contents), argv[1]);
     std::vector<Token> tokens = tokenizer.tokenize();
 
     Parser parser(std::move(tokens));

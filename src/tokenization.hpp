@@ -11,9 +11,13 @@
 struct SourceLoc {
     size_t line = 0;
     size_t col = 0;
+    std::string file = "";
 
     [[nodiscard]] std::string to_string() const {
-        return std::to_string(line) + ":" + std::to_string(col);
+        if (file.empty()) {
+            return std::to_string(line) + ":" + std::to_string(col);
+        }
+        return file + ":" + std::to_string(line) + ":" + std::to_string(col);
     }
 };
 
@@ -517,7 +521,7 @@ public:
 private:
 
     [[nodiscard]] inline SourceLoc current_loc() const {
-        return { .line = m_line, .col = m_col };
+        return { .line = m_line, .col = m_col, .file = m_filename };
     }
 
     [[nodiscard]] inline std::optional<char> peek(int offset = 0) const {
