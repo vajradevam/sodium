@@ -1,9 +1,12 @@
 #include "generation.hpp"
 #include "backend/x86_64/backend.hpp"
 
-Generator::Generator(NodeProg root, std::unique_ptr<Backend> backend)
+Generator::Generator(NodeProg root, Backend& backend, const TargetRegisterInfo& tri,
+                     std::unique_ptr<Backend> owned_backend)
     : m_prog(std::move(root))
-    , m_backend(backend ? std::move(backend) : std::make_unique<X8664Backend>(m_output))
+    , m_backend_ptr(&backend)
+    , m_owned_backend(std::move(owned_backend))
+    , m_tri_ptr(&tri)
 {
     m_scopes.push_back({0, {}});
 }
@@ -195,15 +198,15 @@ void Generator::flush_function() {
     uint32_t slot_count = func->stack_slots;
 
     auto allocation = [&]() {
-        LinearScanAllocator alloc(m_tri);
+        LinearScanAllocator alloc(*m_tri_ptr);
         return alloc.allocate(*func);
     }();
 
-    IRRewriter rewriter(m_tri, allocation, *func);
+    IRRewriter rewriter(*m_tri_ptr, allocation, *func);
     rewriter.rewrite();
 
     // Emit to backend
-    IREmitter emitter(*m_backend, m_tri, allocation);
+    IREmitter emitter(*m_backend_ptr, *m_tri_ptr, allocation);
     emitter.emit_function(*func);
 
     // Reset IR state for next function
@@ -225,7 +228,7 @@ void Generator::gen_func_def(const NodeFuncDef& func)
     m_ir.start_function(func.name.value.value());
     m_next_frame_slot = 0;
 
-    m_backend->extern_sym(func.name.value.value());
+    m_backend_ptr->extern_sym(func.name.value.value());
     // The entry block is already created by start_function();
     // the emitter will output the label and prologue
 
@@ -1466,15 +1469,15 @@ void Generator::collect_globals(const std::vector<NodeStmt>& stmts)
         collect_globals(func->body->stmts);
     }
 
-    m_backend->extern_sym("_sodium_exit");
-    m_backend->extern_sym("_sodium_print_int");
-    m_backend->extern_sym("_sodium_read_int");
-    m_backend->extern_sym("_sodium_malloc");
-    m_backend->extern_sym("_sodium_free");
+    m_backend_ptr->extern_sym("_sodium_exit");
+    m_backend_ptr->extern_sym("_sodium_print_int");
+    m_backend_ptr->extern_sym("_sodium_read_int");
+    m_backend_ptr->extern_sym("_sodium_malloc");
+    m_backend_ptr->extern_sym("_sodium_free");
 
     // Emit _start function to the backend directly (it's the entry point, not a compiled function)
-    m_backend->global_sym("_start");
-    m_backend->label("_start");
+    m_backend_ptr->global_sym("_start");
+    m_backend_ptr->label("_start");
 
     // Global initializers — emit as IR and flush
     if (!m_global_inits.empty()) {
@@ -1515,24 +1518,24 @@ void Generator::collect_globals(const std::vector<NodeStmt>& stmts)
 
     // Data sections
     if (!m_data_entries.empty()) {
-        m_backend->section(".data");
+        m_backend_ptr->section(".data");
         for (const auto& entry : m_data_entries) {
-            m_backend->dq(entry.name, entry.value);
+            m_backend_ptr->dq(entry.name, entry.value);
         }
     }
     if (!m_strings.empty()) {
-        m_backend->section(".rodata");
+        m_backend_ptr->section(".rodata");
         for (const auto& entry : m_strings) {
-            m_backend->db_str(entry.label, entry.value);
+            m_backend_ptr->db_str(entry.label, entry.value);
         }
     }
     if (!m_bss_entries.empty()) {
-        m_backend->section(".bss");
+        m_backend_ptr->section(".bss");
         for (const auto& entry : m_bss_entries) {
             if (entry.find(' ') != std::string::npos) {
-                m_backend->emit_insn("", entry);
+                m_backend_ptr->emit_insn("", entry);
             } else {
-                m_backend->resq(entry, 1);
+                m_backend_ptr->resq(entry, 1);
             }
         }
     }

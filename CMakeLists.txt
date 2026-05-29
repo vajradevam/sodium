@@ -6,6 +6,7 @@ set(CMAKE_CXX_STANDARD 20)
 
 set(BACKEND_SOURCES
     src/backend/x86_64/backend.cpp
+    src/backend/riscv64/backend.cpp
 )
 
 set(IR_SOURCES

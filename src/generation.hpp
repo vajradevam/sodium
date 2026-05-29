@@ -59,7 +59,10 @@ struct StructInfo {
 
 class Generator {
 public:
-    explicit Generator(NodeProg root, std::unique_ptr<Backend> backend = nullptr);
+    explicit Generator(NodeProg root, Backend& backend, const TargetRegisterInfo& tri,
+                       std::unique_ptr<Backend> owned_backend = nullptr);
+
+    void set_no_alloc(bool v) { m_no_alloc = v; }
 
     [[nodiscard]] std::string gen_prog();
 
@@ -95,11 +98,13 @@ public:
     void flush_function();
 
     /// Access the backend.
-    Backend* backend() const { return m_backend.get(); }
+    Backend& backend() const { return *m_backend_ptr; }
 
 private:
     NodeProg m_prog;
-    std::unique_ptr<Backend> m_backend;
+    Backend* m_backend_ptr;
+    std::unique_ptr<Backend> m_owned_backend;  // owned only if we created it
+    const TargetRegisterInfo* m_tri_ptr;
     std::ostringstream m_output;
     size_t m_label_count = 0;
     size_t m_string_count = 0;
@@ -123,6 +128,9 @@ private:
     };
     std::vector<DataEntry> m_data_entries;
     std::vector<std::string> m_bss_entries;
+
+    // ---- options ----
+    bool m_no_alloc = false;
 
     // ---- IR state ----
     IRBuilder m_ir;

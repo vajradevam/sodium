@@ -81,9 +81,9 @@ public:
                 break;
 
             case IROpcode::FRAME_ADDR:
-                // [rbp - (slot+1)*8] because [rbp] is the saved rbp
+                // Frame slot at [fp - (slot+1)*8]
                 m_backend.lea(preg_name(insn.dst),
-                              "[rbp - " + std::to_string((insn.imm_arg + 1) * 8) + "]");
+                              m_backend.addr_fp(-static_cast<int>((insn.imm_arg + 1) * 8)));
                 break;
 
             case IROpcode::NEG:
@@ -325,45 +325,49 @@ public:
                 }
                 if (insn.dst != IRInstruction::NONE_VREG) {
                     std::string dst_name = preg_name(insn.dst);
-                    if (dst_name != "rax") {
-                        m_backend.mov(dst_name, "rax");
+                    std::string ret_name = m_tri.name_of(m_tri.ret_reg);
+                    if (dst_name != ret_name) {
+                        m_backend.mov(dst_name, ret_name);
                     }
                 }
                 break;
             }
 
             case IROpcode::CALL_REG: {
-                // Register-based calling convention (x86-64 System V):
-                // args in rdi, rsi, rdx, rcx, r8, r9, rest on stack.
-                static const char* reg_args[] = {"rdi", "rsi", "rdx", "rcx", "r8", "r9"};
+                // Register-based calling convention:
+                // args in target's argument registers, rest on stack.
                 size_t nargs = insn.operands.size();
-                for (size_t i = 0; i < nargs && i < 6; i++) {
-                    m_backend.mov(reg_args[i], operand_name(insn, i));
+                size_t n_arg_regs = m_tri.arg_regs.size();
+                for (size_t i = 0; i < nargs && i < n_arg_regs; i++) {
+                    std::string arg_reg = m_tri.name_of(m_tri.arg_regs[i]);
+                    m_backend.mov(arg_reg, operand_name(insn, i));
                 }
-                if (nargs > 6) {
-                    for (size_t i = 6; i < nargs; i++) {
+                if (nargs > n_arg_regs) {
+                    for (size_t i = n_arg_regs; i < nargs; i++) {
                         m_backend.push(operand_name(insn, i));
                     }
                 }
                 m_backend.call(insn.call_target);
-                if (nargs > 6) {
-                    m_backend.adjust_stack(static_cast<int64_t>(nargs - 6) * 8);
+                if (nargs > n_arg_regs) {
+                    m_backend.adjust_stack(static_cast<int64_t>(nargs - n_arg_regs) * 8);
                 }
                 if (insn.dst != IRInstruction::NONE_VREG) {
                     std::string dst_name = preg_name(insn.dst);
-                    if (dst_name != "rax") {
-                        m_backend.mov(dst_name, "rax");
+                    std::string ret_name = m_tri.name_of(m_tri.ret_reg);
+                    if (dst_name != ret_name) {
+                        m_backend.mov(dst_name, ret_name);
                     }
                 }
                 break;
             }
 
             case IROpcode::RET: {
-                // Move return value to rax if it has an operand
+                // Move return value to return register
                 if (!insn.operands.empty()) {
                     std::string ret_val = operand_name(insn, 0);
-                    if (ret_val != "rax") {
-                        m_backend.mov("rax", ret_val);
+                    std::string ret_name = m_tri.name_of(m_tri.ret_reg);
+                    if (ret_val != ret_name) {
+                        m_backend.mov(ret_name, ret_val);
                     }
                 }
                 m_backend.func_epilogue();
@@ -417,19 +421,11 @@ private:
     }
 
     std::string mem_addr(const IRInstruction& insn) const {
-        std::string addr;
-        if (!insn.operands.empty()) {
-            addr = preg_name(static_cast<int>(insn.operands[0].vreg_id));
-        } else {
-            addr = "0";
+        if (insn.operands.empty()) {
+            return m_backend.addr_reg("x0");
         }
-        if (insn.imm_arg != 0) {
-            if (insn.imm_arg > 0)
-                addr += " + " + std::to_string(insn.imm_arg);
-            else
-                addr += " - " + std::to_string(-insn.imm_arg);
-        }
-        return "[" + addr + "]";
+        std::string reg = preg_name(static_cast<int>(insn.operands[0].vreg_id));
+        return m_backend.addr_reg_offset(reg, static_cast<int>(insn.imm_arg));
     }
 
     void emit_cmp(const IRInstruction& insn, const std::string& cc) {
