@@ -1,4 +1,4 @@
-# Sodium — Cyan Language Compiler
+# Cyan Language Compiler
 
 **Sodium** is a compiler for the **Cyan** programming language — a small, clean,
 compiled language targeting x86-64 Linux. Cyan is designed to be simple enough
