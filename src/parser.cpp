@@ -1112,6 +1112,20 @@ std::optional<NodeStmt> Parser::parse_stmt() {
             auto stmt_global = m_allocator.alloc<NodeStmtGlobal>();
             stmt_global->name = consume();
             stmt_global->expr = nullptr;
+            stmt_global->array_size = nullptr;
+            // Check for array syntax: static var ident[size]
+            if (peek().has_value() && peek().value().type == TokenType::open_square) {
+                consume(); // [
+                if (auto sz = parse_expr()) {
+                    stmt_global->array_size = sz.value();
+                } else {
+                    error("Expected array size expression");
+                }
+                if (!peek().has_value() || peek().value().type != TokenType::close_square) {
+                    error("Expected ']'");
+                }
+                consume(); // ]
+            }
             if (peek().has_value() && peek().value().type == TokenType::colon) {
                 consume();
                 if (!parse_type()) {
@@ -1143,6 +1157,20 @@ std::optional<NodeStmt> Parser::parse_stmt() {
             auto stmt_global = m_allocator.alloc<NodeStmtGlobal>();
             stmt_global->name = consume();
             stmt_global->expr = nullptr;
+            stmt_global->array_size = nullptr;
+            // Check for array syntax: global var ident[size]
+            if (peek().has_value() && peek().value().type == TokenType::open_square) {
+                consume(); // [
+                if (auto sz = parse_expr()) {
+                    stmt_global->array_size = sz.value();
+                } else {
+                    error("Expected array size expression");
+                }
+                if (!peek().has_value() || peek().value().type != TokenType::close_square) {
+                    error("Expected ']'");
+                }
+                consume(); // ]
+            }
             if (peek().has_value() && peek().value().type == TokenType::eq) {
                 consume();
                 if (auto expr = parse_expr()) {

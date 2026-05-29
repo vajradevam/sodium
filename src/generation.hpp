@@ -82,7 +82,9 @@ private:
     std::vector<LoopContext> m_loop_stack;
     std::vector<std::string> m_break_stack;
     std::unordered_map<std::string, bool> m_globals;
+    std::unordered_map<std::string, Var> m_global_var_info;
     std::unordered_map<std::string, int64_t> m_constants;
+    std::unordered_map<std::string, bool> m_func_names;
     std::vector<GlobalInit> m_global_inits;
     struct DataEntry {
         std::string name;

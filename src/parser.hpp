@@ -165,6 +165,7 @@ struct NodeStmt {
 struct NodeStmtGlobal {
     Token name;
     NodeExpr* expr; // nullptr = zero-init (.bss)
+    NodeExpr* array_size = nullptr; // nullptr = scalar, or array count
 };
 
 struct NodeStmtConst {

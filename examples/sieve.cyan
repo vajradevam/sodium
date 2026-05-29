@@ -1,12 +1,12 @@
 // ── Prime Sieve ────────────────────────────────────────────────────
 // Sieve of Eratosthenes — find primes up to 100.
+// Uses a global array to store the sieve.
 
 const N = 100;
 
-function sieve() {
-    var is_prime[N + 1];
-    var count = 0;
+global var is_prime[N + 1];
 
+function sieve() {
     // Initialize all as prime (1 = true), except 0 and 1
     is_prime[0] = 0;
     is_prime[1] = 0;
@@ -22,18 +22,16 @@ function sieve() {
             }
         }
     }
-
-    // Print primes found (reuse i since initialization loop is done)
-    i = 2;
-    while (i <= N) {
-        if (is_prime[i] == 1) {
-            print(i);
-            count++;
-        }
-        i++;
-    }
-    return(count);
 }
 
-var primes = sieve();
-return(primes);
+sieve();
+
+// Print primes found
+var count = 0;
+for (var i = 2; i <= N; i++) {
+    if (is_prime[i] == 1) {
+        print(i);
+        count++;
+    }
+}
+return(count);

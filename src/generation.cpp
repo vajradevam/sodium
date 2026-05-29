@@ -131,16 +131,37 @@ void Generator::gen_expr(const NodeExpr& expr)
 
             void operator()(const NodeExprIndex* expr_index)
             {
-                auto var = gen->lookup_var(expr_index->name.value.value(), expr_index->name.loc);
-                gen->gen_expr(*expr_index->index);
-                gen->pop("rdi");
-                size_t base_offset = (gen->m_stack_size - var.stack_loc - 1) * 8;
-                gen->m_output << "    lea rax, [rsp + " << base_offset << "]\n";
-                gen->m_output << "    mov rcx, rdi\n";
-                gen->m_output << "    shl rcx, 3\n";
-                gen->m_output << "    sub rax, rcx\n";
-                gen->m_output << "    mov rax, [rax]\n";
-                gen->push("rax");
+                const auto& name = expr_index->name.value.value();
+                // Try local scope first
+                for (auto it = gen->m_scopes.rbegin(); it != gen->m_scopes.rend(); ++it) {
+                    if (it->vars.contains(name)) {
+                        const auto var = it->vars.at(name);
+                        gen->gen_expr(*expr_index->index);
+                        gen->pop("rdi");
+                        size_t base_offset = (gen->m_stack_size - var.stack_loc - 1) * 8;
+                        gen->m_output << "    lea rax, [rsp + " << base_offset << "]\n";
+                        gen->m_output << "    mov rcx, rdi\n";
+                        gen->m_output << "    shl rcx, 3\n";
+                        gen->m_output << "    sub rax, rcx\n";
+                        gen->m_output << "    mov rax, [rax]\n";
+                        gen->push("rax");
+                        return;
+                    }
+                }
+                // Try global
+                if (gen->m_global_var_info.contains(name)) {
+                    const auto var = gen->m_global_var_info.at(name);
+                    gen->gen_expr(*expr_index->index);
+                    gen->pop("rdi");
+                    gen->m_output << "    lea rax, [rel " << name << "]\n";
+                    gen->m_output << "    mov rcx, rdi\n";
+                    gen->m_output << "    shl rcx, 3\n";
+                    gen->m_output << "    add rax, rcx\n";
+                    gen->m_output << "    mov rax, [rax]\n";
+                    gen->push("rax");
+                    return;
+                }
+                lsp_exit(expr_index->name.loc, "Undeclared identifier: " + name);
             }
 
             void operator()(const NodeExprBitNot* bit_not)
@@ -218,10 +239,14 @@ void Generator::gen_expr(const NodeExpr& expr)
 
             void operator()(const NodeExprCall* expr_call)
             {
+                const auto& fname = expr_call->name.value.value();
+                if (!gen->m_func_names.contains(fname)) {
+                    lsp_exit(expr_call->name.loc, "Undefined function: " + fname);
+                }
                 for (auto it = expr_call->args.rbegin(); it != expr_call->args.rend(); ++it) {
                     gen->gen_expr(**it);
                 }
-                gen->m_output << "    call " << expr_call->name.value.value() << "\n";
+                gen->m_output << "    call " << fname << "\n";
                 size_t arg_count = expr_call->args.size();
                 if (arg_count > 0) {
                     gen->m_output << "    add rsp, " << arg_count * 8 << "\n";
@@ -762,17 +787,34 @@ void Generator::gen_stmt(const NodeStmt& stmt)
 
             void operator()(const NodeStmtArrAssign* stmt_arr_assign) const
             {
+                const auto& name = stmt_arr_assign->name.value.value();
                 gen->gen_expr(*stmt_arr_assign->index);
                 gen->gen_expr(*stmt_arr_assign->expr);
                 gen->pop("rax");
                 gen->pop("rdi");
-                auto var = gen->lookup_var(stmt_arr_assign->name.value.value(), stmt_arr_assign->name.loc);
-                size_t base_offset = (gen->m_stack_size - var.stack_loc - 1) * 8;
-                gen->m_output << "    lea rcx, [rsp + " << base_offset << "]\n";
-                gen->m_output << "    mov rsi, rdi\n";
-                gen->m_output << "    shl rsi, 3\n";
-                gen->m_output << "    sub rcx, rsi\n";
-                gen->m_output << "    mov [rcx], rax\n";
+                // Try local scope first
+                for (auto it = gen->m_scopes.rbegin(); it != gen->m_scopes.rend(); ++it) {
+                    if (it->vars.contains(name)) {
+                        const auto var = it->vars.at(name);
+                        size_t base_offset = (gen->m_stack_size - var.stack_loc - 1) * 8;
+                        gen->m_output << "    lea rcx, [rsp + " << base_offset << "]\n";
+                        gen->m_output << "    mov rsi, rdi\n";
+                        gen->m_output << "    shl rsi, 3\n";
+                        gen->m_output << "    sub rcx, rsi\n";
+                        gen->m_output << "    mov [rcx], rax\n";
+                        return;
+                    }
+                }
+                // Try global
+                if (gen->m_global_var_info.contains(name)) {
+                    gen->m_output << "    lea rcx, [rel " << name << "]\n";
+                    gen->m_output << "    mov rsi, rdi\n";
+                    gen->m_output << "    shl rsi, 3\n";
+                    gen->m_output << "    add rcx, rsi\n";
+                    gen->m_output << "    mov [rcx], rax\n";
+                    return;
+                }
+                lsp_exit(stmt_arr_assign->name.loc, "Undeclared identifier: " + name);
             }
 
             void operator()(const NodeStmtReturn* stmt_ret) const
@@ -863,6 +905,8 @@ void Generator::gen_stmt(const NodeStmt& stmt)
 
             void operator()(const NodeStmtFor* stmt_for) const
             {
+                gen->enter_scope();
+
                 if (stmt_for->init.has_value()) {
                     gen->gen_stmt(stmt_for->init.value());
                 }
@@ -901,6 +945,8 @@ void Generator::gen_stmt(const NodeStmt& stmt)
 
                 gen->m_loop_stack.pop_back();
                 gen->m_break_stack.pop_back();
+
+                gen->exit_scope();
             }
 
             void operator()(const NodeStmtBreak* stmt_break) const
@@ -1076,14 +1122,27 @@ void Generator::collect_globals(const std::vector<NodeStmt>& stmts)
         for (const auto& stmt : stmts) {
             if (auto* global = std::get_if<NodeStmtGlobal*>(&stmt.var)) {
                 const auto& name = (*global)->name.value.value();
+                // Determine array size if any
+                size_t arr_size = 0;
+                if ((*global)->array_size) {
+                    auto const_size = eval_const_expr((*global)->array_size);
+                    if (!const_size.has_value()) {
+                        lsp_exit((*global)->name.loc, "Global array size must be a compile-time constant expression");
+                    }
+                    arr_size = static_cast<size_t>(const_size.value());
+                }
                 m_globals[name] = true;
-                if ((*global)->expr) {
+                if (arr_size > 0) {
+                    m_global_var_info[name] = Var { .stack_loc = 0, .array_size = arr_size };
+                    // Arrays go in .bss (zero-initialized)
+                    m_bss_entries.push_back(name + ": resq " + std::to_string(arr_size));
+                } else if ((*global)->expr) {
                     if (auto* int_lit = std::get_if<NodeExprIntLit*>(&(*global)->expr->var)) {
                         // Constant initializer: store directly in .data
                         m_data_entries.push_back({name, (*int_lit)->int_lit.value.value()});
                     } else {
                         // Non-constant initializer: allocate zero in .data,
-                        // register runtime init (must be evaluable at _start).
+                        // register runtime init
                         m_data_entries.push_back({name, "0"});
                         m_global_inits.push_back({name, (*global)->expr});
                     }
@@ -1120,6 +1179,11 @@ void Generator::collect_globals(const std::vector<NodeStmt>& stmts)
 
 [[nodiscard]] std::string Generator::gen_prog()
 {
+        // Populate function names for undefined-function check
+        for (const auto* func : m_prog.funcs) {
+            m_func_names[func->name.value.value()] = true;
+        }
+
         // Pre-collect global/static declarations from top-level stmts and all
         // function bodies before any code emission. This ensures m_global_inits,
         // m_data_entries, and m_bss_entries are fully populated before the
@@ -1166,7 +1230,12 @@ void Generator::collect_globals(const std::vector<NodeStmt>& stmts)
         if (!m_bss_entries.empty()) {
             m_output << "section .bss\n";
             for (const auto& entry : m_bss_entries) {
-                m_output << entry << ": resq 1\n";
+                // entry can be "name: resq N" (array) or just "name" (scalar)
+                if (entry.find(' ') != std::string::npos) {
+                    m_output << entry << "\n";
+                } else {
+                    m_output << entry << ": resq 1\n";
+                }
             }
         }
 
