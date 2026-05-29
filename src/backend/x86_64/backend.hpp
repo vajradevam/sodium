@@ -14,21 +14,6 @@ public:
     void set_output(std::ostream& os) override;
     std::ostream& output() override;
 
-    // Registers
-    std::string rax() const override;
-    std::string rbx() const override;
-    std::string rcx() const override;
-    std::string rdx() const override;
-    std::string rdi() const override;
-    std::string rsi() const override;
-    std::string r8() const override;
-    std::string r9() const override;
-    std::string r10() const override;
-    std::string rsp() const override;
-    std::string rbp() const override;
-    std::string acc() const override;
-    std::string arg(size_t n) const override;
-
     // Stack
     void push(const std::string& reg) override;
     void pop(const std::string& reg) override;
@@ -45,6 +30,15 @@ public:
     void store(const std::string& addr, const std::string& reg) override;
     void mov(const std::string& dst, const std::string& src) override;
     void lea(const std::string& reg, const std::string& addr) override;
+    void load_s8(const std::string& dst, const std::string& addr) override;
+    void load_u8(const std::string& dst, const std::string& addr) override;
+    void load_s16(const std::string& dst, const std::string& addr) override;
+    void load_u16(const std::string& dst, const std::string& addr) override;
+    void load_s32(const std::string& dst, const std::string& addr) override;
+    void load_u32(const std::string& dst, const std::string& addr) override;
+    void store_8(const std::string& addr, const std::string& src) override;
+    void store_16(const std::string& addr, const std::string& src) override;
+    void store_32(const std::string& addr, const std::string& src) override;
     void movzx(const std::string& dst, const std::string& src, size_t src_bits) override;
     void movsx(const std::string& dst, const std::string& src, size_t src_bits) override;
 
@@ -52,7 +46,10 @@ public:
     void add(const std::string& dst, const std::string& src) override;
     void sub(const std::string& dst, const std::string& src) override;
     void mul(const std::string& dst, const std::string& src) override;
-    void div(const std::string& divisor) override;
+    void signed_div(const std::string& dst, const std::string& dividend,
+                    const std::string& divisor) override;
+    void signed_mod(const std::string& dst, const std::string& dividend,
+                    const std::string& divisor) override;
     void neg(const std::string& reg) override;
     void not_(const std::string& reg) override;
     void xor_(const std::string& dst, const std::string& src) override;
@@ -60,11 +57,11 @@ public:
     void or_(const std::string& dst, const std::string& src) override;
     void shl(const std::string& dst, const std::string& src) override;
     void shr(const std::string& dst, const std::string& src) override;
+    void ashr(const std::string& dst, const std::string& src) override;
 
     // Comparison
     void cmp(const std::string& a, const std::string& b) override;
     void test(const std::string& reg, const std::string& mask) override;
-    void cmp_byte_mem_imm(const std::string& addr, int8_t imm) override;
 
     // Branches
     void jmp(const std::string& label) override;
@@ -81,7 +78,6 @@ public:
     // Control
     void call(const std::string& target) override;
     void syscall() override;
-    void sign_extend_rax() override;
 
     // Generic instruction emission
     void emit_insn(const std::string& insn, const std::string& ops = "") override;
@@ -108,4 +104,7 @@ public:
 
 private:
     std::ostream* m_output;
+
+    /// Helper: emit `cqo` (sign-extend rax into rdx:rax for idiv).
+    void emit_cqo();
 };

@@ -21,24 +21,8 @@ void X8664Backend::emit_insn(const std::string& insn, const std::string& ops) {
         *m_output << "    " << insn << " " << ops << "\n";
 }
 
-// ---- registers ----
-
-std::string X8664Backend::rax() const { return "rax"; }
-std::string X8664Backend::rbx() const { return "rbx"; }
-std::string X8664Backend::rcx() const { return "rcx"; }
-std::string X8664Backend::rdx() const { return "rdx"; }
-std::string X8664Backend::rdi() const { return "rdi"; }
-std::string X8664Backend::rsi() const { return "rsi"; }
-std::string X8664Backend::r8() const  { return "r8"; }
-std::string X8664Backend::r9() const  { return "r9"; }
-std::string X8664Backend::r10() const { return "r10"; }
-std::string X8664Backend::rsp() const { return "rsp"; }
-std::string X8664Backend::rbp() const { return "rbp"; }
-std::string X8664Backend::acc() const { return "rax"; }
-std::string X8664Backend::arg(size_t n) const {
-    static const char* args[] = {"rdi", "rsi", "rdx", "rcx", "r8", "r9"};
-    if (n < 6) return args[n];
-    return "";  // stack args not handled yet
+void X8664Backend::emit_cqo() {
+    emit_insn("cqo");
 }
 
 // ---- stack ----
@@ -97,8 +81,48 @@ void X8664Backend::lea(const std::string& reg, const std::string& addr) {
     emit_insn("lea", reg + ", " + addr);
 }
 
+// ---- width-specific loads ----
+
+void X8664Backend::load_s8(const std::string& dst, const std::string& addr) {
+    emit_insn("movsx", dst + ", byte " + addr);
+}
+
+void X8664Backend::load_u8(const std::string& dst, const std::string& addr) {
+    emit_insn("movzx", dst + ", byte " + addr);
+}
+
+void X8664Backend::load_s16(const std::string& dst, const std::string& addr) {
+    emit_insn("movsx", dst + ", word " + addr);
+}
+
+void X8664Backend::load_u16(const std::string& dst, const std::string& addr) {
+    emit_insn("movzx", dst + ", word " + addr);
+}
+
+void X8664Backend::load_s32(const std::string& dst, const std::string& addr) {
+    emit_insn("movsx", dst + ", dword " + addr);
+}
+
+void X8664Backend::load_u32(const std::string& dst, const std::string& addr) {
+    emit_insn("mov", "eax, dword " + addr);
+}
+
+// ---- width-specific stores ----
+
+void X8664Backend::store_8(const std::string& addr, const std::string& src) {
+    emit_insn("mov", "byte " + addr + ", " + src);
+}
+
+void X8664Backend::store_16(const std::string& addr, const std::string& src) {
+    emit_insn("mov", "word " + addr + ", " + src);
+}
+
+void X8664Backend::store_32(const std::string& addr, const std::string& src) {
+    emit_insn("mov", "dword " + addr + ", " + src);
+}
+
 void X8664Backend::movzx(const std::string& dst, const std::string& src, size_t src_bits) {
-    (void)src_bits;  // x86-64 handles this via operand size
+    (void)src_bits;
     emit_insn("movzx", dst + ", " + src);
 }
 
@@ -121,8 +145,29 @@ void X8664Backend::mul(const std::string& dst, const std::string& src) {
     emit_insn("imul", dst + ", " + src);
 }
 
-void X8664Backend::div(const std::string& divisor) {
-    emit_insn("idiv", divisor);
+void X8664Backend::signed_div(const std::string& dst, const std::string& dividend,
+                               const std::string& divisor) {
+    // x86-64: idiv requires dividend in rdx:rax, divisor in r/m
+    // We use rdi for divisor (safe scratch), rax for dividend, cqo for sign-extend
+    mov("rdi", divisor);
+    mov("rax", dividend);
+    emit_cqo();
+    emit_insn("idiv", "rdi");
+    if (dst != "rax") {
+        mov(dst, "rax");
+    }
+}
+
+void X8664Backend::signed_mod(const std::string& dst, const std::string& dividend,
+                               const std::string& divisor) {
+    // x86-64: remainder ends up in rdx after idiv
+    mov("rdi", divisor);
+    mov("rax", dividend);
+    emit_cqo();
+    emit_insn("idiv", "rdi");
+    if (dst != "rdx") {
+        mov(dst, "rdx");
+    }
 }
 
 void X8664Backend::neg(const std::string& reg) {
@@ -153,6 +198,10 @@ void X8664Backend::shr(const std::string& dst, const std::string& src) {
     emit_insn("shr", dst + ", " + src);
 }
 
+void X8664Backend::ashr(const std::string& dst, const std::string& src) {
+    emit_insn("sar", dst + ", " + src);
+}
+
 // ---- comparison ----
 
 void X8664Backend::cmp(const std::string& a, const std::string& b) {
@@ -161,10 +210,6 @@ void X8664Backend::cmp(const std::string& a, const std::string& b) {
 
 void X8664Backend::test(const std::string& reg, const std::string& mask) {
     emit_insn("test", reg + ", " + mask);
-}
-
-void X8664Backend::cmp_byte_mem_imm(const std::string& addr, int8_t imm) {
-    emit_insn("cmp", "byte " + addr + ", " + std::to_string(imm));
 }
 
 // ---- branches ----
@@ -217,10 +262,6 @@ void X8664Backend::call(const std::string& target) {
 
 void X8664Backend::syscall() {
     emit_insn("syscall");
-}
-
-void X8664Backend::sign_extend_rax() {
-    emit_insn("cqo");
 }
 
 // ---- labels / directives ----

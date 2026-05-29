@@ -142,30 +142,17 @@ public:
                 break;
 
             case IROpcode::DIV:
-                // Use rdi for divisor (safe from cqo clobber and won't conflict with rax)
-                m_backend.mov("rdi", operand_name(insn, 1));
-                m_backend.mov("rax", operand_name(insn, 0));
-                m_backend.sign_extend_rax();
-                m_backend.div("rdi");
-                {
-                    std::string dst = preg_name(insn.dst);
-                    if (dst != "rax") {
-                        m_backend.mov(dst, "rax");
-                    }
-                }
+                // Use backend's signed_div which handles target-specific
+                // division constraints (x86-64: cqo + idiv; RISC-V: div)
+                m_backend.signed_div(preg_name(insn.dst),
+                                     operand_name(insn, 0),
+                                     operand_name(insn, 1));
                 break;
 
             case IROpcode::MOD:
-                m_backend.mov("rdi", operand_name(insn, 1));
-                m_backend.mov("rax", operand_name(insn, 0));
-                m_backend.sign_extend_rax();
-                m_backend.div("rdi");
-                {
-                    std::string dst = preg_name(insn.dst);
-                    if (dst != "rdx") {
-                        m_backend.mov(dst, "rdx");
-                    }
-                }
+                m_backend.signed_mod(preg_name(insn.dst),
+                                     operand_name(insn, 0),
+                                     operand_name(insn, 1));
                 break;
 
             case IROpcode::AND:
@@ -194,7 +181,7 @@ public:
                     if (dst == "rcx") {
                         m_backend.mov("r11", operand_name(insn, 0));
                         m_backend.mov("rcx", operand_name(insn, 1));
-                        m_backend.emit_insn("shl", "r11, cl");
+                        m_backend.shl("r11", "cl");
                         m_backend.mov("rcx", "r11");
                     } else {
                         m_backend.mov(dst, operand_name(insn, 0));
@@ -214,7 +201,7 @@ public:
                     if (dst == "rcx") {
                         m_backend.mov("r11", operand_name(insn, 0));
                         m_backend.mov("rcx", operand_name(insn, 1));
-                        m_backend.emit_insn("shr", "r11, cl");
+                        m_backend.shr("r11", "cl");
                         m_backend.mov("rcx", "r11");
                     } else {
                         m_backend.mov(dst, operand_name(insn, 0));
@@ -230,12 +217,12 @@ public:
                 if (dst == "rcx") {
                     m_backend.mov("r11", operand_name(insn, 0));
                     m_backend.mov("rcx", operand_name(insn, 1));
-                    m_backend.emit_insn("sar", "r11, cl");
+                    m_backend.ashr("r11", "cl");
                     m_backend.mov("rcx", "r11");
                 } else {
                     m_backend.mov(dst, operand_name(insn, 0));
                     m_backend.mov("rcx", operand_name(insn, 1));
-                    m_backend.emit_insn("sar", dst + ", cl");
+                    m_backend.ashr(dst, "cl");
                 }
                 break;
             }
@@ -266,46 +253,43 @@ public:
                 break;
 
             case IROpcode::LOAD_S8:
-                // movsx with byte memory
-                m_backend.emit_insn("movsx", preg_name(insn.dst) + ", byte " + mem_addr(insn));
+                m_backend.load_s8(preg_name(insn.dst), mem_addr(insn));
                 break;
 
             case IROpcode::LOAD_U8:
-                // movzx with byte memory
-                m_backend.emit_insn("movzx", preg_name(insn.dst) + ", byte " + mem_addr(insn));
+                m_backend.load_u8(preg_name(insn.dst), mem_addr(insn));
                 break;
 
             case IROpcode::LOAD_S16:
-                m_backend.emit_insn("movsx", preg_name(insn.dst) + ", word " + mem_addr(insn));
+                m_backend.load_s16(preg_name(insn.dst), mem_addr(insn));
                 break;
 
             case IROpcode::LOAD_U16:
-                m_backend.emit_insn("movzx", preg_name(insn.dst) + ", word " + mem_addr(insn));
+                m_backend.load_u16(preg_name(insn.dst), mem_addr(insn));
                 break;
 
             case IROpcode::LOAD_S32:
-                m_backend.emit_insn("movsx", preg_name(insn.dst) + ", dword " + mem_addr(insn));
+                m_backend.load_s32(preg_name(insn.dst), mem_addr(insn));
                 break;
 
             case IROpcode::LOAD_U32:
-                m_backend.emit_insn("mov", "eax, dword " + mem_addr(insn));
+                m_backend.load_u32(preg_name(insn.dst), mem_addr(insn));
                 break;
 
             case IROpcode::STORE:
-                // store(addr, reg)
                 m_backend.store(mem_addr(insn), operand_name(insn, 1));
                 break;
 
             case IROpcode::STORE_8:
-                m_backend.emit_insn("mov", "byte " + mem_addr(insn) + ", " + operand_name(insn, 1));
+                m_backend.store_8(mem_addr(insn), operand_name(insn, 1));
                 break;
 
             case IROpcode::STORE_16:
-                m_backend.emit_insn("mov", "word " + mem_addr(insn) + ", " + operand_name(insn, 1));
+                m_backend.store_16(mem_addr(insn), operand_name(insn, 1));
                 break;
 
             case IROpcode::STORE_32:
-                m_backend.emit_insn("mov", "dword " + mem_addr(insn) + ", " + operand_name(insn, 1));
+                m_backend.store_32(mem_addr(insn), operand_name(insn, 1));
                 break;
 
             case IROpcode::LEA:
@@ -321,7 +305,6 @@ public:
                 break;
 
             case IROpcode::BR: {
-                // Branch on non-zero: test reg, jnz true, jmp false
                 std::string reg = operand_name(insn, 0);
                 m_backend.test(reg, reg);
                 m_backend.jnz(mangle_label(insn.label_true));
