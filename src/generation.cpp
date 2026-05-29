@@ -192,6 +192,11 @@ void Generator::gen_expr(const NodeExpr& expr)
 
             void operator()(const NodeExprRead*) const
             {
+                gen->m_output << "    call _sodium_read_int\n";
+                gen->m_output << "    push rax\n";
+                gen->m_stack_size++;
+                return;
+                // dead code below, replaced by runtime call above
                 auto label_loop = gen->new_label();
                 auto label_done = gen->new_label();
                 auto label_pos = gen->new_label();
@@ -559,9 +564,9 @@ void Generator::gen_stmt(const NodeStmt& stmt)
             void operator()(const NodeStmtExit* stmt_exit) const
             {
                 gen->gen_expr(*stmt_exit->expr);
-                gen->m_output << "    mov rax, 60\n";
                 gen->pop("rdi");
-                gen->m_output << "    syscall\n";
+                gen->m_output << "    call _sodium_exit\n";
+                gen->m_emitted_exit = true;
             }
 
             void operator()(const NodeStmtLet* stmt_let) const
@@ -952,71 +957,19 @@ void Generator::gen_stmt(const NodeStmt& stmt)
                         lsp_exit(stmt_ret->loc, "return with no value at top level");
                     }
                     gen->gen_expr(*stmt_ret->expr);
-                    gen->m_output << "    mov rax, 60\n";
                     gen->pop("rdi");
-                    gen->m_output << "    syscall\n";
+                    gen->m_output << "    call _sodium_exit\n";
                     gen->m_emitted_exit = true;
                 }
             }
 
-            void operator()(const NodeStmtPrint* stmt_print) const
+                        void operator()(const NodeStmtPrint* stmt_print) const
             {
                 gen->gen_expr(*stmt_print->expr);
-
-                gen->m_output << "    pop rax\n";
-                gen->m_stack_size--;
-
-                gen->m_output << "    sub rsp, 32\n";
-                gen->m_output << "    mov rdi, rsp\n";
-                gen->m_output << "    add rdi, 31\n";
-                gen->m_output << "    mov byte [rdi], 10\n";
-
-                auto label_non_zero = gen->new_label();
-                auto label_neg_ok = gen->new_label();
-                auto label_done = gen->new_label();
-                auto label_loop = gen->new_label();
-
-                gen->m_output << "    test rax, rax\n";
-                gen->m_output << "    jnz " << label_non_zero << "\n";
-                gen->m_output << "    dec rdi\n";
-                gen->m_output << "    mov byte [rdi], '0'\n";
-                gen->m_output << "    jmp " << label_done << "\n";
-
-                gen->m_output << label_non_zero << ":\n";
-                gen->m_output << "    mov r8, 0\n";
-                gen->m_output << "    cmp rax, 0\n";
-                gen->m_output << "    jge " << label_neg_ok << "\n";
-                gen->m_output << "    mov r8, 1\n";
-                gen->m_output << "    neg rax\n";
-                gen->m_output << label_neg_ok << ":\n";
-
-                gen->m_output << label_loop << ":\n";
-                gen->m_output << "    dec rdi\n";
-                gen->m_output << "    mov rcx, 10\n";
-                gen->m_output << "    xor rdx, rdx\n";
-                gen->m_output << "    div rcx\n";
-                gen->m_output << "    add dl, '0'\n";
-                gen->m_output << "    mov [rdi], dl\n";
-                gen->m_output << "    test rax, rax\n";
-                gen->m_output << "    jnz " << label_loop << "\n";
-
-                gen->m_output << "    cmp r8, 1\n";
-                gen->m_output << "    jne " << label_done << "\n";
-                gen->m_output << "    dec rdi\n";
-                gen->m_output << "    mov byte [rdi], '-'\n";
-
-                gen->m_output << label_done << ":\n";
-                gen->m_output << "    mov rsi, rdi\n";
-                gen->m_output << "    mov rdx, rsp\n";
-                gen->m_output << "    add rdx, 32\n";
-                gen->m_output << "    sub rdx, rsi\n";
-                gen->m_output << "    mov rax, 1\n";
-                gen->m_output << "    mov rdi, 1\n";
-                gen->m_output << "    syscall\n";
-                gen->m_output << "    add rsp, 32\n";
+                gen->pop("rdi");
+                gen->m_output << "    call _sodium_print_int\n";
             }
-
-            void operator()(const NodeStmtBlock* stmt_block) const
+void operator()(const NodeStmtBlock* stmt_block) const
             {
                 gen->enter_scope();
                 for (const auto& s : stmt_block->block->stmts) {
@@ -1457,7 +1410,13 @@ void Generator::collect_globals(const std::vector<NodeStmt>& stmts)
             collect_globals(func->body->stmts);
         }
 
-        m_output << "global _start\n_start:\n";
+                m_output << "extern _sodium_exit\n";
+        m_output << "extern _sodium_print_int\n";
+        m_output << "extern _sodium_read_int\n";
+        m_output << "extern _sodium_malloc\n";
+        m_output << "extern _sodium_free\n";
+
+m_output << "global _start\n_start:\n";
 
         for (const auto& init : m_global_inits) {
             gen_expr(*init.expr);
@@ -1470,9 +1429,8 @@ void Generator::collect_globals(const std::vector<NodeStmt>& stmts)
         }
 
         if (!m_emitted_exit) {
-            m_output << "    mov rax, 60\n";
             m_output << "    mov rdi, 0\n";
-            m_output << "    syscall\n";
+            m_output << "    call _sodium_exit\n";
         }
 
         for (const auto& func : m_prog.funcs) {
@@ -1502,25 +1460,6 @@ void Generator::collect_globals(const std::vector<NodeStmt>& stmts)
                 }
             }
         }
-
-        // Heap allocator (bump allocator using brk syscall)
-        m_output << "section .text\n";
-        m_output << "_sodium_malloc:\n";
-        m_output << "    ; rdi = size\n";
-        m_output << "    push rdi\n";
-        m_output << "    mov rax, 12\n";  // brk syscall
-        m_output << "    xor rdi, rdi\n";  // get current break
-        m_output << "    syscall\n";
-        m_output << "    pop rdi\n";
-        m_output << "    push rax\n";      // save old break (allocated address)
-        m_output << "    add rdi, rax\n";   // new break = old + size
-        m_output << "    mov rax, 12\n";    // brk syscall
-        m_output << "    syscall\n";
-        m_output << "    pop rax\n";        // return old break
-        m_output << "    ret\n";
-        m_output << "_sodium_free:\n";
-        m_output << "    ; rdi = ptr (ignored - bump allocator, no-op free)\n";
-        m_output << "    ret\n";
 
         return m_output.str();
 }

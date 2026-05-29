@@ -85,7 +85,7 @@ int main(int argc, char* argv[]) {
         }
     }
     {
-        int ret = system("ld -o out ./out.o");
+        int ret = system("ld -o out ./out.o sodium-rt/sodium-rt.a");
         if (ret != 0) {
             std::cerr << "linking failed (exit code " << ret << ")" << std::endl;
             exit(EXIT_FAILURE);
