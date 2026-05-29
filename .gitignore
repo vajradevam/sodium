@@ -2,3 +2,4 @@ build/
 out
 out.asm
 out.o
+BUGS.md
