@@ -1,7 +1,6 @@
 #!/bin/bash
 
 COMPILER="./build/sodium"
-TEST_DIR="tests"
 PASS=0
 FAIL=0
 
@@ -9,103 +8,98 @@ GREEN='\033[0;32m'
 RED='\033[0;31m'
 NC='\033[0m'
 
-# Tests that check only exit code
-declare -A EXIT_TESTS
-EXIT_TESTS["test.cyan"]=10
-EXIT_TESTS["test_arith.cyan"]=11
-EXIT_TESTS["test_arith2.cyan"]=7
-EXIT_TESTS["test_chain.cyan"]=47
-EXIT_TESTS["test_cmp.cyan"]=2
-EXIT_TESTS["test_complex.cyan"]=120
-EXIT_TESTS["test_if.cyan"]=100
-EXIT_TESTS["test_nested_if.cyan"]=2
-EXIT_TESTS["test_paren.cyan"]=16
-EXIT_TESTS["test_while.cyan"]=5
-EXIT_TESTS["test_logical.cyan"]=7
-EXIT_TESTS["test_for.cyan"]=45
-EXIT_TESTS["test_scoping.cyan"]=15
-EXIT_TESTS["test_func_basic.cyan"]=10
-EXIT_TESTS["test_func_multi.cyan"]=20
-EXIT_TESTS["test_func_rec.cyan"]=176
-EXIT_TESTS["test_arrays.cyan"]=29
-EXIT_TESTS["test_lte_gte.cyan"]=4
-EXIT_TESTS["test_unary.cyan"]=5
-EXIT_TESTS["test_strings.cyan"]=0
-EXIT_TESTS["test_standalone_block.cyan"]=6
-EXIT_TESTS["test_nested_loops.cyan"]=225
-EXIT_TESTS["test_nested_if_while.cyan"]=15
-EXIT_TESTS["test_else_if.cyan"]=0
-EXIT_TESTS["test_else_if2.cyan"]=0
-EXIT_TESTS["test_else_if3.cyan"]=0
-EXIT_TESTS["test_else_if4.cyan"]=0
-EXIT_TESTS["test_break.cyan"]=3
-EXIT_TESTS["test_continue.cyan"]=43
-EXIT_TESTS["test_break_for.cyan"]=10
-EXIT_TESTS["test_continue_for.cyan"]=46
-EXIT_TESTS["test_nested_break.cyan"]=9
-EXIT_TESTS["test_compound_assign.cyan"]=6
-EXIT_TESTS["test_compound_assign2.cyan"]=55
-EXIT_TESTS["test_inc_dec.cyan"]=5
-EXIT_TESTS["test_inc_dec_loop.cyan"]=55
-EXIT_TESTS["test_inc_dec_loop2.cyan"]=55
-EXIT_TESTS["test_mod.cyan"]=3
-EXIT_TESTS["test_mod_loop.cyan"]=25
-EXIT_TESTS["test_bitwise.cyan"]=26
-EXIT_TESTS["test_bitwise2.cyan"]=6
-EXIT_TESTS["test_ternary.cyan"]=30
-EXIT_TESTS["test_ternary2.cyan"]=50
-EXIT_TESTS["test_mod_assign.cyan"]=1
-EXIT_TESTS["test_bitwise_assign.cyan"]=30
-EXIT_TESTS["test_do_while.cyan"]=10
-EXIT_TESTS["test_do_while_break.cyan"]=5
-EXIT_TESTS["test_do_while_continue.cyan"]=12
-EXIT_TESTS["test_switch.cyan"]=30
-EXIT_TESTS["test_switch_break.cyan"]=20
-EXIT_TESTS["test_switch_default.cyan"]=99
-EXIT_TESTS["test_switch_continue.cyan"]=12
-EXIT_TESTS["test_global.cyan"]=15
-EXIT_TESTS["test_global_func.cyan"]=3
-EXIT_TESTS["test_arr_lit.cyan"]=150
-EXIT_TESTS["test_types.cyan"]=44
-EXIT_TESTS["test_types_compound.cyan"]=15
-EXIT_TESTS["test_static.cyan"]=123
-EXIT_TESTS["test_for_compound_update.cyan"]=55
-EXIT_TESTS["test_for_global_update.cyan"]=10
-
-# Tests that should fail to compile (compiler exits non-zero)
-declare -a COMPILE_FAIL_TESTS
-COMPILE_FAIL_TESTS+=("test_arr_scalar_assign.cyan")
-COMPILE_FAIL_TESTS+=("include_test/test_include_missing.cyan")
-
-# Tests that also check stdout
-declare -A STDOUT_TESTS
-STDOUT_TESTS["test_print.cyan"]=0
-
-# Tests requiring stdin input (testname|expected_exit|stdin_value)
-declare -A STDIN_TESTS
-STDIN_TESTS["test_read.cyan|42"]=42
-
-# Tests that use #include (need -I flag)
-declare -A INCLUDE_DIR_TESTS
-INCLUDE_DIR_TESTS["include_test/test_include_basic.cyan"]=30
-INCLUDE_DIR_TESTS["include_test/test_pragma_once.cyan"]=70
-
 echo "========================================"
 echo "  Cyan Compiler Test Suite"
 echo "========================================"
 echo ""
 
-for test_file in "${!EXIT_TESTS[@]}"; do
-    expected_exit=${EXIT_TESTS[$test_file]}
+# ── Unit tests (tests/unit/) ───────────────────────────────────────
+declare -A UNIT_TESTS
+UNIT_TESTS["test.cyan"]=10
+UNIT_TESTS["test_arith.cyan"]=11
+UNIT_TESTS["test_arith2.cyan"]=7
+UNIT_TESTS["test_chain.cyan"]=47
+UNIT_TESTS["test_cmp.cyan"]=2
+UNIT_TESTS["test_if.cyan"]=100
+UNIT_TESTS["test_nested_if.cyan"]=2
+UNIT_TESTS["test_paren.cyan"]=16
+UNIT_TESTS["test_while.cyan"]=5
+UNIT_TESTS["test_logical.cyan"]=7
+UNIT_TESTS["test_for.cyan"]=45
+UNIT_TESTS["test_scoping.cyan"]=15
+UNIT_TESTS["test_func_basic.cyan"]=10
+UNIT_TESTS["test_func_multi.cyan"]=20
+UNIT_TESTS["test_func_rec.cyan"]=176
+UNIT_TESTS["test_arrays.cyan"]=29
+UNIT_TESTS["test_lte_gte.cyan"]=4
+UNIT_TESTS["test_unary.cyan"]=5
+UNIT_TESTS["test_strings.cyan"]=0
+UNIT_TESTS["test_standalone_block.cyan"]=6
+UNIT_TESTS["test_else_if.cyan"]=0
+UNIT_TESTS["test_else_if2.cyan"]=0
+UNIT_TESTS["test_else_if3.cyan"]=0
+UNIT_TESTS["test_else_if4.cyan"]=0
+UNIT_TESTS["test_break.cyan"]=3
+UNIT_TESTS["test_continue.cyan"]=43
+UNIT_TESTS["test_break_for.cyan"]=10
+UNIT_TESTS["test_continue_for.cyan"]=46
+UNIT_TESTS["test_nested_break.cyan"]=9
+UNIT_TESTS["test_compound_assign.cyan"]=6
+UNIT_TESTS["test_compound_assign2.cyan"]=55
+UNIT_TESTS["test_inc_dec.cyan"]=5
+UNIT_TESTS["test_inc_dec_loop.cyan"]=55
+UNIT_TESTS["test_inc_dec_loop2.cyan"]=55
+UNIT_TESTS["test_mod.cyan"]=3
+UNIT_TESTS["test_mod_loop.cyan"]=25
+UNIT_TESTS["test_bitwise.cyan"]=26
+UNIT_TESTS["test_bitwise2.cyan"]=6
+UNIT_TESTS["test_ternary.cyan"]=30
+UNIT_TESTS["test_ternary2.cyan"]=50
+UNIT_TESTS["test_mod_assign.cyan"]=1
+UNIT_TESTS["test_bitwise_assign.cyan"]=30
+UNIT_TESTS["test_do_while.cyan"]=10
+UNIT_TESTS["test_do_while_break.cyan"]=5
+UNIT_TESTS["test_do_while_continue.cyan"]=12
+UNIT_TESTS["test_switch.cyan"]=30
+UNIT_TESTS["test_switch_break.cyan"]=20
+UNIT_TESTS["test_switch_default.cyan"]=99
+UNIT_TESTS["test_switch_continue.cyan"]=12
+UNIT_TESTS["test_global.cyan"]=15
+UNIT_TESTS["test_global_func.cyan"]=3
+UNIT_TESTS["test_arr_lit.cyan"]=150
+UNIT_TESTS["test_types.cyan"]=44
+UNIT_TESTS["test_types_compound.cyan"]=15
+UNIT_TESTS["test_static.cyan"]=123
+UNIT_TESTS["test_for_compound_update.cyan"]=55
+UNIT_TESTS["test_for_global_update.cyan"]=10
+UNIT_TESTS["test_print.cyan"]=0
+UNIT_TESTS["test_const_arr.cyan"]=55
+UNIT_TESTS["test_static2.cyan"]=56
 
-    if [ ! -f "$TEST_DIR/$test_file" ]; then
-        echo -e "${RED}[SKIP]${NC} $test_file (not found)"
+# Unit tests that should fail to compile
+declare -a COMPILE_FAIL_UNIT
+COMPILE_FAIL_UNIT+=("test_arr_scalar_assign.cyan")
+
+# Unit tests that check stdout
+declare -A STDOUT_TESTS
+STDOUT_TESTS["test_print.cyan"]=0
+
+# Unit tests requiring stdin
+declare -A STDIN_TESTS
+STDIN_TESTS["test_read.cyan|42"]=42
+
+for test_file in "${!UNIT_TESTS[@]}"; do
+    filepath="tests/unit/$test_file"
+    expected_exit=${UNIT_TESTS[$test_file]}
+
+    if [ ! -f "$filepath" ]; then
+        echo -e "${RED}[SKIP]${NC} unit/$test_file (not found)"
         continue
     fi
 
-    echo -n "Testing $test_file... "
+    echo -n "Testing unit/$test_file... "
 
-    if ! $COMPILER "$TEST_DIR/$test_file" > /tmp/cyan_compile.log 2>&1; then
+    if ! $COMPILER "$filepath" > /tmp/cyan_compile.log 2>&1; then
         echo -e "${RED}COMPILE FAIL${NC}"
         cat /tmp/cyan_compile.log
         FAIL=$((FAIL + 1))
@@ -115,17 +109,11 @@ for test_file in "${!EXIT_TESTS[@]}"; do
     ./out > /tmp/cyan_stdout.txt 2>&1; actual_exit=$?
 
     exit_ok=0
-    if [ "$actual_exit" -eq "$expected_exit" ]; then
-        exit_ok=1
-    fi
+    [ "$actual_exit" -eq "$expected_exit" ] && exit_ok=1
 
     stdout_ok=1
     if [ "${STDOUT_TESTS[$test_file]}" = "0" ]; then
-        if [ -s /tmp/cyan_stdout.txt ]; then
-            stdout_ok=1
-        else
-            stdout_ok=0
-        fi
+        [ -s /tmp/cyan_stdout.txt ] && stdout_ok=1 || stdout_ok=0
     fi
 
     if [ "$exit_ok" -eq 1 ] && [ "$stdout_ok" -eq 1 ]; then
@@ -133,27 +121,21 @@ for test_file in "${!EXIT_TESTS[@]}"; do
         PASS=$((PASS + 1))
     else
         echo -e "${RED}FAIL${NC}"
-        if [ "$exit_ok" -ne 1 ]; then
-            echo "  Expected exit: $expected_exit, got: $actual_exit"
-        fi
-        if [ "$stdout_ok" -ne 1 ]; then
-                    echo "  Expected stdout to be non-empty, but it was empty or had unexpected content"
-            echo "  stdout: $(cat /tmp/cyan_stdout.txt)"
-        fi
+        [ "$exit_ok" -ne 1 ] && echo "  Expected exit: $expected_exit, got: $actual_exit"
+        [ "$stdout_ok" -ne 1 ] && echo "  Expected stdout non-empty, got: $(cat /tmp/cyan_stdout.txt)"
         FAIL=$((FAIL + 1))
     fi
 done
 
-# Compile-failure tests: compiler must exit non-zero
-for test_file in "${COMPILE_FAIL_TESTS[@]}"; do
-    if [ ! -f "$TEST_DIR/$test_file" ]; then
-        echo -e "${RED}[SKIP]${NC} $test_file (not found)"
+# ── Unit compile-failure tests ─────────────────────────────────────
+for test_file in "${COMPILE_FAIL_UNIT[@]}"; do
+    filepath="tests/unit/$test_file"
+    if [ ! -f "$filepath" ]; then
+        echo -e "${RED}[SKIP]${NC} unit/$test_file (not found)"
         continue
     fi
-
-    echo -n "Testing $test_file (expect compile error)... "
-
-    if $COMPILER "$TEST_DIR/$test_file" > /tmp/cyan_compile.log 2>&1; then
+    echo -n "Testing unit/$test_file (expect compile error)... "
+    if $COMPILER "$filepath" > /tmp/cyan_compile.log 2>&1; then
         echo -e "${RED}FAIL — compiled successfully (expected error)${NC}"
         cat /tmp/cyan_compile.log
         FAIL=$((FAIL + 1))
@@ -163,26 +145,24 @@ for test_file in "${COMPILE_FAIL_TESTS[@]}"; do
     fi
 done
 
+# ── Unit stdin tests ───────────────────────────────────────────────
 for stdin_entry in "${!STDIN_TESTS[@]}"; do
     IFS='|' read -r test_file stdin_value <<< "$stdin_entry"
+    filepath="tests/unit/$test_file"
     expected_exit=${STDIN_TESTS["$stdin_entry"]}
 
-    if [ ! -f "$TEST_DIR/$test_file" ]; then
-        echo -e "${RED}[SKIP]${NC} $test_file (not found)"
+    if [ ! -f "$filepath" ]; then
+        echo -e "${RED}[SKIP]${NC} unit/$test_file (not found)"
         continue
     fi
-
-    echo -n "Testing $test_file (stdin: $stdin_value)... "
-
-    if ! $COMPILER "$TEST_DIR/$test_file" > /tmp/cyan_compile.log 2>&1; then
+    echo -n "Testing unit/$test_file (stdin: $stdin_value)... "
+    if ! $COMPILER "$filepath" > /tmp/cyan_compile.log 2>&1; then
         echo -e "${RED}COMPILE FAIL${NC}"
         cat /tmp/cyan_compile.log
         FAIL=$((FAIL + 1))
         continue
     fi
-
     echo "$stdin_value" | ./out > /tmp/cyan_stdout.txt 2>&1; actual_exit=$?
-
     if [ "$actual_exit" -eq "$expected_exit" ]; then
         echo -e "${GREEN}PASS${NC} (exit: $actual_exit)"
         PASS=$((PASS + 1))
@@ -193,26 +173,28 @@ for stdin_entry in "${!STDIN_TESTS[@]}"; do
     fi
 done
 
-# Include tests (with -I flag)
-for test_file in "${!INCLUDE_DIR_TESTS[@]}"; do
-    expected_exit=${INCLUDE_DIR_TESTS[$test_file]}
+# ── Integration tests (tests/integration/) ─────────────────────────
+declare -A INTEGRATION_TESTS
+INTEGRATION_TESTS["test_nested_loops.cyan"]=225
+INTEGRATION_TESTS["test_nested_if_while.cyan"]=15
+INTEGRATION_TESTS["test_complex.cyan"]=120
 
-    if [ ! -f "$TEST_DIR/$test_file" ]; then
-        echo -e "${RED}[SKIP]${NC} $test_file (not found)"
+for test_file in "${!INTEGRATION_TESTS[@]}"; do
+    filepath="tests/integration/$test_file"
+    expected_exit=${INTEGRATION_TESTS[$test_file]}
+
+    if [ ! -f "$filepath" ]; then
+        echo -e "${RED}[SKIP]${NC} integration/$test_file (not found)"
         continue
     fi
-
-    echo -n "Testing $test_file... "
-
-    if ! $COMPILER "$TEST_DIR/$test_file" -I "$TEST_DIR/include_test" > /tmp/cyan_compile.log 2>&1; then
+    echo -n "Testing integration/$test_file... "
+    if ! $COMPILER "$filepath" > /tmp/cyan_compile.log 2>&1; then
         echo -e "${RED}COMPILE FAIL${NC}"
         cat /tmp/cyan_compile.log
         FAIL=$((FAIL + 1))
         continue
     fi
-
     ./out > /tmp/cyan_stdout.txt 2>&1; actual_exit=$?
-
     if [ "$actual_exit" -eq "$expected_exit" ]; then
         echo -e "${GREEN}PASS${NC} (exit: $actual_exit)"
         PASS=$((PASS + 1))
@@ -223,6 +205,56 @@ for test_file in "${!INCLUDE_DIR_TESTS[@]}"; do
     fi
 done
 
+# ── Include tests (tests/include/) ─────────────────────────────────
+declare -A INCLUDE_TESTS
+INCLUDE_TESTS["test_include_basic.cyan"]=30
+INCLUDE_TESTS["test_pragma_once.cyan"]=70
+
+for test_file in "${!INCLUDE_TESTS[@]}"; do
+    filepath="tests/include/$test_file"
+    expected_exit=${INCLUDE_TESTS[$test_file]}
+
+    if [ ! -f "$filepath" ]; then
+        echo -e "${RED}[SKIP]${NC} include/$test_file (not found)"
+        continue
+    fi
+    echo -n "Testing include/$test_file... "
+    if ! $COMPILER "$filepath" -I "tests/include" > /tmp/cyan_compile.log 2>&1; then
+        echo -e "${RED}COMPILE FAIL${NC}"
+        cat /tmp/cyan_compile.log
+        FAIL=$((FAIL + 1))
+        continue
+    fi
+    ./out > /tmp/cyan_stdout.txt 2>&1; actual_exit=$?
+    if [ "$actual_exit" -eq "$expected_exit" ]; then
+        echo -e "${GREEN}PASS${NC} (exit: $actual_exit)"
+        PASS=$((PASS + 1))
+    else
+        echo -e "${RED}FAIL${NC}"
+        echo "  Expected exit: $expected_exit, got: $actual_exit"
+        FAIL=$((FAIL + 1))
+    fi
+done
+
+# Include compile-failure test
+for test_file in "test_include_missing.cyan"; do
+    filepath="tests/include/$test_file"
+    if [ ! -f "$filepath" ]; then
+        echo -e "${RED}[SKIP]${NC} include/$test_file (not found)"
+        continue
+    fi
+    echo -n "Testing include/$test_file (expect compile error)... "
+    if $COMPILER "$filepath" -I "tests/include" > /tmp/cyan_compile.log 2>&1; then
+        echo -e "${RED}FAIL — compiled successfully (expected error)${NC}"
+        cat /tmp/cyan_compile.log
+        FAIL=$((FAIL + 1))
+    else
+        echo -e "${GREEN}PASS${NC} (correctly rejected)"
+        PASS=$((PASS + 1))
+    fi
+done
+
+# ── Summary ────────────────────────────────────────────────────────
 echo ""
 echo "========================================"
 echo -e "Results: ${GREEN}$PASS passed${NC}, ${RED}$FAIL failed${NC}"
