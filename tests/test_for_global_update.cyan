@@ -1,0 +1,6 @@
+// Test global variable in for-loop update expression
+global var g;
+for (g = 0; g < 10; g = g + 1) {
+    // body is empty, loop just increments g
+}
+return(g);  // expect 10

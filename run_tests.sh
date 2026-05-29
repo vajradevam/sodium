@@ -70,6 +70,7 @@ EXIT_TESTS["test_types.cyan"]=44
 EXIT_TESTS["test_types_compound.cyan"]=15
 EXIT_TESTS["test_static.cyan"]=123
 EXIT_TESTS["test_for_compound_update.cyan"]=55
+EXIT_TESTS["test_for_global_update.cyan"]=10
 
 # Tests that also check stdout
 declare -A STDOUT_TESTS
