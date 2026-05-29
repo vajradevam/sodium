@@ -54,6 +54,7 @@ public:
 
         enter_scope();
         m_in_function = true;
+        m_func_epilogue_label = ".L" + func.name.value.value() + "_epilogue";
 
         for (size_t i = 0; i < func.params.size(); i++) {
             std::string param_name = func.params[i].value.value();
@@ -69,11 +70,12 @@ public:
             gen_stmt(s);
         }
 
-        m_output << ".L" << func.name.value.value() << "_epilogue:\n";
+        m_output << m_func_epilogue_label << ":\n";
         m_output << "    mov rsp, rbp\n";
         m_output << "    pop rbp\n";
         m_output << "    ret\n";
         m_in_function = false;
+        m_func_epilogue_label.clear();
 
         m_scopes.pop_back();
         m_stack_size = saved_stack_size;
@@ -799,9 +801,7 @@ public:
                         gen->gen_expr(*stmt_ret->expr);
                         gen->pop("rax");
                     }
-                    gen->m_output << "    mov rsp, rbp\n";
-                    gen->m_output << "    pop rbp\n";
-                    gen->m_output << "    ret\n";
+                    gen->m_output << "    jmp " << gen->m_func_epilogue_label << "\n";
                 } else {
                     if (!stmt_ret->expr) {
                         std::cerr << "return with no value at top level" << std::endl;
@@ -1095,6 +1095,7 @@ private:
     const NodeProg m_prog;
     std::stringstream m_output;
     size_t m_stack_size = 0;
+    std::string m_func_epilogue_label;
     struct StringEntry {
         std::string label;
         std::string value;
