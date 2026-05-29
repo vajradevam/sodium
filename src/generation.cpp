@@ -1,7 +1,9 @@
 #include "generation.hpp"
+#include "backend/x86_64/backend.hpp"
 
-Generator::Generator(NodeProg root)
+Generator::Generator(NodeProg root, std::unique_ptr<Backend> backend)
     : m_prog(std::move(root))
+    , m_backend(backend ? std::move(backend) : std::make_unique<X8664Backend>(m_output))
 {
     m_scopes.push_back({0, {}});
 }
@@ -10,9 +12,8 @@ void Generator::gen_func_def(const NodeFuncDef& func)
 {
         size_t saved_stack_size = m_stack_size;
 
-        m_output << func.name.value.value() << ":\n";
-        m_output << "    push rbp\n";
-        m_output << "    mov rbp, rsp\n";
+        m_backend->label(func.name.value.value());
+        m_backend->func_prologue();
         m_stack_size = 1;
 
         enter_scope();
@@ -24,8 +25,8 @@ void Generator::gen_func_def(const NodeFuncDef& func)
             auto& scope = m_scopes.back();
             scope.vars[param_name] = Var { .stack_loc = m_stack_size };
             scope.var_count++;
-            m_output << "    mov rax, [rbp + " << 16 + i * 8 << "]\n";
-            m_output << "    push rax\n";
+            m_backend->emit_insn("mov", "rax, [rbp + " + std::to_string(16 + i * 8) + "]");
+            m_backend->push("rax");
             m_stack_size++;
         }
 
@@ -33,10 +34,9 @@ void Generator::gen_func_def(const NodeFuncDef& func)
             gen_stmt(s);
         }
 
-        m_output << m_func_epilogue_label << ":\n";
-        m_output << "    mov rsp, rbp\n";
-        m_output << "    pop rbp\n";
-        m_output << "    ret\n";
+        m_backend->label(m_func_epilogue_label);
+        m_backend->func_epilogue();
+        m_backend->ret();
         m_in_function = false;
         m_func_epilogue_label.clear();
 
@@ -54,7 +54,7 @@ void Generator::exit_scope()
         auto& scope = m_scopes.back();
         m_stack_size -= scope.var_count;
         if (scope.var_count > 0) {
-            m_output << "    add rsp, " << scope.var_count * 8 << "\n";
+            m_backend->adjust_stack(scope.var_count * 8);
         }
         m_scopes.pop_back();
 }
@@ -85,7 +85,7 @@ void Generator::gen_expr(const NodeExpr& expr)
 
             void operator()(const NodeExprIntLit* expr_int_lit)
             {
-                gen->m_output << "    mov rax, " << expr_int_lit->int_lit.value.value() << "\n";
+                gen->backend()->load_imm("rax", std::stoll(expr_int_lit->int_lit.value.value()));
                 gen->push("rax");
             }
 
@@ -100,7 +100,7 @@ void Generator::gen_expr(const NodeExpr& expr)
                             offset << "QWORD [rsp + " << (gen->m_stack_size - var.stack_loc - 1) * 8 << "]\n";
                             gen->push(offset.str());
                         } else {
-                            gen->m_output << "    mov rax, QWORD [rsp + " << (gen->m_stack_size - var.stack_loc - 1) * 8 << "]\n";
+                            gen->backend()->emit_insn("mov", "rax, QWORD [rsp + " + std::to_string((gen->m_stack_size - var.stack_loc - 1) * 8) + "]");
                             gen->extend(var.type);
                             gen->push("rax");
                         }
@@ -108,12 +108,12 @@ void Generator::gen_expr(const NodeExpr& expr)
                     }
                 }
                 if (gen->m_globals.contains(name)) {
-                    gen->m_output << "    mov rax, [rel " << name << "]\n";
+                    gen->backend()->load("rax", gen->backend()->addr_label(name));
                     gen->push("rax");
                     return;
                 }
                 if (gen->m_constants.contains(name)) {
-                    gen->m_output << "    mov rax, " << gen->m_constants.at(name) << "\n";
+                    gen->backend()->load_imm("rax", gen->m_constants.at(name));
                     gen->push("rax");
                     return;
                 }
@@ -125,7 +125,7 @@ void Generator::gen_expr(const NodeExpr& expr)
                 auto str = expr_str->value.value.value();
                 auto label = gen->new_string_label();
                 gen->m_strings.push_back({label, str});
-                gen->m_output << "    mov rax, " << label << "\n";
+                gen->backend()->emit_insn("mov", "rax, " + label);
                 gen->push("rax");
             }
 
@@ -139,11 +139,11 @@ void Generator::gen_expr(const NodeExpr& expr)
                         gen->gen_expr(*expr_index->index);
                         gen->pop("rdi");
                         size_t base_offset = (gen->m_stack_size - var.stack_loc - 1) * 8;
-                        gen->m_output << "    lea rax, [rsp + " << base_offset << "]\n";
-                        gen->m_output << "    mov rcx, rdi\n";
-                        gen->m_output << "    shl rcx, 3\n";
-                        gen->m_output << "    sub rax, rcx\n";
-                        gen->m_output << "    mov rax, [rax]\n";
+                        gen->backend()->lea("rax", gen->backend()->addr_sp(base_offset));
+                        gen->backend()->mov("rcx", "rdi");
+                        gen->backend()->shl("rcx", "3");
+                        gen->backend()->sub("rax", "rcx");
+                        gen->backend()->load("rax", "[rax]");
                         gen->push("rax");
                         return;
                     }
@@ -153,11 +153,11 @@ void Generator::gen_expr(const NodeExpr& expr)
                     const auto var = gen->m_global_var_info.at(name);
                     gen->gen_expr(*expr_index->index);
                     gen->pop("rdi");
-                    gen->m_output << "    lea rax, [rel " << name << "]\n";
-                    gen->m_output << "    mov rcx, rdi\n";
-                    gen->m_output << "    shl rcx, 3\n";
-                    gen->m_output << "    add rax, rcx\n";
-                    gen->m_output << "    mov rax, [rax]\n";
+                    gen->backend()->lea("rax", gen->backend()->addr_label(name));
+                    gen->backend()->mov("rcx", "rdi");
+                    gen->backend()->shl("rcx", "3");
+                    gen->backend()->add("rax", "rcx");
+                    gen->backend()->load("rax", "[rax]");
                     gen->push("rax");
                     return;
                 }
@@ -168,7 +168,7 @@ void Generator::gen_expr(const NodeExpr& expr)
             {
                 gen->gen_expr(*bit_not->expr);
                 gen->pop("rax");
-                gen->m_output << "    not rax\n";
+                gen->backend()->not_("rax");
                 gen->push("rax");
             }
 
@@ -178,60 +178,22 @@ void Generator::gen_expr(const NodeExpr& expr)
                 auto label_end = gen->new_label();
                 gen->gen_expr(*ternary->cond);
                 gen->pop("rax");
-                gen->m_output << "    test rax, rax\n";
-                gen->m_output << "    jz " << label_false << "\n";
+                gen->backend()->test("rax", "rax");
+                gen->backend()->jz(label_false);
                 auto saved_stack = gen->m_stack_size;
                 gen->gen_expr(*ternary->then_expr);
                 gen->m_stack_size = saved_stack + 1;
-                gen->m_output << "    jmp " << label_end << "\n";
-                gen->m_output << label_false << ":\n";
+                gen->backend()->jmp(label_end);
+                gen->backend()->label(label_false);
                 gen->m_stack_size = saved_stack;
                 gen->gen_expr(*ternary->else_expr);
-                gen->m_output << label_end << ":\n";
+                gen->backend()->label(label_end);
             }
 
             void operator()(const NodeExprRead*) const
             {
-                gen->m_output << "    call _sodium_read_int\n";
-                gen->m_output << "    push rax\n";
-                gen->m_stack_size++;
-                return;
-                // dead code below, replaced by runtime call above
-                auto label_loop = gen->new_label();
-                auto label_done = gen->new_label();
-                auto label_pos = gen->new_label();
-
-                gen->m_output << "    sub rsp, 32\n";
-                gen->m_output << "    mov rax, 0\n";
-                gen->m_output << "    mov rdi, 0\n";
-                gen->m_output << "    mov rsi, rsp\n";
-                gen->m_output << "    mov rdx, 31\n";
-                gen->m_output << "    syscall\n";
-                gen->m_output << "    xor r8, r8\n";
-                gen->m_output << "    xor r9, r9\n";
-                gen->m_output << "    mov rcx, rsp\n";
-                gen->m_output << "    cmp byte [rcx], '-'\n";
-                gen->m_output << "    jne " << label_loop << "\n";
-                gen->m_output << "    inc rcx\n";
-                gen->m_output << "    mov r9, 1\n";
-                gen->m_output << label_loop << ":\n";
-                gen->m_output << "    cmp byte [rcx], 10\n";
-                gen->m_output << "    je " << label_done << "\n";
-                gen->m_output << "    cmp byte [rcx], 0\n";
-                gen->m_output << "    je " << label_done << "\n";
-                gen->m_output << "    movzx r10, byte [rcx]\n";
-                gen->m_output << "    sub r10, 48\n";
-                gen->m_output << "    imul r8, r8, 10\n";
-                gen->m_output << "    add r8, r10\n";
-                gen->m_output << "    inc rcx\n";
-                gen->m_output << "    jmp " << label_loop << "\n";
-                gen->m_output << label_done << ":\n";
-                gen->m_output << "    test r9, r9\n";
-                gen->m_output << "    jz " << label_pos << "\n";
-                gen->m_output << "    neg r8\n";
-                gen->m_output << label_pos << ":\n";
-                gen->m_output << "    add rsp, 32\n";
-                gen->m_output << "    push r8\n";
+                gen->backend()->call("_sodium_read_int");
+                gen->backend()->push("rax");
                 gen->m_stack_size++;
             }
 
@@ -262,7 +224,7 @@ void Generator::gen_expr(const NodeExpr& expr)
                 // Compute address: base of struct + field_offset * 8
                 size_t base_offset = (gen->m_stack_size - var.stack_loc - 1) * 8;
                 size_t field_addr_offset = base_offset - field_offset * 8;
-                gen->m_output << "    mov rax, [rsp + " << field_addr_offset << "]\n";
+                gen->backend()->load("rax", gen->backend()->addr_sp(field_addr_offset));
                 gen->push("rax");
             }
 
@@ -277,13 +239,13 @@ void Generator::gen_expr(const NodeExpr& expr)
                         if (it->vars.contains(name)) {
                             const auto var = it->vars.at(name);
                             size_t offset = (gen->m_stack_size - var.stack_loc - 1) * 8;
-                            gen->m_output << "    lea rax, [rsp + " << offset << "]\n";
+                            gen->backend()->lea("rax", gen->backend()->addr_sp(offset));
                             gen->push("rax");
                             return;
                         }
                     }
                     if (gen->m_globals.contains(name)) {
-                        gen->m_output << "    lea rax, [rel " << name << "]\n";
+                        gen->backend()->lea("rax", gen->backend()->addr_label(name));
                         gen->push("rax");
                         return;
                     }
@@ -307,7 +269,7 @@ void Generator::gen_expr(const NodeExpr& expr)
                     size_t field_offset = offset_it->second;
                     size_t base_offset = (gen->m_stack_size - var.stack_loc - 1) * 8;
                     size_t field_addr_offset = base_offset - field_offset * 8;
-                    gen->m_output << "    lea rax, [rsp + " << field_addr_offset << "]\n";
+                    gen->backend()->lea("rax", gen->backend()->addr_sp(field_addr_offset));
                     gen->push("rax");
                 } else {
                     lsp_exit(addr_of->ampersand.loc, "Cannot take address of this expression");
@@ -319,7 +281,7 @@ void Generator::gen_expr(const NodeExpr& expr)
                 // *ptr — evaluate ptr, then load from that address
                 gen->gen_expr(*deref->expr);
                 gen->pop("rax");
-                gen->m_output << "    mov rax, [rax]\n";
+                gen->backend()->load("rax", "[rax]");
                 gen->push("rax");
             }
 
@@ -334,8 +296,8 @@ void Generator::gen_expr(const NodeExpr& expr)
                         gen->gen_expr(**it);
                     }
                     gen->pop("rdi");  // size in rdi
-                    gen->m_output << "    call _sodium_malloc\n";
-                    gen->m_output << "    push rax\n";
+                    gen->backend()->call("_sodium_malloc");
+                    gen->backend()->push("rax");
                     gen->m_stack_size++;
                     return;
                 }
@@ -345,7 +307,7 @@ void Generator::gen_expr(const NodeExpr& expr)
                         gen->gen_expr(**it);
                     }
                     gen->pop("rdi");  // pointer in rdi
-                    gen->m_output << "    call _sodium_free\n";
+                    gen->backend()->call("_sodium_free");
                     return;
                 }
 
@@ -355,13 +317,13 @@ void Generator::gen_expr(const NodeExpr& expr)
                 for (auto it = expr_call->args.rbegin(); it != expr_call->args.rend(); ++it) {
                     gen->gen_expr(**it);
                 }
-                gen->m_output << "    call " << fname << "\n";
+                gen->backend()->call(fname);
                 size_t arg_count = expr_call->args.size();
                 if (arg_count > 0) {
-                    gen->m_output << "    add rsp, " << arg_count * 8 << "\n";
+                    gen->backend()->adjust_stack(arg_count * 8);
                     gen->m_stack_size -= arg_count;
                 }
-                gen->m_output << "    push rax\n";
+                gen->backend()->push("rax");
                 gen->m_stack_size++;
             }
 
@@ -374,7 +336,7 @@ void Generator::gen_expr(const NodeExpr& expr)
                         gen->gen_expr(*add->rhs);
                         gen->pop("rdi");
                         gen->pop("rax");
-                        gen->m_output << "    add rax, rdi\n";
+                        gen->backend()->add("rax", "rdi");
                         gen->push("rax");
                     }
                     void operator()(const BinExprMulti* mul) {
@@ -382,7 +344,7 @@ void Generator::gen_expr(const NodeExpr& expr)
                         gen->gen_expr(*mul->rhs);
                         gen->pop("rdi");
                         gen->pop("rax");
-                        gen->m_output << "    imul rax, rdi\n";
+                        gen->backend()->mul("rax", "rdi");
                         gen->push("rax");
                     }
                     void operator()(const BinExprSub* sub) {
@@ -390,7 +352,7 @@ void Generator::gen_expr(const NodeExpr& expr)
                         gen->gen_expr(*sub->rhs);
                         gen->pop("rdi");
                         gen->pop("rax");
-                        gen->m_output << "    sub rax, rdi\n";
+                        gen->backend()->sub("rax", "rdi");
                         gen->push("rax");
                     }
                     void operator()(const BinExprDiv* div) {
@@ -398,8 +360,8 @@ void Generator::gen_expr(const NodeExpr& expr)
                         gen->gen_expr(*div->rhs);
                         gen->pop("rdi");
                         gen->pop("rax");
-                        gen->m_output << "    cqo\n";
-                        gen->m_output << "    idiv rdi\n";
+                        gen->backend()->sign_extend_rax();
+                        gen->backend()->div("rdi");
                         gen->push("rax");
                     }
                     void operator()(const BinExprMod* mod) {
@@ -407,8 +369,8 @@ void Generator::gen_expr(const NodeExpr& expr)
                         gen->gen_expr(*mod->rhs);
                         gen->pop("rdi");
                         gen->pop("rax");
-                        gen->m_output << "    cqo\n";
-                        gen->m_output << "    idiv rdi\n";
+                        gen->backend()->sign_extend_rax();
+                        gen->backend()->div("rdi");
                         gen->push("rdx");
                     }
                     void operator()(const BinExprLT* lt) {
@@ -416,9 +378,9 @@ void Generator::gen_expr(const NodeExpr& expr)
                         gen->gen_expr(*lt->rhs);
                         gen->pop("rdi");
                         gen->pop("rax");
-                        gen->m_output << "    cmp rax, rdi\n";
-                        gen->m_output << "    setl al\n";
-                        gen->m_output << "    movzx rax, al\n";
+                        gen->backend()->cmp("rax", "rdi");
+                        gen->backend()->set_cc("al", "l");
+                        gen->backend()->movzx("rax", "al", 8);
                         gen->push("rax");
                     }
                     void operator()(const BinExprGT* gt) {
@@ -426,9 +388,9 @@ void Generator::gen_expr(const NodeExpr& expr)
                         gen->gen_expr(*gt->rhs);
                         gen->pop("rdi");
                         gen->pop("rax");
-                        gen->m_output << "    cmp rax, rdi\n";
-                        gen->m_output << "    setg al\n";
-                        gen->m_output << "    movzx rax, al\n";
+                        gen->backend()->cmp("rax", "rdi");
+                        gen->backend()->set_cc("al", "g");
+                        gen->backend()->movzx("rax", "al", 8);
                         gen->push("rax");
                     }
                     void operator()(const BinExprEQ* eq) {
@@ -436,9 +398,9 @@ void Generator::gen_expr(const NodeExpr& expr)
                         gen->gen_expr(*eq->rhs);
                         gen->pop("rdi");
                         gen->pop("rax");
-                        gen->m_output << "    cmp rax, rdi\n";
-                        gen->m_output << "    sete al\n";
-                        gen->m_output << "    movzx rax, al\n";
+                        gen->backend()->cmp("rax", "rdi");
+                        gen->backend()->set_cc("al", "e");
+                        gen->backend()->movzx("rax", "al", 8);
                         gen->push("rax");
                     }
                     void operator()(const BinExprNEQ* neq) {
@@ -446,9 +408,9 @@ void Generator::gen_expr(const NodeExpr& expr)
                         gen->gen_expr(*neq->rhs);
                         gen->pop("rdi");
                         gen->pop("rax");
-                        gen->m_output << "    cmp rax, rdi\n";
-                        gen->m_output << "    setne al\n";
-                        gen->m_output << "    movzx rax, al\n";
+                        gen->backend()->cmp("rax", "rdi");
+                        gen->backend()->set_cc("al", "ne");
+                        gen->backend()->movzx("rax", "al", 8);
                         gen->push("rax");
                     }
                     void operator()(const BinExprLTE* lte) {
@@ -456,9 +418,9 @@ void Generator::gen_expr(const NodeExpr& expr)
                         gen->gen_expr(*lte->rhs);
                         gen->pop("rdi");
                         gen->pop("rax");
-                        gen->m_output << "    cmp rax, rdi\n";
-                        gen->m_output << "    setle al\n";
-                        gen->m_output << "    movzx rax, al\n";
+                        gen->backend()->cmp("rax", "rdi");
+                        gen->backend()->set_cc("al", "le");
+                        gen->backend()->movzx("rax", "al", 8);
                         gen->push("rax");
                     }
                     void operator()(const BinExprGTE* gte) {
@@ -466,45 +428,45 @@ void Generator::gen_expr(const NodeExpr& expr)
                         gen->gen_expr(*gte->rhs);
                         gen->pop("rdi");
                         gen->pop("rax");
-                        gen->m_output << "    cmp rax, rdi\n";
-                        gen->m_output << "    setge al\n";
-                        gen->m_output << "    movzx rax, al\n";
+                        gen->backend()->cmp("rax", "rdi");
+                        gen->backend()->set_cc("al", "ge");
+                        gen->backend()->movzx("rax", "al", 8);
                         gen->push("rax");
                     }
                 void operator()(const BinExprAnd* and_op) {
                         gen->gen_expr(*and_op->lhs);
                         gen->pop("rax");
-                        gen->m_output << "    test rax, rax\n";
+                        gen->backend()->test("rax", "rax");
                         auto false_label = gen->new_label();
                         auto end_label = gen->new_label();
-                        gen->m_output << "    jz " << false_label << "\n";
+                        gen->backend()->jz(false_label);
                         gen->gen_expr(*and_op->rhs);
                         gen->pop("rax");
-                        gen->m_output << "    test rax, rax\n";
-                        gen->m_output << "    jz " << false_label << "\n";
-                        gen->m_output << "    mov rax, 1\n";
-                        gen->m_output << "    jmp " << end_label << "\n";
-                        gen->m_output << false_label << ":\n";
-                        gen->m_output << "    mov rax, 0\n";
-                        gen->m_output << end_label << ":\n";
+                        gen->backend()->test("rax", "rax");
+                        gen->backend()->jz(false_label);
+                        gen->backend()->load_imm("rax", 1);
+                        gen->backend()->jmp(end_label);
+                        gen->backend()->label(false_label);
+                        gen->backend()->load_imm("rax", 0);
+                        gen->backend()->label(end_label);
                         gen->push("rax");
                     }
                     void operator()(const BinExprOr* or_op) {
                         gen->gen_expr(*or_op->lhs);
                         gen->pop("rax");
-                        gen->m_output << "    test rax, rax\n";
+                        gen->backend()->test("rax", "rax");
                         auto true_label = gen->new_label();
                         auto end_label = gen->new_label();
-                        gen->m_output << "    jnz " << true_label << "\n";
+                        gen->backend()->jnz(true_label);
                         gen->gen_expr(*or_op->rhs);
                         gen->pop("rax");
-                        gen->m_output << "    test rax, rax\n";
-                        gen->m_output << "    jnz " << true_label << "\n";
-                        gen->m_output << "    mov rax, 0\n";
-                        gen->m_output << "    jmp " << end_label << "\n";
-                        gen->m_output << true_label << ":\n";
-                        gen->m_output << "    mov rax, 1\n";
-                        gen->m_output << end_label << ":\n";
+                        gen->backend()->test("rax", "rax");
+                        gen->backend()->jnz(true_label);
+                        gen->backend()->load_imm("rax", 0);
+                        gen->backend()->jmp(end_label);
+                        gen->backend()->label(true_label);
+                        gen->backend()->load_imm("rax", 1);
+                        gen->backend()->label(end_label);
                         gen->push("rax");
                     }
                     void operator()(const BinExprBitAnd* and_op) {
@@ -512,7 +474,7 @@ void Generator::gen_expr(const NodeExpr& expr)
                         gen->gen_expr(*and_op->rhs);
                         gen->pop("rdi");
                         gen->pop("rax");
-                        gen->m_output << "    and rax, rdi\n";
+                        gen->backend()->and_("rax", "rdi");
                         gen->push("rax");
                     }
                     void operator()(const BinExprBitOr* or_op) {
@@ -520,7 +482,7 @@ void Generator::gen_expr(const NodeExpr& expr)
                         gen->gen_expr(*or_op->rhs);
                         gen->pop("rdi");
                         gen->pop("rax");
-                        gen->m_output << "    or rax, rdi\n";
+                        gen->backend()->or_("rax", "rdi");
                         gen->push("rax");
                     }
                     void operator()(const BinExprXor* xor_op) {
@@ -528,7 +490,7 @@ void Generator::gen_expr(const NodeExpr& expr)
                         gen->gen_expr(*xor_op->rhs);
                         gen->pop("rdi");
                         gen->pop("rax");
-                        gen->m_output << "    xor rax, rdi\n";
+                        gen->backend()->xor_("rax", "rdi");
                         gen->push("rax");
                     }
                     void operator()(const BinExprShl* shl_op) {
@@ -536,7 +498,7 @@ void Generator::gen_expr(const NodeExpr& expr)
                         gen->gen_expr(*shl_op->rhs);
                         gen->pop("rcx");
                         gen->pop("rax");
-                        gen->m_output << "    shl rax, cl\n";
+                        gen->backend()->shl("rax", "cl");
                         gen->push("rax");
                     }
                     void operator()(const BinExprShr* shr_op) {
@@ -544,7 +506,7 @@ void Generator::gen_expr(const NodeExpr& expr)
                         gen->gen_expr(*shr_op->rhs);
                         gen->pop("rcx");
                         gen->pop("rax");
-                        gen->m_output << "    shr rax, cl\n";
+                        gen->backend()->shr("rax", "cl");
                         gen->push("rax");
                     }
             };
@@ -565,7 +527,7 @@ void Generator::gen_stmt(const NodeStmt& stmt)
             {
                 gen->gen_expr(*stmt_exit->expr);
                 gen->pop("rdi");
-                gen->m_output << "    call _sodium_exit\n";
+                gen->backend()->call("_sodium_exit");
                 gen->m_emitted_exit = true;
             }
 
@@ -584,7 +546,7 @@ void Generator::gen_stmt(const NodeStmt& stmt)
                     scope.var_count += struct_info.value().size;
                     // Zero-initialize all fields
                     for (size_t i = 0; i < struct_info.value().size; i++) {
-                        gen->m_output << "    push 0\n";
+                        gen->backend()->emit_insn("push", "0");
                     }
                     gen->m_stack_size += struct_info.value().size;
                     return;
@@ -642,7 +604,7 @@ void Generator::gen_stmt(const NodeStmt& stmt)
                                 for (size_t i = 0; i < var.array_size; i++) {
                                     gen->gen_expr(*(*arr_lit)->elements[i]);
                                     gen->pop("rax");
-                                    gen->m_output << "    mov QWORD [rsp + " << (base_offset - i * 8) << "], rax\n";
+                                    gen->backend()->emit_insn("mov", "QWORD [rsp + " + std::to_string((base_offset - i * 8)) + "], rax");
                                 }
                                 return;
                             }
@@ -656,9 +618,9 @@ void Generator::gen_stmt(const NodeStmt& stmt)
                             if (var.array_size == 0 && var.type != IntType::i64 && var.type != IntType::u64) {
                                 gen->truncate(var.type);
                             }
-                            gen->m_output << "    mov QWORD [rsp + " << offset << "], rax\n";
+                            gen->backend()->emit_insn("mov", "QWORD [rsp + " + std::to_string(offset) + "], rax");
                         } else {
-                            gen->m_output << "    push QWORD [rsp + " << offset << "]\n";
+                            gen->backend()->emit_insn("push", "QWORD [rsp + " + std::to_string(offset) + "]");
                             gen->m_stack_size++;
                             gen->gen_expr(*stmt_assign->expr);
                             gen->pop("rdi");
@@ -668,37 +630,37 @@ void Generator::gen_stmt(const NodeStmt& stmt)
                             }
                             switch (stmt_assign->op) {
                                 case AssignOp::add_assign:
-                                    gen->m_output << "    add rax, rdi\n"; break;
+                                    gen->backend()->add("rax", "rdi"); break;
                                 case AssignOp::sub_assign:
-                                    gen->m_output << "    sub rax, rdi\n"; break;
+                                    gen->backend()->sub("rax", "rdi"); break;
                                 case AssignOp::mul_assign:
-                                    gen->m_output << "    imul rax, rdi\n"; break;
+                                    gen->backend()->mul("rax", "rdi"); break;
                                 case AssignOp::div_assign:
-                                    gen->m_output << "    cqo\n";
-                                    gen->m_output << "    idiv rdi\n"; break;
+                                    gen->backend()->sign_extend_rax();
+                                    gen->backend()->div("rdi"); break;
                                 case AssignOp::mod_assign:
-                                    gen->m_output << "    cqo\n";
-                                    gen->m_output << "    idiv rdi\n";
-                                    gen->m_output << "    mov rax, rdx\n"; break;
+                                    gen->backend()->sign_extend_rax();
+                                    gen->backend()->div("rdi");
+                                    gen->backend()->mov("rax", "rdx"); break;
                                 case AssignOp::bitand_assign:
-                                    gen->m_output << "    and rax, rdi\n"; break;
+                                    gen->backend()->and_("rax", "rdi"); break;
                                 case AssignOp::bitor_assign:
-                                    gen->m_output << "    or rax, rdi\n"; break;
+                                    gen->backend()->or_("rax", "rdi"); break;
                                 case AssignOp::bitxor_assign:
-                                    gen->m_output << "    xor rax, rdi\n"; break;
+                                    gen->backend()->xor_("rax", "rdi"); break;
                                 case AssignOp::shl_assign:
-                                    gen->m_output << "    mov rcx, rdi\n";
-                                    gen->m_output << "    shl rax, cl\n"; break;
+                                    gen->backend()->mov("rcx", "rdi");
+                                    gen->backend()->shl("rax", "cl"); break;
                                 case AssignOp::shr_assign:
-                                    gen->m_output << "    mov rcx, rdi\n";
-                                    gen->m_output << "    shr rax, cl\n"; break;
+                                    gen->backend()->mov("rcx", "rdi");
+                                    gen->backend()->shr("rax", "cl"); break;
                                 default:
                                     break;
                             }
                             if (var.array_size == 0 && var.type != IntType::i64 && var.type != IntType::u64) {
                                 gen->truncate(var.type);
                             }
-                            gen->m_output << "    mov QWORD [rsp + " << offset << "], rax\n";
+                            gen->backend()->emit_insn("mov", "QWORD [rsp + " + std::to_string(offset) + "], rax");
                         }
                         return;
                     }
@@ -707,43 +669,43 @@ void Generator::gen_stmt(const NodeStmt& stmt)
                     if (stmt_assign->op == AssignOp::assign) {
                         gen->gen_expr(*stmt_assign->expr);
                         gen->pop("rax");
-                        gen->m_output << "    mov [rel " << name << "], rax\n";
+                        gen->backend()->store(gen->backend()->addr_label(name), "rax");
                     } else {
-                        gen->m_output << "    mov rax, [rel " << name << "]\n";
+                        gen->backend()->load("rax", gen->backend()->addr_label(name));
                         gen->push("rax");
                         gen->gen_expr(*stmt_assign->expr);
                         gen->pop("rdi");
                         gen->pop("rax");
                         switch (stmt_assign->op) {
                             case AssignOp::add_assign:
-                                gen->m_output << "    add rax, rdi\n"; break;
+                                gen->backend()->add("rax", "rdi"); break;
                             case AssignOp::sub_assign:
-                                gen->m_output << "    sub rax, rdi\n"; break;
+                                gen->backend()->sub("rax", "rdi"); break;
                             case AssignOp::mul_assign:
-                                gen->m_output << "    imul rax, rdi\n"; break;
+                                gen->backend()->mul("rax", "rdi"); break;
                             case AssignOp::div_assign:
-                                gen->m_output << "    cqo\n";
-                                gen->m_output << "    idiv rdi\n"; break;
+                                gen->backend()->sign_extend_rax();
+                                gen->backend()->div("rdi"); break;
                             case AssignOp::mod_assign:
-                                gen->m_output << "    cqo\n";
-                                gen->m_output << "    idiv rdi\n";
-                                gen->m_output << "    mov rax, rdx\n"; break;
+                                gen->backend()->sign_extend_rax();
+                                gen->backend()->div("rdi");
+                                gen->backend()->mov("rax", "rdx"); break;
                             case AssignOp::bitand_assign:
-                                gen->m_output << "    and rax, rdi\n"; break;
+                                gen->backend()->and_("rax", "rdi"); break;
                             case AssignOp::bitor_assign:
-                                gen->m_output << "    or rax, rdi\n"; break;
+                                gen->backend()->or_("rax", "rdi"); break;
                             case AssignOp::bitxor_assign:
-                                gen->m_output << "    xor rax, rdi\n"; break;
+                                gen->backend()->xor_("rax", "rdi"); break;
                             case AssignOp::shl_assign:
-                                gen->m_output << "    mov rcx, rdi\n";
-                                gen->m_output << "    shl rax, cl\n"; break;
+                                gen->backend()->mov("rcx", "rdi");
+                                gen->backend()->shl("rax", "cl"); break;
                             case AssignOp::shr_assign:
-                                gen->m_output << "    mov rcx, rdi\n";
-                                gen->m_output << "    shr rax, cl\n"; break;
+                                gen->backend()->mov("rcx", "rdi");
+                                gen->backend()->shr("rax", "cl"); break;
                             default:
                                 break;
                         }
-                        gen->m_output << "    mov [rel " << name << "], rax\n";
+                        gen->backend()->store(gen->backend()->addr_label(name), "rax");
                     }
                     return;
                 }
@@ -760,12 +722,12 @@ void Generator::gen_stmt(const NodeStmt& stmt)
 
                 gen->gen_expr(*stmt_if->cond);
                 gen->pop("rax");
-                gen->m_output << "    test rax, rax\n";
+                gen->backend()->test("rax", "rax");
 
                 if (stmt_if->else_block) {
-                    gen->m_output << "    jz " << label_else << "\n";
+                    gen->backend()->jz(label_else);
                 } else {
-                    gen->m_output << "    jz " << label_end << "\n";
+                    gen->backend()->jz(label_end);
                 }
 
                 gen->enter_scope();
@@ -775,8 +737,8 @@ void Generator::gen_stmt(const NodeStmt& stmt)
                 gen->exit_scope();
 
                 if (stmt_if->else_block) {
-                    gen->m_output << "    jmp " << label_end << "\n";
-                    gen->m_output << label_else << ":\n";
+                    gen->backend()->jmp(label_end);
+                    gen->backend()->label(label_else);
                     gen->enter_scope();
                     for (const auto& s : stmt_if->else_block->stmts) {
                         gen->gen_stmt(s);
@@ -784,7 +746,7 @@ void Generator::gen_stmt(const NodeStmt& stmt)
                     gen->exit_scope();
                 }
 
-                gen->m_output << label_end << ":\n";
+                gen->backend()->label(label_end);
             }
 
             void operator()(const NodeStmtWhile* stmt_while) const
@@ -795,11 +757,11 @@ void Generator::gen_stmt(const NodeStmt& stmt)
                 gen->m_loop_stack.push_back({ .begin_label = label_begin, .end_label = label_end, .continue_label = label_begin });
                 gen->m_break_stack.push_back(label_end);
 
-                gen->m_output << label_begin << ":\n";
+                gen->backend()->label(label_begin);
                 gen->gen_expr(*stmt_while->cond);
                 gen->pop("rax");
-                gen->m_output << "    test rax, rax\n";
-                gen->m_output << "    jz " << label_end << "\n";
+                gen->backend()->test("rax", "rax");
+                gen->backend()->jz(label_end);
 
                 gen->enter_scope();
                 for (const auto& s : stmt_while->body->stmts) {
@@ -807,8 +769,8 @@ void Generator::gen_stmt(const NodeStmt& stmt)
                 }
                 gen->exit_scope();
 
-                gen->m_output << "    jmp " << label_begin << "\n";
-                gen->m_output << label_end << ":\n";
+                gen->backend()->jmp(label_begin);
+                gen->backend()->label(label_end);
 
                 gen->m_loop_stack.pop_back();
                 gen->m_break_stack.pop_back();
@@ -823,7 +785,7 @@ void Generator::gen_stmt(const NodeStmt& stmt)
                 gen->m_loop_stack.push_back({ .begin_label = label_begin, .end_label = label_end, .continue_label = label_cont });
                 gen->m_break_stack.push_back(label_end);
 
-                gen->m_output << label_begin << ":\n";
+                gen->backend()->label(label_begin);
 
                 gen->enter_scope();
                 for (const auto& s : stmt_do_while->body->stmts) {
@@ -831,12 +793,12 @@ void Generator::gen_stmt(const NodeStmt& stmt)
                 }
                 gen->exit_scope();
 
-                gen->m_output << label_cont << ":\n";
+                gen->backend()->label(label_cont);
                 gen->gen_expr(*stmt_do_while->cond);
                 gen->pop("rax");
-                gen->m_output << "    test rax, rax\n";
-                gen->m_output << "    jnz " << label_begin << "\n";
-                gen->m_output << label_end << ":\n";
+                gen->backend()->test("rax", "rax");
+                gen->backend()->jnz(label_begin);
+                gen->backend()->label(label_end);
 
                 gen->m_loop_stack.pop_back();
                 gen->m_break_stack.pop_back();
@@ -860,31 +822,31 @@ void Generator::gen_stmt(const NodeStmt& stmt)
 
                 for (size_t i = 0; i < stmt_switch->cases.size(); i++) {
                     if (stmt_switch->cases[i].value == nullptr) continue;
-                    gen->m_output << "    push QWORD [rsp]\n";
+                    gen->backend()->emit_insn("push", "QWORD [rsp]");
                     gen->m_stack_size++;
                     gen->gen_expr(*stmt_switch->cases[i].value);
                     gen->pop("rdi");
                     gen->pop("rax");
-                    gen->m_output << "    cmp rax, rdi\n";
-                    gen->m_output << "    je " << case_labels[i] << "\n";
+                    gen->backend()->cmp("rax", "rdi");
+                    gen->backend()->je(case_labels[i]);
                 }
 
-                gen->m_output << "    pop rax\n";
+                gen->backend()->pop("rax");
                 gen->m_stack_size--;
 
                 if (default_idx < stmt_switch->cases.size()) {
-                    gen->m_output << "    jmp " << case_labels[default_idx] << "\n";
+                    gen->backend()->jmp(case_labels[default_idx]);
                 }
-                gen->m_output << "    jmp " << label_end << "\n";
+                gen->backend()->jmp(label_end);
 
                 for (size_t i = 0; i < stmt_switch->cases.size(); i++) {
-                    gen->m_output << case_labels[i] << ":\n";
+                    gen->backend()->label(case_labels[i]);
                     for (const auto& s : stmt_switch->cases[i].stmts) {
                         gen->gen_stmt(s);
                     }
                 }
 
-                gen->m_output << label_end << ":\n";
+                gen->backend()->label(label_end);
                 gen->m_break_stack.pop_back();
             }
 
@@ -899,17 +861,17 @@ void Generator::gen_stmt(const NodeStmt& stmt)
                 auto& scope = gen->m_scopes.back();
                 scope.vars[stmt_arr->name.value.value()] = Var { .stack_loc = gen->m_stack_size, .array_size = size };
                 scope.var_count += size;
-                gen->m_output << "    mov rcx, " << size << "\n";
+                gen->backend()->load_imm("rcx", size);
                 std::string label_loop = gen->new_label();
                 std::string label_end = gen->new_label();
-                gen->m_output << label_loop << ":\n";
-                gen->m_output << "    test rcx, rcx\n";
-                gen->m_output << "    jz " << label_end << "\n";
-                gen->m_output << "    push 0\n";
+                gen->backend()->label(label_loop);
+                gen->backend()->test("rcx", "rcx");
+                gen->backend()->jz(label_end);
+                gen->backend()->emit_insn("push", "0");
                 gen->m_stack_size += size;
-                gen->m_output << "    dec rcx\n";
-                gen->m_output << "    jmp " << label_loop << "\n";
-                gen->m_output << label_end << ":\n";
+                gen->backend()->emit_insn("dec", "rcx");
+                gen->backend()->jmp(label_loop);
+                gen->backend()->label(label_end);
             }
 
             void operator()(const NodeStmtArrAssign* stmt_arr_assign) const
@@ -924,21 +886,21 @@ void Generator::gen_stmt(const NodeStmt& stmt)
                     if (it->vars.contains(name)) {
                         const auto var = it->vars.at(name);
                         size_t base_offset = (gen->m_stack_size - var.stack_loc - 1) * 8;
-                        gen->m_output << "    lea rcx, [rsp + " << base_offset << "]\n";
-                        gen->m_output << "    mov rsi, rdi\n";
-                        gen->m_output << "    shl rsi, 3\n";
-                        gen->m_output << "    sub rcx, rsi\n";
-                        gen->m_output << "    mov [rcx], rax\n";
+                        gen->backend()->lea("rcx", gen->backend()->addr_sp(base_offset));
+                        gen->backend()->mov("rsi", "rdi");
+                        gen->backend()->shl("rsi", "3");
+                        gen->backend()->sub("rcx", "rsi");
+                        gen->backend()->emit_insn("mov", "[rcx], rax");
                         return;
                     }
                 }
                 // Try global
                 if (gen->m_global_var_info.contains(name)) {
-                    gen->m_output << "    lea rcx, [rel " << name << "]\n";
-                    gen->m_output << "    mov rsi, rdi\n";
-                    gen->m_output << "    shl rsi, 3\n";
-                    gen->m_output << "    add rcx, rsi\n";
-                    gen->m_output << "    mov [rcx], rax\n";
+                    gen->backend()->lea("rcx", gen->backend()->addr_label(name));
+                    gen->backend()->mov("rsi", "rdi");
+                    gen->backend()->shl("rsi", "3");
+                    gen->backend()->add("rcx", "rsi");
+                    gen->backend()->emit_insn("mov", "[rcx], rax");
                     return;
                 }
                 lsp_exit(stmt_arr_assign->name.loc, "Undeclared identifier: " + name);
@@ -951,14 +913,14 @@ void Generator::gen_stmt(const NodeStmt& stmt)
                         gen->gen_expr(*stmt_ret->expr);
                         gen->pop("rax");
                     }
-                    gen->m_output << "    jmp " << gen->m_func_epilogue_label << "\n";
+                    gen->backend()->jmp(gen->m_func_epilogue_label);
                 } else {
                     if (!stmt_ret->expr) {
                         lsp_exit(stmt_ret->loc, "return with no value at top level");
                     }
                     gen->gen_expr(*stmt_ret->expr);
                     gen->pop("rdi");
-                    gen->m_output << "    call _sodium_exit\n";
+                    gen->backend()->call("_sodium_exit");
                     gen->m_emitted_exit = true;
                 }
             }
@@ -967,7 +929,7 @@ void Generator::gen_stmt(const NodeStmt& stmt)
             {
                 gen->gen_expr(*stmt_print->expr);
                 gen->pop("rdi");
-                gen->m_output << "    call _sodium_print_int\n";
+                gen->backend()->call("_sodium_print_int");
             }
 void operator()(const NodeStmtBlock* stmt_block) const
             {
@@ -993,13 +955,13 @@ void operator()(const NodeStmtBlock* stmt_block) const
                 gen->m_loop_stack.push_back({ .begin_label = label_begin, .end_label = label_end, .continue_label = label_cont });
                 gen->m_break_stack.push_back(label_end);
 
-                gen->m_output << label_begin << ":\n";
+                gen->backend()->label(label_begin);
 
                 if (stmt_for->cond) {
                     gen->gen_expr(*stmt_for->cond);
                     gen->pop("rax");
-                    gen->m_output << "    test rax, rax\n";
-                    gen->m_output << "    jz " << label_end << "\n";
+                    gen->backend()->test("rax", "rax");
+                    gen->backend()->jz(label_end);
                 }
 
                 gen->enter_scope();
@@ -1008,15 +970,15 @@ void operator()(const NodeStmtBlock* stmt_block) const
                 }
                 gen->exit_scope();
 
-                gen->m_output << label_cont << ":\n";
+                gen->backend()->label(label_cont);
                 if (stmt_for->update) {
                     NodeStmt update_stmt;
                     update_stmt.var = stmt_for->update;
                     gen->gen_stmt(update_stmt);
                 }
 
-                gen->m_output << "    jmp " << label_begin << "\n";
-                gen->m_output << label_end << ":\n";
+                gen->backend()->jmp(label_begin);
+                gen->backend()->label(label_end);
 
                 gen->m_loop_stack.pop_back();
                 gen->m_break_stack.pop_back();
@@ -1029,14 +991,14 @@ void operator()(const NodeStmtBlock* stmt_block) const
                 if (gen->m_break_stack.empty()) {
                     lsp_exit(stmt_break->loc, "break outside loop or switch");
                 }
-                gen->m_output << "    jmp " << gen->m_break_stack.back() << "\n";
+                gen->backend()->jmp(gen->m_break_stack.back());
             }
 
             void operator()(const NodeStmtContinue* stmt_continue) const
             {
                 for (auto it = gen->m_loop_stack.rbegin(); it != gen->m_loop_stack.rend(); ++it) {
                     if (!it->continue_label.empty()) {
-                        gen->m_output << "    jmp " << it->continue_label << "\n";
+                        gen->backend()->jmp(it->continue_label);
                         return;
                     }
                 }
@@ -1066,44 +1028,44 @@ void operator()(const NodeStmtBlock* stmt_block) const
                 if (stmt_field->op == AssignOp::assign) {
                     gen->gen_expr(*stmt_field->expr);
                     gen->pop("rax");
-                    gen->m_output << "    mov QWORD [rsp + " << field_addr_offset << "], rax\n";
+                    gen->backend()->emit_insn("mov", "QWORD [rsp + " + std::to_string(field_addr_offset) + "], rax");
                 } else {
                     // Compound assignment: read field, apply op, write back
-                    gen->m_output << "    push QWORD [rsp + " << field_addr_offset << "]\n";
+                    gen->backend()->emit_insn("push", "QWORD [rsp + " + std::to_string(field_addr_offset) + "]");
                     gen->m_stack_size++;
                     gen->gen_expr(*stmt_field->expr);
                     gen->pop("rdi");
                     gen->pop("rax");
                     switch (stmt_field->op) {
                         case AssignOp::add_assign:
-                            gen->m_output << "    add rax, rdi\n"; break;
+                            gen->backend()->add("rax", "rdi"); break;
                         case AssignOp::sub_assign:
-                            gen->m_output << "    sub rax, rdi\n"; break;
+                            gen->backend()->sub("rax", "rdi"); break;
                         case AssignOp::mul_assign:
-                            gen->m_output << "    imul rax, rdi\n"; break;
+                            gen->backend()->mul("rax", "rdi"); break;
                         case AssignOp::div_assign:
-                            gen->m_output << "    cqo\n";
-                            gen->m_output << "    idiv rdi\n"; break;
+                            gen->backend()->sign_extend_rax();
+                            gen->backend()->div("rdi"); break;
                         case AssignOp::mod_assign:
-                            gen->m_output << "    cqo\n";
-                            gen->m_output << "    idiv rdi\n";
-                            gen->m_output << "    mov rax, rdx\n"; break;
+                            gen->backend()->sign_extend_rax();
+                            gen->backend()->div("rdi");
+                            gen->backend()->mov("rax", "rdx"); break;
                         case AssignOp::bitand_assign:
-                            gen->m_output << "    and rax, rdi\n"; break;
+                            gen->backend()->and_("rax", "rdi"); break;
                         case AssignOp::bitor_assign:
-                            gen->m_output << "    or rax, rdi\n"; break;
+                            gen->backend()->or_("rax", "rdi"); break;
                         case AssignOp::bitxor_assign:
-                            gen->m_output << "    xor rax, rdi\n"; break;
+                            gen->backend()->xor_("rax", "rdi"); break;
                         case AssignOp::shl_assign:
-                            gen->m_output << "    mov rcx, rdi\n";
-                            gen->m_output << "    shl rax, cl\n"; break;
+                            gen->backend()->mov("rcx", "rdi");
+                            gen->backend()->shl("rax", "cl"); break;
                         case AssignOp::shr_assign:
-                            gen->m_output << "    mov rcx, rdi\n";
-                            gen->m_output << "    shr rax, cl\n"; break;
+                            gen->backend()->mov("rcx", "rdi");
+                            gen->backend()->shr("rax", "cl"); break;
                         default:
                             break;
                     }
-                    gen->m_output << "    mov QWORD [rsp + " << field_addr_offset << "], rax\n";
+                    gen->backend()->emit_insn("mov", "QWORD [rsp + " + std::to_string(field_addr_offset) + "], rax");
                 }
             }
 
@@ -1120,7 +1082,7 @@ void operator()(const NodeStmtBlock* stmt_block) const
                     gen->gen_expr(*stmt_deref->ptr_expr);
                     gen->pop("rbx");
                     gen->pop("rax");
-                    gen->m_output << "    mov [rbx], rax\n";
+                    gen->backend()->emit_insn("mov", "[rbx], rax");
                 } else {
                     // *ptr += expr:
                     //   1. evaluate ptr (address on stack)
@@ -1132,41 +1094,41 @@ void operator()(const NodeStmtBlock* stmt_block) const
                     //   7. mov [rbx], rax
                     gen->gen_expr(*stmt_deref->ptr_expr);
                     gen->pop("rbx");
-                    gen->m_output << "    push QWORD [rbx]\n";
+                    gen->backend()->emit_insn("push", "QWORD [rbx]");
                     gen->m_stack_size++;
                     gen->gen_expr(*stmt_deref->expr);
                     gen->pop("rdi");
                     gen->pop("rax");
                     switch (stmt_deref->op) {
                         case AssignOp::add_assign:
-                            gen->m_output << "    add rax, rdi\n"; break;
+                            gen->backend()->add("rax", "rdi"); break;
                         case AssignOp::sub_assign:
-                            gen->m_output << "    sub rax, rdi\n"; break;
+                            gen->backend()->sub("rax", "rdi"); break;
                         case AssignOp::mul_assign:
-                            gen->m_output << "    imul rax, rdi\n"; break;
+                            gen->backend()->mul("rax", "rdi"); break;
                         case AssignOp::div_assign:
-                            gen->m_output << "    cqo\n";
-                            gen->m_output << "    idiv rdi\n"; break;
+                            gen->backend()->sign_extend_rax();
+                            gen->backend()->div("rdi"); break;
                         case AssignOp::mod_assign:
-                            gen->m_output << "    cqo\n";
-                            gen->m_output << "    idiv rdi\n";
-                            gen->m_output << "    mov rax, rdx\n"; break;
+                            gen->backend()->sign_extend_rax();
+                            gen->backend()->div("rdi");
+                            gen->backend()->mov("rax", "rdx"); break;
                         case AssignOp::bitand_assign:
-                            gen->m_output << "    and rax, rdi\n"; break;
+                            gen->backend()->and_("rax", "rdi"); break;
                         case AssignOp::bitor_assign:
-                            gen->m_output << "    or rax, rdi\n"; break;
+                            gen->backend()->or_("rax", "rdi"); break;
                         case AssignOp::bitxor_assign:
-                            gen->m_output << "    xor rax, rdi\n"; break;
+                            gen->backend()->xor_("rax", "rdi"); break;
                         case AssignOp::shl_assign:
-                            gen->m_output << "    mov rcx, rdi\n";
-                            gen->m_output << "    shl rax, cl\n"; break;
+                            gen->backend()->mov("rcx", "rdi");
+                            gen->backend()->shl("rax", "cl"); break;
                         case AssignOp::shr_assign:
-                            gen->m_output << "    mov rcx, rdi\n";
-                            gen->m_output << "    shr rax, cl\n"; break;
+                            gen->backend()->mov("rcx", "rdi");
+                            gen->backend()->shr("rax", "cl"); break;
                         default:
                             break;
                     }
-                    gen->m_output << "    mov [rbx], rax\n";
+                    gen->backend()->emit_insn("mov", "[rbx], rax");
                 }
             }
         };
@@ -1410,18 +1372,18 @@ void Generator::collect_globals(const std::vector<NodeStmt>& stmts)
             collect_globals(func->body->stmts);
         }
 
-                m_output << "extern _sodium_exit\n";
-        m_output << "extern _sodium_print_int\n";
-        m_output << "extern _sodium_read_int\n";
-        m_output << "extern _sodium_malloc\n";
-        m_output << "extern _sodium_free\n";
+                m_backend->extern_sym("_sodium_exit");
+        m_backend->extern_sym("_sodium_print_int");
+        m_backend->extern_sym("_sodium_read_int");
+        m_backend->extern_sym("_sodium_malloc");
+        m_backend->extern_sym("_sodium_free");
 
-m_output << "global _start\n_start:\n";
+m_backend->global_sym("_start"); m_backend->label("_start");
 
         for (const auto& init : m_global_inits) {
             gen_expr(*init.expr);
             pop("rax");
-            m_output << "    mov [rel " << init.name << "], rax\n";
+            m_backend->store(m_backend->addr_label(init.name), "rax");
         }
 
         for (const NodeStmt& stmt : m_prog.stmts) {
@@ -1429,8 +1391,8 @@ m_output << "global _start\n_start:\n";
         }
 
         if (!m_emitted_exit) {
-            m_output << "    mov rdi, 0\n";
-            m_output << "    call _sodium_exit\n";
+            m_backend->load_imm("rdi", 0);
+            m_backend->call("_sodium_exit");
         }
 
         for (const auto& func : m_prog.funcs) {
@@ -1438,25 +1400,25 @@ m_output << "global _start\n_start:\n";
         }
 
         if (!m_data_entries.empty()) {
-            m_output << "section .data\n";
+            m_backend->section(".data");
             for (const auto& entry : m_data_entries) {
-                m_output << entry.name << ": dq " << entry.value << "\n";
+                m_backend->dq(entry.name, entry.value);
             }
         }
         if (!m_strings.empty()) {
-            m_output << "section .rodata\n";
+            m_backend->section(".rodata");
             for (const auto& entry : m_strings) {
-                m_output << entry.label << ": db \"" << entry.value << "\", 0\n";
+                m_backend->db_str(entry.label, entry.value);
             }
         }
         if (!m_bss_entries.empty()) {
-            m_output << "section .bss\n";
+            m_backend->section(".bss");
             for (const auto& entry : m_bss_entries) {
                 // entry can be "name: resq N" (array) or just "name" (scalar)
                 if (entry.find(' ') != std::string::npos) {
-                    m_output << entry << "\n";
+                    m_backend->emit_insn("", entry);
                 } else {
-                    m_output << entry << ": resq 1\n";
+                    m_backend->resq(entry, 1);
                 }
             }
         }
@@ -1486,13 +1448,13 @@ std::optional<StructInfo> Generator::get_struct_info(const std::string& name) co
 
 void Generator::push(const std::string& reg)
 {
-        m_output << "    push " << reg << "\n";
+        m_backend->push(reg);
         m_stack_size++;
 }
 
 void Generator::pop(const std::string& reg)
 {
-        m_output << "    pop " << reg << "\n";
+        m_backend->pop(reg);
         m_stack_size--;
 }
 
@@ -1500,11 +1462,11 @@ void Generator::truncate(IntType type)
 {
         switch (type) {
             case IntType::i8:
-            case IntType::u8:  m_output << "    and rax, 0xFF\n"; break;
+            case IntType::u8:  m_backend->and_("rax", "0xFF"); break;
             case IntType::i16:
-            case IntType::u16: m_output << "    mov ecx, 0xFFFF\n    and rax, rcx\n"; break;
+            case IntType::u16: m_backend->emit_insn("mov", "ecx, 0xFFFF"); m_backend->and_("rax", "rcx"); break;
             case IntType::i32:
-            case IntType::u32: m_output << "    mov eax, eax\n"; break;
+            case IntType::u32: m_backend->mov("eax", "eax"); break;
             case IntType::i64:
             case IntType::u64: break;
         }
@@ -1513,12 +1475,12 @@ void Generator::truncate(IntType type)
 void Generator::extend(IntType type)
 {
         switch (type) {
-            case IntType::i8:  m_output << "    movsx rax, al\n"; break;
-            case IntType::i16: m_output << "    movsx rax, ax\n"; break;
-            case IntType::i32: m_output << "    movsxd rax, eax\n"; break;
-            case IntType::u8:  m_output << "    movzx eax, al\n"; break;
-            case IntType::u16: m_output << "    movzx eax, ax\n"; break;
-            case IntType::u32: m_output << "    mov eax, eax\n"; break;
+            case IntType::i8:  m_backend->movsx("rax", "al", 8); break;
+            case IntType::i16: m_backend->movsx("rax", "ax", 16); break;
+            case IntType::i32: m_backend->movsx("rax", "eax", 32); break;
+            case IntType::u8:  m_backend->movzx("eax", "al", 8); break;
+            case IntType::u16: m_backend->movzx("eax", "ax", 16); break;
+            case IntType::u32: m_backend->mov("eax", "eax"); break;
             case IntType::i64:
             case IntType::u64: break;
         }

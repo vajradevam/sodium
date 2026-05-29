@@ -4,6 +4,10 @@ project(sodium)
 
 set(CMAKE_CXX_STANDARD 20)
 
+set(BACKEND_SOURCES
+    src/backend/x86_64/backend.cpp
+)
+
 add_executable(sodium
     src/main.cpp
     src/arena.cpp
@@ -12,6 +16,7 @@ add_executable(sodium
     src/generation.cpp
     src/ast_printer.cpp
     src/preprocessor.cpp
+    ${BACKEND_SOURCES}
 )
 
 add_executable(cyan-lsp
@@ -23,4 +28,5 @@ add_executable(cyan-lsp
     src/generation.cpp
     src/ast_printer.cpp
     src/preprocessor.cpp
+    ${BACKEND_SOURCES}
 )

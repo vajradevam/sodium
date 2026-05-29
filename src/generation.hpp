@@ -11,6 +11,8 @@
 #include <vector>
 
 #include "parser.hpp"
+#include "backend/interface.hpp"
+#include <memory>
 
 enum class IntType;
 
@@ -51,7 +53,7 @@ struct StructInfo {
 
 class Generator {
 public:
-    explicit Generator(NodeProg root);
+    explicit Generator(NodeProg root, std::unique_ptr<Backend> backend = nullptr);
 
     [[nodiscard]] std::string gen_prog();
 
@@ -79,8 +81,12 @@ public:
     void extend(IntType type);
     void truncate(IntType type);
 
+    /// Access the backend (used by visitor inner classes).
+    Backend* backend() const { return m_backend.get(); }
+
 private:
     NodeProg m_prog;
+    std::unique_ptr<Backend> m_backend;
     std::ostringstream m_output;
     size_t m_label_count = 0;
     size_t m_string_count = 0;

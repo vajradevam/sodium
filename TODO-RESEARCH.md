@@ -48,7 +48,7 @@ multi-architecture support — RISC-V has different startup conventions.
 
 ---
 
-## Phase 3: Define Backend Interface
+## Phase 3: Define Backend Interface ✅
 
 **What:** Create `src/backend/interface.hpp` — a pure virtual class
 `Backend` that abstracts all architecture-specific instruction emission:
@@ -59,78 +59,24 @@ convention, syscall ABI.
 strings everywhere. We need a contract that any architecture must
 implement.
 
-**Interface sketch:**
-```cpp
-class Backend {
-public:
-    virtual ~Backend() = default;
-
-    // Stack / frame
-    virtual void push(const std::string& reg) = 0;
-    virtual void pop(const std::string& reg) = 0;
-    virtual std::string fp_rel(int offset) = 0;   // "[rbp+8]" or "8(sp)"
-
-    // Data movement
-    virtual void mov_rr(const std::string& dst, const std::string& src) = 0;
-    virtual void mov_rm(const std::string& reg, const std::string& addr) = 0;
-    virtual void mov_mr(const std::string& addr, const std::string& reg) = 0;
-    virtual void lea(const std::string& reg, const std::string& addr) = 0;
-
-    // Arithmetic
-    virtual void add(const std::string& dst, const std::string& src) = 0;
-    virtual void sub(const std::string& dst, const std::string& src) = 0;
-    virtual void mul(const std::string& dst, const std::string& src) = 0;
-    virtual void div(const std::string& divisor) = 0;
-    virtual void neg(const std::string& reg) = 0;
-    virtual void not_(const std::string& reg) = 0;
-
-    // Comparison / branches
-    virtual void cmp(const std::string& a, const std::string& b) = 0;
-    virtual void jmp(const std::string& label) = 0;
-    virtual void jcc(Condition, const std::string& label) = 0;
-
-    // Control flow
-    virtual void call(const std::string& target) = 0;
-    virtual void ret() = 0;
-    virtual void syscall() = 0;
-
-    // Register file description
-    virtual std::string reg(RegClass cls, int index) = 0;
-    virtual std::vector<std::string> caller_saved() = 0;
-    virtual std::vector<std::string> callee_saved() = 0;
-    virtual std::string zero_reg() = 0;
-    virtual std::string stack_pointer() = 0;
-    virtual std::string frame_pointer() = 0;
-
-    // Syscall ABI
-    virtual int syscall_exit() = 0;
-    virtual int syscall_brk() = 0;
-    virtual int syscall_read() = 0;
-    virtual int syscall_write() = 0;
-    virtual std::string syscall_arg(int n) = 0;  // rdi, rsi, rdx, rcx, r8, r9
-};
-```
-
 **Components:**
-- [ ] `src/backend/interface.hpp` — abstract class
-- [ ] `src/backend/registry.hpp` — `Backend* create_backend(const std::string& arch);`
-- [ ] `src/generation.hpp` — `Generator` holds `std::unique_ptr<Backend>`
-- [ ] `src/generation.cpp` — all `m_output << "..."` replaced with `m_backend->*()`
+- [x] `src/backend/interface.hpp` — abstract class
+- [x] `src/generation.hpp` — `Generator` holds `std::unique_ptr<Backend>`
+- [x] `src/generation.cpp` — all `m_output << "..."` replaced with `m_backend->*()`
 
 ---
 
-## Phase 4: x86-64 Backend Implementation
+## Phase 4: x86-64 Backend Implementation ✅
 
 **What:** Implement the `Backend` interface for x86-64 using NASM syntax.
-This should produce identical output to the current hardcoded strings.
+This produces identical output to the original hardcoded strings.
 
 **Why:** Validates the interface works and provides a baseline for RISC-V.
 
 **Components:**
-- [ ] `src/backend/x86_64/backend.hpp`
-- [ ] `src/backend/x86_64/backend.cpp`
-- [ ] `src/backend/registry.cpp` — registers `x86_64` factory
-- [ ] All 84+ tests pass with identical output
+- [x] `src/backend/x86_64/backend.hpp`
+- [x] `src/backend/x86_64/backend.cpp`
+- [x] All 84+ tests pass with identical output
 
 ---
 

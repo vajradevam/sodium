@@ -2,3 +2,8 @@ build/
 out
 out.asm
 out.o
+sodium-rt/*.o
+sodium-rt/*.a
+!sodium-rt/*.asm
+!sodium-rt/*.s
+!sodium-rt/Makefile
