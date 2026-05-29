@@ -59,7 +59,10 @@ private:
     static Position loc_to_position(const SourceLoc& loc);
 
     // Tokenize a source text and return all tokens (for completions etc.)
-    std::vector<Token> tokenize(const std::string& text);
+    std::vector<Token> tokenize(const std::string& text, const std::string& filename = "");
+
+    // Convert an LSP URI (file:///path) to a filesystem path.
+    static std::string uri_to_path(const std::string& uri);
 
     // Check if a token at the given position matches.
     static bool position_matches(const Position& pos, const Token& tok);

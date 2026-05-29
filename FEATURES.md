@@ -27,7 +27,11 @@
 | `break` / `continue` | ✅ |
 | `switch` / `case` / `default` | ✅ |
 | Global variables (`global var`) | ✅ |
-| Static variables (`static var inside functions`) | ✅ |
+| Global array declarations (`global var arr[size]`) | ✅ |
+| Static variables (`static var` inside functions) | ✅ |
+| For-loop variable scoping (`for var i` scoped to loop) | ✅ |
+| Undefined function call detection (compile-time error) | ✅ |
+| Include mechanism (`#include` + `#pragma once`) | ✅ |
 | `print()` builtin (integer to stdout) | ✅ |
 | `read()` builtin (integer from stdin) | ✅ |
 | Top-level statements (outside functions) | ✅ |
@@ -57,12 +61,8 @@
 
 | Feature | Notes |
 |---------|-------|
-| Include mechanism | `#include` or `import` — multi-file compilation |
 | Structs | Compound data types |
-| `global var arr[size]` syntax | Global array declarations |
-| For-loop scoping | `for (var i = ...)` should scope `i` to the loop body |
 | String operations | Concatenation, comparison, length |
-| Undefined function check | Clean compile error instead of linker error |
 
 ## 🧭 Medium Priority
 

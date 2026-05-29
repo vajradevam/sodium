@@ -6,6 +6,15 @@ std::string g_source_text;
 bool g_lsp_mode = false;
 std::vector<LSPError> g_lsp_errors;
 
+// Small helper for trimming whitespace
+static std::string trim(const std::string& s) {
+    size_t start = 0;
+    while (start < s.size() && std::isspace(static_cast<unsigned char>(s[start]))) start++;
+    size_t end = s.size();
+    while (end > start && std::isspace(static_cast<unsigned char>(s[end - 1]))) end--;
+    return s.substr(start, end - start);
+}
+
 void print_code_context(const SourceLoc& loc) {
     if (!g_show_code || loc.line == 0 || loc.col == 0) return;
     if (g_source_text.empty()) return;
@@ -54,10 +63,125 @@ char Tokenizer::consume() {
     if (c == '\n') {
         m_line++;
         m_col = 1;
+        m_at_line_start = true;
     } else {
         m_col++;
+        m_at_line_start = false;
     }
     return c;
+}
+
+// Handle #line directives from the preprocessor:
+//   # line_number "filename"\n
+// Or just:
+//   # line_number\n
+// Or #error directives.
+void Tokenizer::handle_line_directive() {
+    // We've already consumed '#'. Parse the directive.
+    // Skip whitespace after '#'
+    while (peek().has_value() && (peek().value() == ' ' || peek().value() == '\t')) {
+        consume();
+    }
+
+    // Read the directive keyword or number
+    std::string directive;
+    while (peek().has_value() && std::isdigit(peek().value())) {
+        directive.push_back(consume());
+    }
+
+    if (directive.empty()) {
+        // Could be #error
+        while (peek().has_value() && std::isalpha(peek().value())) {
+            directive.push_back(consume());
+        }
+        if (directive == "error") {
+            // Skip whitespace
+            while (peek().has_value() && (peek().value() == ' ' || peek().value() == '\t')) {
+                consume();
+            }
+            // Read the error message (in quotes, or rest of line)
+            std::string err_msg;
+            if (peek().has_value() && peek().value() == '"') {
+                consume(); // skip opening quote
+                while (peek().has_value() && peek().value() != '"') {
+                    err_msg.push_back(consume());
+                }
+                if (peek().has_value() && peek().value() == '"') {
+                    consume(); // skip closing quote
+                }
+            } else {
+                while (peek().has_value() && peek().value() != '\n') {
+                    err_msg.push_back(consume());
+                }
+                err_msg = trim(err_msg);
+            }
+            // Skip rest of line
+            while (peek().has_value() && peek().value() != '\n') {
+                consume();
+            }
+            if (peek().has_value()) {
+                consume(); // consume the '\n'
+            }
+            m_at_line_start = true;
+            // Report the error
+            SourceLoc loc = current_loc();
+            if (g_lsp_mode) {
+                g_lsp_errors.push_back({loc, err_msg});
+                throw LSPAbort();
+            }
+            std::cerr << format_err(loc, err_msg) << std::endl;
+            exit(EXIT_FAILURE);
+        } else {
+            // Unknown directive, skip rest of line
+            while (peek().has_value() && peek().value() != '\n') {
+                consume();
+            }
+            if (peek().has_value()) {
+                consume(); // consume the '\n'
+            }
+            m_at_line_start = true;
+        }
+        return;
+    }
+
+    // Parse line number
+    size_t new_line = std::stoul(directive);
+
+    // Skip whitespace after number
+    while (peek().has_value() && (peek().value() == ' ' || peek().value() == '\t')) {
+        consume();
+    }
+
+    // Optionally read filename in quotes
+    std::string new_filename;
+    if (peek().has_value() && peek().value() == '"') {
+        consume(); // skip opening quote
+        while (peek().has_value() && peek().value() != '"') {
+            new_filename.push_back(consume());
+        }
+        if (peek().has_value() && peek().value() == '"') {
+            consume(); // skip closing quote
+        }
+        // Skip any remaining whitespace before newline
+        while (peek().has_value() && (peek().value() == ' ' || peek().value() == '\t')) {
+            consume();
+        }
+    }
+
+    // Skip rest of the line (should just be newline)
+    while (peek().has_value() && peek().value() != '\n') {
+        consume();
+    }
+    if (peek().has_value()) {
+        consume(); // consume the '\n'
+    }
+
+    m_line = new_line;
+    if (!new_filename.empty()) {
+        m_filename = new_filename;
+    }
+    m_col = 1;
+    m_at_line_start = true;
 }
 
 std::vector<Token> Tokenizer::tokenize() {
@@ -66,6 +190,13 @@ std::vector<Token> Tokenizer::tokenize() {
     std::string buf;
 
     while (peek().has_value()) {
+        // Handle #line directives at start of line
+        if (m_at_line_start && peek().value() == '#') {
+            consume(); // consume the '#'
+            handle_line_directive();
+            continue;
+        }
+
         if (std::isalpha(peek().value()) || peek().value() == '_') {
             SourceLoc tok_loc = current_loc();
             buf.push_back(consume());

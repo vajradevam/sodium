@@ -11,6 +11,7 @@ add_executable(sodium
     src/parser.cpp
     src/generation.cpp
     src/ast_printer.cpp
+    src/preprocessor.cpp
 )
 
 add_executable(cyan-lsp
@@ -21,4 +22,5 @@ add_executable(cyan-lsp
     src/parser.cpp
     src/generation.cpp
     src/ast_printer.cpp
+    src/preprocessor.cpp
 )

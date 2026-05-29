@@ -75,6 +75,7 @@ EXIT_TESTS["test_for_global_update.cyan"]=10
 # Tests that should fail to compile (compiler exits non-zero)
 declare -a COMPILE_FAIL_TESTS
 COMPILE_FAIL_TESTS+=("test_arr_scalar_assign.cyan")
+COMPILE_FAIL_TESTS+=("include_test/test_include_missing.cyan")
 
 # Tests that also check stdout
 declare -A STDOUT_TESTS
@@ -83,6 +84,11 @@ STDOUT_TESTS["test_print.cyan"]=0
 # Tests requiring stdin input (testname|expected_exit|stdin_value)
 declare -A STDIN_TESTS
 STDIN_TESTS["test_read.cyan|42"]=42
+
+# Tests that use #include (need -I flag)
+declare -A INCLUDE_DIR_TESTS
+INCLUDE_DIR_TESTS["include_test/test_include_basic.cyan"]=30
+INCLUDE_DIR_TESTS["include_test/test_pragma_once.cyan"]=70
 
 echo "========================================"
 echo "  Cyan Compiler Test Suite"
@@ -176,6 +182,36 @@ for stdin_entry in "${!STDIN_TESTS[@]}"; do
     fi
 
     echo "$stdin_value" | ./out > /tmp/cyan_stdout.txt 2>&1; actual_exit=$?
+
+    if [ "$actual_exit" -eq "$expected_exit" ]; then
+        echo -e "${GREEN}PASS${NC} (exit: $actual_exit)"
+        PASS=$((PASS + 1))
+    else
+        echo -e "${RED}FAIL${NC}"
+        echo "  Expected exit: $expected_exit, got: $actual_exit"
+        FAIL=$((FAIL + 1))
+    fi
+done
+
+# Include tests (with -I flag)
+for test_file in "${!INCLUDE_DIR_TESTS[@]}"; do
+    expected_exit=${INCLUDE_DIR_TESTS[$test_file]}
+
+    if [ ! -f "$TEST_DIR/$test_file" ]; then
+        echo -e "${RED}[SKIP]${NC} $test_file (not found)"
+        continue
+    fi
+
+    echo -n "Testing $test_file... "
+
+    if ! $COMPILER "$TEST_DIR/$test_file" -I "$TEST_DIR/include_test" > /tmp/cyan_compile.log 2>&1; then
+        echo -e "${RED}COMPILE FAIL${NC}"
+        cat /tmp/cyan_compile.log
+        FAIL=$((FAIL + 1))
+        continue
+    fi
+
+    ./out > /tmp/cyan_stdout.txt 2>&1; actual_exit=$?
 
     if [ "$actual_exit" -eq "$expected_exit" ]; then
         echo -e "${GREEN}PASS${NC} (exit: $actual_exit)"

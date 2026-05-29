@@ -10,25 +10,34 @@
 #include "./generation.hpp"
 #include "parser.hpp"
 #include "ast_printer.hpp"
+#include "preprocessor.hpp"
 
 int main(int argc, char* argv[]) {
 
     bool print_ast_flag = false;
     const char* filename = nullptr;
+    std::vector<std::string> include_dirs;
 
     for (int i = 1; i < argc; i++) {
         if (std::strcmp(argv[i], "--print-ast") == 0) {
             print_ast_flag = true;
+        } else if (std::strcmp(argv[i], "-I") == 0 || std::strcmp(argv[i], "--include-dir") == 0) {
+            if (i + 1 < argc) {
+                include_dirs.push_back(argv[++i]);
+            } else {
+                std::cerr << "Usage: sodium [--print-ast] [-I <dir>] <filename.cyan>" << std::endl;
+                exit(EXIT_FAILURE);
+            }
         } else if (filename == nullptr) {
             filename = argv[i];
         } else {
-            std::cerr << "Usage: sodium [--print-ast] <filename.cyan>" << std::endl;
+            std::cerr << "Usage: sodium [--print-ast] [-I <dir>] <filename.cyan>" << std::endl;
             exit(EXIT_FAILURE);
         }
     }
 
     if (filename == nullptr) {
-        std::cerr << "Usage: sodium [--print-ast] <filename.cyan>" << std::endl;
+        std::cerr << "Usage: sodium [--print-ast] [-I <dir>] <filename.cyan>" << std::endl;
         exit(EXIT_FAILURE);
     }
 
@@ -39,6 +48,10 @@ int main(int argc, char* argv[]) {
         contents_stream << input.rdbuf();
         contents = contents_stream.str();
     }
+
+    // Run preprocessor
+    PreprocessedResult pp_result = preprocess(contents, filename, include_dirs);
+    contents = std::move(pp_result.expanded_source);
 
     g_source_text = contents;
     g_show_code = true;

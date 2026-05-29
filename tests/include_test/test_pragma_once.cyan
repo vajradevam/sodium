@@ -1,0 +1,4 @@
+#include "helper.cyan"
+#include "helper.cyan"
+var result = add(30, 40);
+return(result);

@@ -1,0 +1,3 @@
+#include "helper.cyan"
+var result = add(10, 20);
+return(result);

@@ -154,9 +154,12 @@ private:
 
     char consume();
 
+    void handle_line_directive();
+
     std::string m_src;
     std::string m_filename;
     size_t m_index = 0;
     size_t m_line = 1;
     size_t m_col = 1;
+    bool m_at_line_start = true;
 };

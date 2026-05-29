@@ -1,6 +1,7 @@
 #include "lsp.hpp"
 #include "parser.hpp"
 #include "generation.hpp"
+#include "preprocessor.hpp"
 
 #include <iostream>
 #include <sstream>
@@ -285,15 +286,19 @@ struct ParseResult {
     SymbolTable symbols;
 };
 
-ParseResult parse_document(const std::string& text) {
+ParseResult parse_document(const std::string& text, const std::string& filename = "") {
     ParseResult result;
 
     g_lsp_mode = true;
     g_lsp_errors.clear();
-    g_source_text = text;
+
+    // Run preprocessor
+    std::vector<std::string> include_dirs;
+    PreprocessedResult pp = preprocess(text, filename, include_dirs);
+    g_source_text = pp.expanded_source;
 
     try {
-        Tokenizer tokenizer(std::string(text), "");
+        Tokenizer tokenizer(std::string(pp.expanded_source), filename);
         std::vector<Token> tokens = tokenizer.tokenize();
 
         Parser parser(std::move(tokens));
@@ -448,7 +453,10 @@ void LSPServer::handle_hover(const JsonValue& id, const JsonValue& params) {
         g_lsp_mode = true;
         g_lsp_errors.clear();
         try {
-            Tokenizer tokenizer(std::string(it->second), "");
+            std::string filepath = uri_to_path(uri_str);
+            std::vector<std::string> inc_dirs;
+            PreprocessedResult pp = preprocess(it->second, filepath, inc_dirs);
+            Tokenizer tokenizer(std::string(pp.expanded_source), filepath);
             toks = tokenizer.tokenize();
         } catch (const LSPAbort&) {}
         g_lsp_mode = false;
@@ -541,7 +549,10 @@ void LSPServer::handle_definition(const JsonValue& id, const JsonValue& params) 
         g_lsp_mode = true;
         g_lsp_errors.clear();
         try {
-            Tokenizer tokenizer(std::string(it->second), "");
+            std::string filepath = uri_to_path(uri_str);
+            std::vector<std::string> inc_dirs;
+            PreprocessedResult pp = preprocess(it->second, filepath, inc_dirs);
+            Tokenizer tokenizer(std::string(pp.expanded_source), filepath);
             toks = tokenizer.tokenize();
         } catch (const LSPAbort&) {}
         g_lsp_mode = false;
@@ -624,7 +635,9 @@ void LSPServer::handle_document_symbol(const JsonValue& id, const JsonValue& par
 
 // ── Diagnostics (now includes codegen) ─────────────────────────────
 void LSPServer::publish_diagnostics(const std::string& uri, const std::string& text) {
-    auto parse_result = parse_document(text);
+    // Extract file path from URI (strip "file://" prefix)
+    std::string filepath = uri_to_path(uri);
+    auto parse_result = parse_document(text, filepath);
 
     JsonValue::ArrayType diags;
 
@@ -657,17 +670,26 @@ LSPServer::Position LSPServer::loc_to_position(const SourceLoc& loc) {
     return { loc.line > 0 ? loc.line - 1 : 0, loc.col > 0 ? loc.col - 1 : 0 };
 }
 
-std::vector<Token> LSPServer::tokenize(const std::string& text) {
+std::vector<Token> LSPServer::tokenize(const std::string& text, const std::string& filename) {
     g_lsp_mode = true;
     g_lsp_errors.clear();
     std::vector<Token> tokens;
     try {
-        Tokenizer tokenizer(std::string(text), "");
+        std::vector<std::string> inc_dirs;
+        PreprocessedResult pp = preprocess(text, filename, inc_dirs);
+        Tokenizer tokenizer(std::string(pp.expanded_source), filename);
         tokens = tokenizer.tokenize();
     } catch (const LSPAbort&) {}
     g_lsp_mode = false;
     g_lsp_errors.clear();
     return tokens;
+}
+
+std::string LSPServer::uri_to_path(const std::string& uri) {
+    if (uri.rfind("file://", 0) == 0) {
+        return uri.substr(7);
+    }
+    return uri;
 }
 
 bool LSPServer::position_matches(const Position& pos, const Token& tok) {

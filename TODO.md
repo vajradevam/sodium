@@ -11,12 +11,15 @@
 - [x] **Global/static array declarations** — `global var arr[size]` syntax
 - [x] **Undefined function check** — clean compile error instead of linker crash
 
-## Phase 2: Include Mechanism ☐
+## Phase 2: Include Mechanism ✅
 
-- [ ] `#include` directive — multi-file compilation
-- [ ] Include search paths (current dir + system include dir)
-- [ ] Guard mechanism (or `#pragma once`)
-- [ ] Tests for transitive includes, missing includes, circular includes
+- [x] `#include` directive — multi-file compilation
+- [x] Include search paths (current dir + `-I` flag)
+- [x] `#pragma once` guard mechanism
+- [x] `#error` directive for missing includes
+- [x] Tests for includes, pragma once, missing includes (65 tests pass)
+- [x] LSP server handles includes (preprocesses documents before tokenization)
+- [x] Proper file:line tracking in included files via `#line` markers
 
 ## Phase 3: Structs / Compound Types ☐
 
