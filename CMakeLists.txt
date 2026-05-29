@@ -12,3 +12,13 @@ add_executable(sodium
     src/generation.cpp
     src/ast_printer.cpp
 )
+
+add_executable(cyan-lsp
+    src/lsp_main.cpp
+    src/lsp.cpp
+    src/arena.cpp
+    src/tokenization.cpp
+    src/parser.cpp
+    src/generation.cpp
+    src/ast_printer.cpp
+)

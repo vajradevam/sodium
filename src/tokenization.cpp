@@ -3,6 +3,8 @@
 // Global definitions
 bool g_show_code = false;
 std::string g_source_text;
+bool g_lsp_mode = false;
+std::vector<LSPError> g_lsp_errors;
 
 void print_code_context(const SourceLoc& loc) {
     if (!g_show_code || loc.line == 0 || loc.col == 0) return;
@@ -349,6 +351,10 @@ std::vector<Token> Tokenizer::tokenize() {
                 consume();
                 tokens.push_back({ .type = TokenType::neq, .loc = loc });
             } else {
+                if (g_lsp_mode) {
+                    g_lsp_errors.push_back({loc, "Expected '!='"});
+                    throw LSPAbort();
+                }
                 std::cerr << format_err(loc, "Expected '!='") << std::endl;
                 exit(EXIT_FAILURE);
             }
@@ -433,6 +439,10 @@ std::vector<Token> Tokenizer::tokenize() {
         }
         
         else {
+            if (g_lsp_mode) {
+                g_lsp_errors.push_back({current_loc(), "Unexpected character: '" + std::string(1, peek().value()) + "'"});
+                throw LSPAbort();
+            }
             std::cerr << format_err(current_loc(), "Unexpected character: '" + std::string(1, peek().value()) + "'") << std::endl;
             exit(EXIT_FAILURE);
         }

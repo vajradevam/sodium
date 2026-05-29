@@ -110,6 +110,19 @@ inline std::string format_err(const SourceLoc& loc, const std::string& msg) {
 extern bool g_show_code;
 extern std::string g_source_text;
 
+// LSP mode: when true, errors are collected instead of calling exit().
+// The LSP server catches LSPAbort to resume after the first error.
+struct LSPError {
+    SourceLoc loc;
+    std::string msg;
+};
+extern bool g_lsp_mode;
+extern std::vector<LSPError> g_lsp_errors;
+
+struct LSPAbort : std::exception {
+    const char* what() const noexcept override { return "LSP abort"; }
+};
+
 // Print the source line and a caret pointing to the error column.
 void print_code_context(const SourceLoc& loc);
 

@@ -12,6 +12,10 @@ Token Parser::consume() {
 
 void Parser::error(const std::string& msg) {
     SourceLoc loc = peek().has_value() ? peek().value().loc : SourceLoc{};
+    if (g_lsp_mode) {
+        g_lsp_errors.push_back({loc, msg});
+        throw LSPAbort();
+    }
     std::cerr << format_err(loc, msg) << std::endl;
     print_code_context(loc);
     exit(EXIT_FAILURE);
@@ -894,6 +898,10 @@ std::optional<NodeStmt> Parser::parse_return_stmt()
             if (auto expr = parse_expr()) {
                 stmt_ret->expr = expr.value();
             } else {
+                if (g_lsp_mode) {
+                    g_lsp_errors.push_back({ret_loc, "Invalid expression in return"});
+                    throw LSPAbort();
+                }
                 std::cerr << format_err(ret_loc, "Invalid expression in return") << std::endl;
                 print_code_context(ret_loc);
 
@@ -905,6 +913,10 @@ std::optional<NodeStmt> Parser::parse_return_stmt()
             stmt_ret->expr = nullptr;
         }
         if (!peek().has_value() || peek().value().type != TokenType::semi) {
+            if (g_lsp_mode) {
+                g_lsp_errors.push_back({ret_loc, "Expected ';' after return"});
+                throw LSPAbort();
+            }
             std::cerr << format_err(ret_loc, "Expected ';' after return") << std::endl;
             print_code_context(ret_loc);
 
@@ -942,12 +954,20 @@ std::optional<NodeStmt> Parser::parse_stmt() {
                 if (auto sz = parse_expr()) {
                     stmt_arr->size = sz.value();
                 } else {
+                    if (g_lsp_mode) {
+                        g_lsp_errors.push_back({arr_loc, "Expected array size"});
+                        throw LSPAbort();
+                    }
                     std::cerr << format_err(arr_loc, "Expected array size") << std::endl;
                     print_code_context(arr_loc);
 
                     exit(EXIT_FAILURE);
                 }
                 if (!peek().has_value() || peek().value().type != TokenType::close_square) {
+                    if (g_lsp_mode) {
+                        g_lsp_errors.push_back({arr_loc, "Expected ']'"});
+                        throw LSPAbort();
+                    }
                     std::cerr << format_err(arr_loc, "Expected ']'") << std::endl;
                     print_code_context(arr_loc);
 
@@ -955,6 +975,10 @@ std::optional<NodeStmt> Parser::parse_stmt() {
                 }
                 consume(); // ]
                 if (!peek().has_value() || peek().value().type != TokenType::semi) {
+                    if (g_lsp_mode) {
+                        g_lsp_errors.push_back({arr_loc, "Expected ';'"});
+                        throw LSPAbort();
+                    }
                     std::cerr << format_err(arr_loc, "Expected ';'") << std::endl;
                     print_code_context(arr_loc);
 
@@ -1136,6 +1160,10 @@ std::optional<NodeStmt> Parser::parse_stmt() {
             SourceLoc brk_loc = peek().value().loc;
             consume();
             if (!peek().has_value() || peek().value().type != TokenType::semi) {
+                if (g_lsp_mode) {
+                    g_lsp_errors.push_back({brk_loc, "Expected ';' after break"});
+                    throw LSPAbort();
+                }
                 std::cerr << format_err(brk_loc, "Expected ';' after break") << std::endl;
                 print_code_context(brk_loc);
 
@@ -1149,6 +1177,10 @@ std::optional<NodeStmt> Parser::parse_stmt() {
             SourceLoc cont_loc = peek().value().loc;
             consume();
             if (!peek().has_value() || peek().value().type != TokenType::semi) {
+                if (g_lsp_mode) {
+                    g_lsp_errors.push_back({cont_loc, "Expected ';' after continue"});
+                    throw LSPAbort();
+                }
                 std::cerr << format_err(cont_loc, "Expected ';' after continue") << std::endl;
                 print_code_context(cont_loc);
 
@@ -1225,6 +1257,10 @@ std::optional<NodeStmt> Parser::parse_stmt() {
                 auto ident = consume();
                 bool is_inc = consume().type == TokenType::plusplus;
                 if (!peek().has_value() || peek().value().type != TokenType::semi) {
+                    if (g_lsp_mode) {
+                        g_lsp_errors.push_back({ident.loc, "Expected ';' after " + std::string(is_inc ? "i++" : "i--")});
+                        throw LSPAbort();
+                    }
                     std::cerr << format_err(ident.loc, "Expected ';' after " + std::string(is_inc ? "i++" : "i--")) << std::endl;
                     print_code_context(ident.loc);
                     exit(EXIT_FAILURE);
