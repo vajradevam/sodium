@@ -485,17 +485,10 @@ public:
 
             void operator()(const NodeStmtGlobal* stmt_global) const
             {
-                const auto& name = stmt_global->name.value.value();
-                gen->m_globals[name] = true;
-                if (stmt_global->expr) {
-                    if (auto int_lit = std::get_if<NodeExprIntLit*>(&stmt_global->expr->var)) {
-                        gen->m_data_entries.push_back({name, (*int_lit)->int_lit.value.value()});
-                    } else {
-                        gen->m_global_inits.push_back({name, stmt_global->expr});
-                    }
-                } else {
-                    gen->m_bss_entries.push_back(name);
-                }
+                // All allocation and init registration is handled by the
+                // pre-collection pass (collect_globals). This visitor just
+                // ensures the variable is in m_globals for identifier lookup.
+                gen->m_globals[stmt_global->name.value.value()] = true;
             }
 
             void operator()(const NodeStmtExpr* stmt_expr) const
@@ -954,8 +947,61 @@ public:
         std::visit(visitor, stmt.var);
     }
 
+    // Pre-collect all global/static variable declarations from the AST.
+    // This must run before any code generation so that m_global_inits,
+    // m_data_entries, and m_bss_entries are fully populated before the
+    // _start init loop emits initialization code.
+    void collect_globals(const std::vector<NodeStmt>& stmts)
+    {
+        for (const auto& stmt : stmts) {
+            if (auto* global = std::get_if<NodeStmtGlobal*>(&stmt.var)) {
+                const auto& name = (*global)->name.value.value();
+                m_globals[name] = true;
+                if ((*global)->expr) {
+                    if (auto* int_lit = std::get_if<NodeExprIntLit*>(&(*global)->expr->var)) {
+                        // Constant initializer: store directly in .data
+                        m_data_entries.push_back({name, (*int_lit)->int_lit.value.value()});
+                    } else {
+                        // Non-constant initializer: allocate zero in .data,
+                        // register runtime init (must be evaluable at _start).
+                        m_data_entries.push_back({name, "0"});
+                        m_global_inits.push_back({name, (*global)->expr});
+                    }
+                } else {
+                    m_bss_entries.push_back(name);
+                }
+            } else if (auto* block_stmt = std::get_if<NodeStmtBlock*>(&stmt.var)) {
+                collect_globals((*block_stmt)->block->stmts);
+            } else if (auto* if_stmt = std::get_if<NodeStmtIf*>(&stmt.var)) {
+                collect_globals((*if_stmt)->then_block->stmts);
+                if ((*if_stmt)->else_block) {
+                    collect_globals((*if_stmt)->else_block->stmts);
+                }
+            } else if (auto* while_stmt = std::get_if<NodeStmtWhile*>(&stmt.var)) {
+                collect_globals((*while_stmt)->body->stmts);
+            } else if (auto* do_while_stmt = std::get_if<NodeStmtDoWhile*>(&stmt.var)) {
+                collect_globals((*do_while_stmt)->body->stmts);
+            } else if (auto* for_stmt = std::get_if<NodeStmtFor*>(&stmt.var)) {
+                collect_globals((*for_stmt)->body->stmts);
+            } else if (auto* switch_stmt = std::get_if<NodeStmtSwitch*>(&stmt.var)) {
+                for (const auto& c : (*switch_stmt)->cases) {
+                    collect_globals(c.stmts);
+                }
+            }
+        }
+    }
+
     [[nodiscard]] std::string gen_prog()
     {
+        // Pre-collect global/static declarations from top-level stmts and all
+        // function bodies before any code emission. This ensures m_global_inits,
+        // m_data_entries, and m_bss_entries are fully populated before the
+        // _start init loop runs.
+        collect_globals(m_prog.stmts);
+        for (const auto& func : m_prog.funcs) {
+            collect_globals(func->body->stmts);
+        }
+
         m_output << "global _start\n_start:\n";
 
         for (const auto& init : m_global_inits) {
