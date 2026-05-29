@@ -97,6 +97,11 @@ enum class IROpcode : uint8_t {
 
     /// Syscall (architecture-specific; the backend handles it)
     SYSCALL,     // syscall (args are in arch-specific registers)
+
+    /// Push register onto stack (callee-save prologue).
+    PUSH,
+    /// Pop register from stack (callee-save epilogue).
+    POP,
 };
 
 /// Convert opcode to human-readable string (for IR dumps).

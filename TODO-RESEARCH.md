@@ -57,7 +57,7 @@ To be replaced by a proper IR in Phase 5.
 
 ---
 
-## Phase 4: IR Definition ✅ (NEW)
+## Phase 4: IR Definition ✅
 
 **What:** Define a lightweight three-address code intermediate
 representation with infinite virtual registers. The IR has ~30 opcodes
