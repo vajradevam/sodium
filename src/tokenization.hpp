@@ -89,7 +89,7 @@ struct Token {
 class Tokenizer {
 public:
 
-    inline explicit Tokenizer(const std::string src)
+    inline explicit Tokenizer(std::string src)
         : m_src(std::move(src))
     {
 
@@ -494,6 +494,6 @@ private:
         return m_src.at(m_index++);
     }
 
-    const std::string m_src;
+    std::string m_src;
     size_t m_index = 0;
 };
