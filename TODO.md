@@ -1,12 +1,15 @@
 # Sodium/Cyan — TODO
 
-## Phase 1: Polish for Distribution ☐
+## Phase 1: Polish for Distribution ✅
 
-- [ ] **README.md** — install instructions, language tour, examples, LSP/VS Code docs
-- [ ] **install.sh** — one-command build + install of `sodium` and `cyan-lsp`
-- [ ] **Example programs** — showcase `.cyan` files in an `examples/` directory
-- [ ] **Update BUGS.md** — reflect current state; note already-fixed items
-- [ ] **Update FEATURES.md** — reflect what's actually implemented
+- [x] **README.md** — install instructions, language tour, examples, LSP/VS Code docs
+- [x] **install.sh** — one-command build + install of `sodium` and `cyan-lsp`
+- [x] **Example programs** — showcase `.cyan` files in an `examples/` directory
+- [x] **Update BUGS.md** — reflect current state; note already-fixed items
+- [x] **Update FEATURES.md** — reflect what's actually implemented
+- [x] **For-loop variable scoping** — `for (var i = …)` scopes `i` to the loop only
+- [x] **Global/static array declarations** — `global var arr[size]` syntax
+- [x] **Undefined function check** — clean compile error instead of linker crash
 
 ## Phase 2: Include Mechanism ☐
 
