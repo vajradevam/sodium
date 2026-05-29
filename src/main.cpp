@@ -4,22 +4,38 @@
 #include <sstream>
 #include <optional>
 #include <vector>
+#include <cstring>
 
 #include "arena.hpp"
 #include "./generation.hpp"
 #include "parser.hpp"
+#include "ast_printer.hpp"
 
 int main(int argc, char* argv[]) {
 
-    if (argc != 2) {
-        std::cerr << "Usage: sodium <filename.cyan>" << std::endl;
+    bool print_ast_flag = false;
+    const char* filename = nullptr;
+
+    for (int i = 1; i < argc; i++) {
+        if (std::strcmp(argv[i], "--print-ast") == 0) {
+            print_ast_flag = true;
+        } else if (filename == nullptr) {
+            filename = argv[i];
+        } else {
+            std::cerr << "Usage: sodium [--print-ast] <filename.cyan>" << std::endl;
+            exit(EXIT_FAILURE);
+        }
+    }
+
+    if (filename == nullptr) {
+        std::cerr << "Usage: sodium [--print-ast] <filename.cyan>" << std::endl;
         exit(EXIT_FAILURE);
     }
 
     std::string contents;    
     {
         std::stringstream contents_stream;
-        std::fstream input(argv[1], std::ios::in);
+        std::fstream input(filename, std::ios::in);
         contents_stream << input.rdbuf();
         contents = contents_stream.str();
     }
@@ -27,7 +43,7 @@ int main(int argc, char* argv[]) {
     g_source_text = contents;
     g_show_code = true;
 
-    Tokenizer tokenizer(std::move(contents), argv[1]);
+    Tokenizer tokenizer(std::move(contents), filename);
     std::vector<Token> tokens = tokenizer.tokenize();
 
     Parser parser(std::move(tokens));
@@ -36,6 +52,10 @@ int main(int argc, char* argv[]) {
     if (!prog.has_value()) {
         std::cerr << "Invalid Program" << std::endl;
         exit(EXIT_FAILURE);
+    }
+
+    if (print_ast_flag) {
+        dump_ast(prog.value());
     }
 
     Generator generator(prog.value());
