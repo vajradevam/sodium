@@ -107,6 +107,40 @@ inline std::string format_err(const SourceLoc& loc, const std::string& msg) {
     return "error: " + loc.to_string() + ": " + msg;
 }
 
+// Global flag and source text for --show-code source annotations.
+inline bool g_show_code = false;
+inline std::string g_source_text;
+
+// Print the source line and a caret pointing to the error column.
+inline void print_code_context(const SourceLoc& loc) {
+    if (!g_show_code || loc.line == 0 || loc.col == 0) return;
+    if (g_source_text.empty()) return;
+
+    // Find the requested line (1-indexed).
+    const char* p = g_source_text.data();
+    const char* end = p + g_source_text.size();
+    size_t current = 1;
+    while (p < end && current < loc.line) {
+        if (*p == '\n') current++;
+        p++;
+    }
+
+    // Find end of this line.
+    const char* line_end = p;
+    while (line_end < end && *line_end != '\n') line_end++;
+
+    // Print the line with a gutter.
+    std::string line(p, line_end - p);
+    std::cerr << "  \u2502 " << line << "\n";
+
+    // Print the caret.
+    std::cerr << "  \u2502 ";
+    for (size_t i = 1; i < loc.col; i++) {
+        std::cerr << " ";
+    }
+    std::cerr << "^\n";
+}
+
 class Tokenizer {
 public:
 

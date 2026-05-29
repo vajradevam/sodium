@@ -98,6 +98,8 @@ public:
         auto& scope = m_scopes.back();
         if (scope.vars.contains(name)) {
             std::cerr << format_err(loc, "Identifier already used in this scope: " + name) << std::endl;
+            print_code_context(loc);
+
             exit(EXIT_FAILURE);
         }
         scope.vars[name] = Var { .stack_loc = m_stack_size, .type = type };
@@ -111,6 +113,8 @@ public:
             }
         }
         std::cerr << format_err(loc, "Undeclared identifier: " + name) << std::endl;
+        print_code_context(loc);
+
         exit(EXIT_FAILURE);
     }
 
@@ -155,6 +159,8 @@ public:
                     return;
                 }
                 std::cerr << format_err(expr_ident->ident.loc, "Undeclared identifier: " + name) << std::endl;
+                print_code_context(expr_ident->ident.loc);
+
                 exit(EXIT_FAILURE);
             }
 
@@ -523,6 +529,8 @@ public:
                             if (auto arr_lit = std::get_if<NodeExprArrLit*>(&stmt_assign->expr->var)) {
                                 if ((*arr_lit)->elements.size() != var.array_size) {
                                     std::cerr << format_err(stmt_assign->ident.loc, "Array size mismatch") << std::endl;
+                                    print_code_context(stmt_assign->ident.loc);
+
                                     exit(EXIT_FAILURE);
                                 }
                                 size_t base_offset = (gen->m_stack_size - var.stack_loc - 1) * 8;
@@ -637,9 +645,13 @@ public:
                 }
                 if (gen->m_constants.contains(name)) {
                     std::cerr << format_err(stmt_assign->ident.loc, "Cannot assign to constant '" + name + "'") << std::endl;
+                    print_code_context(stmt_assign->ident.loc);
+
                     exit(EXIT_FAILURE);
                 }
                 std::cerr << format_err(stmt_assign->ident.loc, "Undeclared identifier: " + name) << std::endl;
+                print_code_context(stmt_assign->ident.loc);
+
                 exit(EXIT_FAILURE);
             }
 
@@ -784,6 +796,8 @@ public:
                 auto const_size = gen->eval_const_expr(stmt_arr->size);
                 if (!const_size.has_value()) {
                     std::cerr << format_err(stmt_arr->loc, "Array size must be a compile-time constant expression") << std::endl;
+                    print_code_context(stmt_arr->loc);
+
                     exit(EXIT_FAILURE);
                 }
                 size_t size = static_cast<size_t>(const_size.value());
@@ -829,6 +843,8 @@ public:
                 } else {
                     if (!stmt_ret->expr) {
                         std::cerr << format_err(stmt_ret->loc, "return with no value at top level") << std::endl;
+                        print_code_context(stmt_ret->loc);
+
                         exit(EXIT_FAILURE);
                     }
                     gen->gen_expr(*stmt_ret->expr);
@@ -951,6 +967,8 @@ public:
             {
                 if (gen->m_break_stack.empty()) {
                     std::cerr << format_err(stmt_break->loc, "break outside loop or switch") << std::endl;
+                    print_code_context(stmt_break->loc);
+
                     exit(EXIT_FAILURE);
                 }
                 gen->m_output << "    jmp " << gen->m_break_stack.back() << "\n";
@@ -965,6 +983,8 @@ public:
                     }
                 }
                 std::cerr << format_err(stmt_continue->loc, "continue outside loop") << std::endl;
+                print_code_context(stmt_continue->loc);
+
                 exit(EXIT_FAILURE);
             }
         };
@@ -1146,6 +1166,8 @@ public:
                 auto val = eval_const_expr((*const_stmt)->expr);
                 if (!val.has_value()) {
                     std::cerr << format_err((*const_stmt)->name.loc, "Const initializer is not a compile-time constant expression") << std::endl;
+                    print_code_context((*const_stmt)->name.loc);
+
                     exit(EXIT_FAILURE);
                 }
                 m_constants[name] = val.value();

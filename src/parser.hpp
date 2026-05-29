@@ -1178,6 +1178,8 @@ public:
                 stmt_ret->expr = expr.value();
             } else {
                 std::cerr << format_err(ret_loc, "Invalid expression in return") << std::endl;
+                print_code_context(ret_loc);
+
                 exit(EXIT_FAILURE);
             }
         } else {
@@ -1187,6 +1189,8 @@ public:
         }
         if (!peek().has_value() || peek().value().type != TokenType::semi) {
             std::cerr << format_err(ret_loc, "Expected ';' after return") << std::endl;
+            print_code_context(ret_loc);
+
             exit(EXIT_FAILURE);
         }
         consume(); // ;
@@ -1222,15 +1226,21 @@ public:
                     stmt_arr->size = sz.value();
                 } else {
                     std::cerr << format_err(arr_loc, "Expected array size") << std::endl;
+                    print_code_context(arr_loc);
+
                     exit(EXIT_FAILURE);
                 }
                 if (!peek().has_value() || peek().value().type != TokenType::close_square) {
                     std::cerr << format_err(arr_loc, "Expected ']'") << std::endl;
+                    print_code_context(arr_loc);
+
                     exit(EXIT_FAILURE);
                 }
                 consume(); // ]
                 if (!peek().has_value() || peek().value().type != TokenType::semi) {
                     std::cerr << format_err(arr_loc, "Expected ';'") << std::endl;
+                    print_code_context(arr_loc);
+
                     exit(EXIT_FAILURE);
                 }
                 consume(); // ;
@@ -1410,6 +1420,8 @@ public:
             consume();
             if (!peek().has_value() || peek().value().type != TokenType::semi) {
                 std::cerr << format_err(brk_loc, "Expected ';' after break") << std::endl;
+                print_code_context(brk_loc);
+
                 exit(EXIT_FAILURE);
             }
             consume();
@@ -1421,6 +1433,8 @@ public:
             consume();
             if (!peek().has_value() || peek().value().type != TokenType::semi) {
                 std::cerr << format_err(cont_loc, "Expected ';' after continue") << std::endl;
+                print_code_context(cont_loc);
+
                 exit(EXIT_FAILURE);
             }
             consume();
@@ -1495,6 +1509,7 @@ public:
                 bool is_inc = consume().type == TokenType::plusplus;
                 if (!peek().has_value() || peek().value().type != TokenType::semi) {
                     std::cerr << format_err(ident.loc, "Expected ';' after " + std::string(is_inc ? "i++" : "i--")) << std::endl;
+                    print_code_context(ident.loc);
                     exit(EXIT_FAILURE);
                 }
                 consume();
@@ -1624,6 +1639,7 @@ private:
     [[noreturn]] void error(const std::string& msg) {
         SourceLoc loc = peek().has_value() ? peek().value().loc : SourceLoc{};
         std::cerr << format_err(loc, msg) << std::endl;
+        print_code_context(loc);
         exit(EXIT_FAILURE);
     }
 

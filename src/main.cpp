@@ -24,6 +24,9 @@ int main(int argc, char* argv[]) {
         contents = contents_stream.str();
     }
 
+    g_source_text = contents;
+    g_show_code = true;
+
     Tokenizer tokenizer(std::move(contents), argv[1]);
     std::vector<Token> tokens = tokenizer.tokenize();
 
