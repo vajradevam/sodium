@@ -1,0 +1,91 @@
+     1                                  extern _sodium_exit
+     2                                  extern _sodium_print_int
+     3                                  extern _sodium_read_int
+     4                                  extern _sodium_malloc
+     5                                  extern _sodium_free
+     6                                  global _start
+     7                                  _start:
+     8                                  _start_body:
+     9 00000000 55                          push rbp
+    10 00000001 4889E5                      mov rbp, rsp
+    11 00000004 4883EC08                    sub rsp, 8
+    12                                  _start_body.entry:
+    13 00000008 B80A000000                  mov rax, 10
+    14 0000000D B905000000                  mov rcx, 5
+    15 00000012 51                          push rcx
+    16 00000013 50                          push rax
+    17 00000014 E840000000                  call add
+    18 00000019 4883C410                    add rsp, 16
+    19 0000001D 4889C2                      mov rdx, rax
+    20 00000020 B80A000000                  mov rax, 10
+    21 00000025 B905000000                  mov rcx, 5
+    22 0000002A 51                          push rcx
+    23 0000002B 50                          push rax
+    24 0000002C E86A000000                  call sub
+    25 00000031 4883C410                    add rsp, 16
+    26 00000035 4889C6                      mov rsi, rax
+    27 00000038 4889D0                      mov rax, rdx
+    28 0000003B 4801F0                      add rax, rsi
+    29 0000003E 488D4DF8                    lea rcx, [rbp - 8]
+    30 00000042 488901                      mov [rcx], rax
+    31 00000045 488D45F8                    lea rax, [rbp - 8]
+    32 00000049 488B08                      mov rcx, [rax]
+    33 0000004C 4889CF                      mov rdi, rcx
+    34 0000004F E8(00000000)                call _sodium_exit
+    35 00000054 4889EC                      mov rsp, rbp
+    36 00000057 5D                          pop rbp
+    37 00000058 C3                          ret
+    38                                  extern add
+    39                                  add:
+    40 00000059 55                          push rbp
+    41 0000005A 4889E5                      mov rbp, rsp
+    42 0000005D 4883EC10                    sub rsp, 16
+    43                                  add.entry:
+    44 00000061 488D4510                    lea rax, [rbp - -16]
+    45 00000065 488B08                      mov rcx, [rax]
+    46 00000068 488D45F8                    lea rax, [rbp - 8]
+    47 0000006C 488908                      mov [rax], rcx
+    48 0000006F 488D4518                    lea rax, [rbp - -24]
+    49 00000073 488B08                      mov rcx, [rax]
+    50 00000076 488D45F0                    lea rax, [rbp - 16]
+    51 0000007A 488908                      mov [rax], rcx
+    52 0000007D 488D45F8                    lea rax, [rbp - 8]
+    53 00000081 488B08                      mov rcx, [rax]
+    54 00000084 488D45F0                    lea rax, [rbp - 16]
+    55 00000088 488B10                      mov rdx, [rax]
+    56 0000008B 4889C8                      mov rax, rcx
+    57 0000008E 4801D0                      add rax, rdx
+    58 00000091 4889EC                      mov rsp, rbp
+    59 00000094 5D                          pop rbp
+    60 00000095 C3                          ret
+    61                                  add.Ladd_epilogue:
+    62 00000096 4889EC                      mov rsp, rbp
+    63 00000099 5D                          pop rbp
+    64 0000009A C3                          ret
+    65                                  extern sub
+    66                                  sub:
+    67 0000009B 55                          push rbp
+    68 0000009C 4889E5                      mov rbp, rsp
+    69 0000009F 4883EC10                    sub rsp, 16
+    70                                  sub.entry:
+    71 000000A3 488D4510                    lea rax, [rbp - -16]
+    72 000000A7 488B08                      mov rcx, [rax]
+    73 000000AA 488D45F8                    lea rax, [rbp - 8]
+    74 000000AE 488908                      mov [rax], rcx
+    75 000000B1 488D4518                    lea rax, [rbp - -24]
+    76 000000B5 488B08                      mov rcx, [rax]
+    77 000000B8 488D45F0                    lea rax, [rbp - 16]
+    78 000000BC 488908                      mov [rax], rcx
+    79 000000BF 488D45F8                    lea rax, [rbp - 8]
+    80 000000C3 488B08                      mov rcx, [rax]
+    81 000000C6 488D45F0                    lea rax, [rbp - 16]
+    82 000000CA 488B10                      mov rdx, [rax]
+    83 000000CD 4889C8                      mov rax, rcx
+    84 000000D0 4829D0                      sub rax, rdx
+    85 000000D3 4889EC                      mov rsp, rbp
+    86 000000D6 5D                          pop rbp
+    87 000000D7 C3                          ret
+    88                                  sub.Lsub_epilogue:
+    89 000000D8 4889EC                      mov rsp, rbp
+    90 000000DB 5D                          pop rbp
+    91 000000DC C3                          ret

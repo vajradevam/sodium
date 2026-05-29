@@ -56,6 +56,7 @@ const char* ir_opcode_name(IROpcode op) {
         case IROpcode::JMP:         return "jmp";
         case IROpcode::BR:          return "br";
         case IROpcode::CALL:        return "call";
+        case IROpcode::CALL_REG:    return "call_reg";
         case IROpcode::RET:         return "ret";
         case IROpcode::RET_VOID:    return "ret_void";
         case IROpcode::SYSCALL:     return "syscall";

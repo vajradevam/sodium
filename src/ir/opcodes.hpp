@@ -88,8 +88,12 @@ enum class IROpcode : uint8_t {
     /// Conditional branch
     BR,          // br %cond_reg, %true_block, %false_block
 
-    /// Function call
+    /// Function call (stack-based args, matching old Generator convention)
     CALL,        // %dst = call "func"(arg0, arg1, ...)
+
+    /// Function call (register-based args, for runtime functions)
+    /// Arguments go in rdi, rsi, rdx, rcx, r8, r9 per x86-64 calling convention.
+    CALL_REG,    // %dst = call_reg "func"(arg0, arg1, ...)
 
     /// Return
     RET,         // ret %val

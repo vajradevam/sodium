@@ -97,9 +97,8 @@ public:
         auto ranges = compute_live_ranges(func);
 
         // Step 2: Allocate.
-        // Get allocatable registers (excluding those we want to reserve).
-        // For now, allocate from all caller-save + callee-save allocatable regs.
-        auto available = m_tri.allocatable_regs();
+        // Use only caller-save registers to avoid callee-save clobber issues.
+        auto available = m_tri.caller_save_regs();
 
         for (auto& range : ranges) {
             // 2a. Expire old intervals.

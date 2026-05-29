@@ -9,15 +9,22 @@
 #include <unordered_map>
 #include <variant>
 #include <vector>
+#include <memory>
 
 #include "parser.hpp"
 #include "backend/interface.hpp"
-#include <memory>
+#include "ir/builder.hpp"
+#include "ir/module.hpp"
+#include "ir/liveness.hpp"
+#include "ir/linear_scan.hpp"
+#include "ir/rewriter.hpp"
+#include "ir/target_regs.hpp"
+#include "ir/emitter.hpp"
 
 enum class IntType;
 
 struct Var {
-    size_t stack_loc;
+    size_t stack_loc;       // index in current stack frame (0 = RSP, 1 = RSP+8, ...)
     size_t array_size = 0;
     IntType type = IntType::i64;
     std::string struct_type; // empty if not a struct type
@@ -44,7 +51,6 @@ struct GlobalInit {
     NodeExpr* expr;
 };
 
-// Struct type information for code generation
 struct StructInfo {
     size_t size; // total size in qwords
     std::vector<std::string> field_names;
@@ -76,12 +82,19 @@ public:
     bool is_struct_type(const std::string& name) const;
     std::optional<StructInfo> get_struct_info(const std::string& name) const;
 
-    void push(const std::string& reg);
-    void pop(const std::string& reg);
-    void extend(IntType type);
-    void truncate(IntType type);
+    /// IR virtual register stack helpers
+    uint32_t push_vreg(uint32_t vreg);
+    uint32_t pop_vreg();
+    uint32_t peek_vreg();
 
-    /// Access the backend (used by visitor inner classes).
+    /// Load/store a local or global variable into/from a vreg on the vstack.
+    void load_var_to_vstack(const std::string& name);
+    void store_var_from_vstack(const std::string& name, AssignOp op = AssignOp::assign);
+
+    /// Finalize the current IR function: run allocator, rewriter, emit to backend.
+    void flush_function();
+
+    /// Access the backend.
     Backend* backend() const { return m_backend.get(); }
 
 private:
@@ -110,4 +123,12 @@ private:
     };
     std::vector<DataEntry> m_data_entries;
     std::vector<std::string> m_bss_entries;
+
+    // ---- IR state ----
+    IRBuilder m_ir;
+    std::vector<uint32_t> m_vstack;
+    uint32_t m_frame_slots = 0;     ///< Number of frame slots allocated in current function
+    uint32_t m_next_frame_slot = 0; ///< Next free frame slot index
+
+    TargetRegisterInfo m_tri = TargetRegisterInfo::x86_64_systemv();
 };

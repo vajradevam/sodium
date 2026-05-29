@@ -95,6 +95,11 @@ struct IRInstruction {
         return { IROpcode::CALL, dst, IRWidth::I64, args, func, "", "", 0 };
     }
 
+    static IRInstruction call_reg(uint32_t dst, const std::string& func,
+                                   const std::vector<IRValue>& args) {
+        return { IROpcode::CALL_REG, dst, IRWidth::I64, args, func, "", "", 0 };
+    }
+
     static IRInstruction ret(IRValue val) {
         return { IROpcode::RET, NONE_VREG, IRWidth::I64, {val}, "", "", "", 0 };
     }

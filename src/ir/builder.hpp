@@ -173,6 +173,12 @@ public:
         return dst;
     }
 
+    uint32_t call_reg(const std::string& func, const std::vector<IRValue>& args) {
+        auto dst = new_vreg();
+        emit(IRInstruction::call_reg(dst, func, args));
+        return dst;
+    }
+
     void ret(IRValue val) {
         emit(IRInstruction::ret(val));
     }

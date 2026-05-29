@@ -1,0 +1,431 @@
+#pragma once
+
+#include "function.hpp"
+#include "instruction.hpp"
+#include "linear_scan.hpp"
+#include "target_regs.hpp"
+#include "../backend/interface.hpp"
+#include <cstdint>
+#include <cassert>
+#include <string>
+#include <sstream>
+
+/// Emits IR instructions (post-allocation, with physical register numbers)
+/// to a Backend for final assembly output.
+///
+/// This is the bridge between architecture-independent IR and
+/// architecture-specific assembly emission.
+class IREmitter {
+public:
+    IREmitter(Backend& backend, const TargetRegisterInfo& tri,
+              const RegisterAllocation& alloc)
+        : m_backend(backend), m_tri(tri), m_alloc(alloc) {}
+
+    /// Emit a complete function.
+    void emit_function(const IRFunction& func) {
+        m_func_name = func.name;
+
+        // Function label
+        m_backend.label(func.name);
+        m_backend.func_prologue();
+
+        // Allocate stack space for frame slots
+        if (func.stack_slots > 0) {
+            m_backend.adjust_stack(-static_cast<int64_t>(func.stack_slots) * 8);
+        }
+
+        // Emit each block with mangled labels
+        for (auto& block : func.blocks) {
+            std::string mangled_label = mangle_label(block.label);
+            m_backend.label(mangled_label);
+            for (auto& insn : block.instructions) {
+                emit_instruction(insn);
+            }
+        }
+        // Epilogue is emitted by the RET instruction inside the blocks.
+        // No trailing epilogue here.
+    }
+
+    /// Emit a single instruction.
+    void emit_instruction(const IRInstruction& insn) {
+        switch (insn.op) {
+            case IROpcode::NOP:
+                break;
+
+            case IROpcode::LOAD_I64:
+                m_backend.load_imm(preg_name(insn.dst), insn.imm_arg);
+                break;
+
+            case IROpcode::LOAD_I32:
+                m_backend.load_imm(preg_name(insn.dst), (int32_t)insn.imm_arg);
+                break;
+
+            case IROpcode::LOAD_I8:
+                m_backend.load_imm(preg_name(insn.dst), (int8_t)insn.imm_arg);
+                break;
+
+            case IROpcode::LOAD_U64:
+                m_backend.load_imm(preg_name(insn.dst), (uint64_t)insn.imm_arg);
+                break;
+
+            case IROpcode::LOAD_U32_IMM:
+                m_backend.load_imm(preg_name(insn.dst), (uint32_t)insn.imm_arg);
+                break;
+
+            case IROpcode::LOAD_U8_IMM:
+                m_backend.load_imm(preg_name(insn.dst), (uint8_t)insn.imm_arg);
+                break;
+
+            case IROpcode::COPY:
+                m_backend.mov(preg_name(insn.dst), operand_name(insn, 0));
+                break;
+
+            case IROpcode::FRAME_ADDR:
+                // [rbp - (slot+1)*8] because [rbp] is the saved rbp
+                m_backend.lea(preg_name(insn.dst),
+                              "[rbp - " + std::to_string((insn.imm_arg + 1) * 8) + "]");
+                break;
+
+            case IROpcode::NEG:
+                m_backend.mov(preg_name(insn.dst), operand_name(insn, 0));
+                m_backend.neg(preg_name(insn.dst));
+                break;
+
+            case IROpcode::NOT_:
+                m_backend.mov(preg_name(insn.dst), operand_name(insn, 0));
+                m_backend.not_(preg_name(insn.dst));
+                break;
+
+            case IROpcode::ZEXT:
+            case IROpcode::SEXT: {
+                int from_bits = (int)insn.imm_arg;
+                auto dst = preg_name(insn.dst);
+                auto src = operand_name(insn, 0);
+                m_backend.mov(dst, src);
+                if (insn.op == IROpcode::ZEXT) {
+                    if (from_bits == 8)
+                        m_backend.movzx("eax", "al", 8);
+                    else if (from_bits == 16)
+                        m_backend.movzx("eax", "ax", 16);
+                    else if (from_bits == 32)
+                        m_backend.mov("eax", "eax");
+                } else {
+                    if (from_bits == 8)
+                        m_backend.movsx(dst, "al", 8);
+                    else if (from_bits == 16)
+                        m_backend.movsx(dst, "ax", 16);
+                    else if (from_bits == 32)
+                        m_backend.movsx(dst, "eax", 32);
+                }
+                break;
+            }
+
+            case IROpcode::TRUNC:
+                m_backend.mov(preg_name(insn.dst), operand_name(insn, 0));
+                // Truncation: just mask or zero-extend based on dst width
+                // The backend's truncate/extend methods handle this
+                break;
+
+            case IROpcode::ADD:
+                m_backend.mov(preg_name(insn.dst), operand_name(insn, 0));
+                m_backend.add(preg_name(insn.dst), operand_name(insn, 1));
+                break;
+
+            case IROpcode::SUB:
+                m_backend.mov(preg_name(insn.dst), operand_name(insn, 0));
+                m_backend.sub(preg_name(insn.dst), operand_name(insn, 1));
+                break;
+
+            case IROpcode::MUL:
+                m_backend.mov(preg_name(insn.dst), operand_name(insn, 0));
+                m_backend.mul(preg_name(insn.dst), operand_name(insn, 1));
+                break;
+
+            case IROpcode::DIV:
+                // Use rdi for divisor (safe from cqo clobber and won't conflict with rax)
+                m_backend.mov("rdi", operand_name(insn, 1));
+                m_backend.mov("rax", operand_name(insn, 0));
+                m_backend.sign_extend_rax();
+                m_backend.div("rdi");
+                {
+                    std::string dst = preg_name(insn.dst);
+                    if (dst != "rax") {
+                        m_backend.mov(dst, "rax");
+                    }
+                }
+                break;
+
+            case IROpcode::MOD:
+                m_backend.mov("rdi", operand_name(insn, 1));
+                m_backend.mov("rax", operand_name(insn, 0));
+                m_backend.sign_extend_rax();
+                m_backend.div("rdi");
+                {
+                    std::string dst = preg_name(insn.dst);
+                    if (dst != "rdx") {
+                        m_backend.mov(dst, "rdx");
+                    }
+                }
+                break;
+
+            case IROpcode::AND:
+                m_backend.mov(preg_name(insn.dst), operand_name(insn, 0));
+                m_backend.and_(preg_name(insn.dst), operand_name(insn, 1));
+                break;
+
+            case IROpcode::OR:
+                m_backend.mov(preg_name(insn.dst), operand_name(insn, 0));
+                m_backend.or_(preg_name(insn.dst), operand_name(insn, 1));
+                break;
+
+            case IROpcode::XOR:
+                m_backend.mov(preg_name(insn.dst), operand_name(insn, 0));
+                m_backend.xor_(preg_name(insn.dst), operand_name(insn, 1));
+                break;
+
+            case IROpcode::SHL:
+                m_backend.mov(preg_name(insn.dst), operand_name(insn, 0));
+                if (insn.operands[1].is_imm()) {
+                    m_backend.shl(preg_name(insn.dst), std::to_string(insn.operands[1].imm));
+                } else {
+                    m_backend.mov("rcx", operand_name(insn, 1));
+                    m_backend.shl(preg_name(insn.dst), "cl");
+                }
+                break;
+
+            case IROpcode::SHR:
+                m_backend.mov(preg_name(insn.dst), operand_name(insn, 0));
+                if (insn.operands[1].is_imm()) {
+                    m_backend.shr(preg_name(insn.dst), std::to_string(insn.operands[1].imm));
+                } else {
+                    m_backend.mov("rcx", operand_name(insn, 1));
+                    m_backend.shr(preg_name(insn.dst), "cl");
+                }
+                break;
+
+            case IROpcode::ASHR:
+                m_backend.mov(preg_name(insn.dst), operand_name(insn, 0));
+                m_backend.mov("rcx", operand_name(insn, 1));
+                // x86-64: sar with cl
+                m_backend.emit_insn("sar", preg_name(insn.dst) + ", cl");
+                break;
+
+            // Comparisons
+            case IROpcode::CMP_EQ:
+                emit_cmp(insn, "e");
+                break;
+            case IROpcode::CMP_NE:
+                emit_cmp(insn, "ne");
+                break;
+            case IROpcode::CMP_LT:
+                emit_cmp(insn, "l");
+                break;
+            case IROpcode::CMP_LE:
+                emit_cmp(insn, "le");
+                break;
+            case IROpcode::CMP_GT:
+                emit_cmp(insn, "g");
+                break;
+            case IROpcode::CMP_GE:
+                emit_cmp(insn, "ge");
+                break;
+
+            // Memory operations
+            case IROpcode::LOAD:
+                m_backend.load(preg_name(insn.dst), mem_addr(insn));
+                break;
+
+            case IROpcode::LOAD_S8:
+                // movsx with byte memory
+                m_backend.emit_insn("movsx", preg_name(insn.dst) + ", byte " + mem_addr(insn));
+                break;
+
+            case IROpcode::LOAD_U8:
+                // movzx with byte memory
+                m_backend.emit_insn("movzx", preg_name(insn.dst) + ", byte " + mem_addr(insn));
+                break;
+
+            case IROpcode::LOAD_S16:
+                m_backend.emit_insn("movsx", preg_name(insn.dst) + ", word " + mem_addr(insn));
+                break;
+
+            case IROpcode::LOAD_U16:
+                m_backend.emit_insn("movzx", preg_name(insn.dst) + ", word " + mem_addr(insn));
+                break;
+
+            case IROpcode::LOAD_S32:
+                m_backend.emit_insn("movsx", preg_name(insn.dst) + ", dword " + mem_addr(insn));
+                break;
+
+            case IROpcode::LOAD_U32:
+                m_backend.emit_insn("mov", "eax, dword " + mem_addr(insn));
+                break;
+
+            case IROpcode::STORE:
+                // store(addr, reg)
+                m_backend.store(mem_addr(insn), operand_name(insn, 1));
+                break;
+
+            case IROpcode::STORE_8:
+                m_backend.emit_insn("mov", "byte " + mem_addr(insn) + ", " + operand_name(insn, 1));
+                break;
+
+            case IROpcode::STORE_16:
+                m_backend.emit_insn("mov", "word " + mem_addr(insn) + ", " + operand_name(insn, 1));
+                break;
+
+            case IROpcode::STORE_32:
+                m_backend.emit_insn("mov", "dword " + mem_addr(insn) + ", " + operand_name(insn, 1));
+                break;
+
+            case IROpcode::LEA:
+                m_backend.lea(preg_name(insn.dst), mem_addr(insn));
+                break;
+
+            case IROpcode::LEA_LABEL:
+                m_backend.lea(preg_name(insn.dst), m_backend.addr_label(mangle_label(insn.call_target)));
+                break;
+
+            case IROpcode::JMP:
+                m_backend.jmp(mangle_label(insn.label_true));
+                break;
+
+            case IROpcode::BR: {
+                // Branch on non-zero: test reg, jnz true, jmp false
+                std::string reg = operand_name(insn, 0);
+                m_backend.test(reg, reg);
+                m_backend.jnz(mangle_label(insn.label_true));
+                m_backend.jmp(mangle_label(insn.label_false));
+                break;
+            }
+
+            case IROpcode::CALL: {
+                // Stack-based calling convention: push arguments in reverse
+                // order so arg0 ends up at [rbp+16] in the callee.
+                size_t nargs = insn.operands.size();
+                for (size_t i = 0; i < nargs; i++) {
+                    m_backend.push(operand_name(insn, nargs - 1 - i));
+                }
+                m_backend.call(insn.call_target);
+                if (nargs > 0) {
+                    m_backend.adjust_stack(static_cast<int64_t>(nargs) * 8);
+                }
+                if (insn.dst != IRInstruction::NONE_VREG) {
+                    std::string dst_name = preg_name(insn.dst);
+                    if (dst_name != "rax") {
+                        m_backend.mov(dst_name, "rax");
+                    }
+                }
+                break;
+            }
+
+            case IROpcode::CALL_REG: {
+                // Register-based calling convention (x86-64 System V):
+                // args in rdi, rsi, rdx, rcx, r8, r9, rest on stack.
+                static const char* reg_args[] = {"rdi", "rsi", "rdx", "rcx", "r8", "r9"};
+                size_t nargs = insn.operands.size();
+                for (size_t i = 0; i < nargs && i < 6; i++) {
+                    m_backend.mov(reg_args[i], operand_name(insn, i));
+                }
+                if (nargs > 6) {
+                    for (size_t i = 6; i < nargs; i++) {
+                        m_backend.push(operand_name(insn, i));
+                    }
+                }
+                m_backend.call(insn.call_target);
+                if (nargs > 6) {
+                    m_backend.adjust_stack(static_cast<int64_t>(nargs - 6) * 8);
+                }
+                if (insn.dst != IRInstruction::NONE_VREG) {
+                    std::string dst_name = preg_name(insn.dst);
+                    if (dst_name != "rax") {
+                        m_backend.mov(dst_name, "rax");
+                    }
+                }
+                break;
+            }
+
+            case IROpcode::RET: {
+                // Move return value to rax if it has an operand
+                if (!insn.operands.empty()) {
+                    std::string ret_val = operand_name(insn, 0);
+                    if (ret_val != "rax") {
+                        m_backend.mov("rax", ret_val);
+                    }
+                }
+                m_backend.func_epilogue();
+                m_backend.ret();
+                break;
+            }
+
+            case IROpcode::RET_VOID:
+                m_backend.func_epilogue();
+                m_backend.ret();
+                break;
+
+            case IROpcode::SYSCALL:
+                m_backend.emit_insn("syscall", "");
+                break;
+
+            case IROpcode::PUSH:
+                m_backend.push(operand_name(insn, 0));
+                break;
+
+            case IROpcode::POP:
+                m_backend.pop(operand_name(insn, 0));
+                break;
+        }
+    }
+
+private:
+    Backend& m_backend;
+    const TargetRegisterInfo& m_tri;
+    const RegisterAllocation& m_alloc;
+    std::string m_func_name;
+
+    std::string mangle_label(const std::string& label) const {
+        if (label.empty()) return label;
+        if (label[0] == '.') return m_func_name + label;
+        return label;
+    }
+
+    std::string preg_name(uint32_t preg) const {
+        return m_tri.name_of(static_cast<int>(preg));
+    }
+
+    std::string operand_name(const IRInstruction& insn, size_t idx) const {
+        if (idx >= insn.operands.size()) return "0";
+        auto& op = insn.operands[idx];
+        if (op.is_vreg()) {
+            return m_tri.name_of(static_cast<int>(op.vreg_id));
+        } else {
+            return std::to_string(op.imm);
+        }
+    }
+
+    std::string mem_addr(const IRInstruction& insn) const {
+        std::string addr;
+        if (!insn.operands.empty()) {
+            addr = preg_name(static_cast<int>(insn.operands[0].vreg_id));
+        } else {
+            addr = "0";
+        }
+        if (insn.imm_arg != 0) {
+            if (insn.imm_arg > 0)
+                addr += " + " + std::to_string(insn.imm_arg);
+            else
+                addr += " - " + std::to_string(-insn.imm_arg);
+        }
+        return "[" + addr + "]";
+    }
+
+    void emit_cmp(const IRInstruction& insn, const std::string& cc) {
+        auto dst = preg_name(insn.dst);
+        auto a = operand_name(insn, 0);
+        auto b = operand_name(insn, 1);
+        m_backend.mov(dst, a);
+        m_backend.cmp(dst, b);
+        m_backend.set_cc("al", cc);
+        m_backend.movzx(dst, "al", 8);
+    }
+};

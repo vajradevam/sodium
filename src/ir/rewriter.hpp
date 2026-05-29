@@ -70,50 +70,8 @@ private:
     /// Insert callee-save register pushes in the entry block and pops
     /// before each return.
     void insert_callee_save_code() {
-        // Collect all callee-save registers that were actually assigned.
-        std::set<int> used_callee_save;
-        for (auto& [vreg, entry] : m_alloc.entries) {
-            if (entry.is_physical()) {
-                for (auto& r : m_tri.regs) {
-                    if (r.num == entry.preg && r.callee_save) {
-                        used_callee_save.insert(entry.preg);
-                        break;
-                    }
-                }
-            }
-        }
-
-        if (used_callee_save.empty()) return;
-
-        // Insert pushes at start of entry block.
-        if (!m_func.blocks.empty()) {
-            auto& entry = m_func.blocks[0];
-            // Push in reverse order so they pop in correct order.
-            std::vector<int> cs_regs(used_callee_save.rbegin(), used_callee_save.rend());
-            for (auto preg : cs_regs) {
-                IRInstruction push_insn;
-                push_insn.op = IROpcode::PUSH;
-                push_insn.operands.push_back(IRValue::vreg(static_cast<uint32_t>(preg)));
-                entry.instructions.insert(entry.instructions.begin(), push_insn);
-            }
-        }
-
-        // Insert pops before each ret/ret_void.
-        for (auto& block : m_func.blocks) {
-            for (size_t i = 0; i < block.instructions.size(); i++) {
-                auto& insn = block.instructions[i];
-                if (insn.op == IROpcode::RET || insn.op == IROpcode::RET_VOID) {
-                    for (auto preg : used_callee_save) {
-                        IRInstruction pop_insn;
-                        pop_insn.op = IROpcode::POP;
-                        pop_insn.operands.push_back(IRValue::vreg(static_cast<uint32_t>(preg)));
-                        block.instructions.insert(
-                            block.instructions.begin() + static_cast<long>(i), pop_insn);
-                        i++; // skip past the pop we just inserted
-                    }
-                    break;
-                }
-            }
-        }
+        // Disabled: allocator only uses caller-save registers, so
+        // there are no callee-save registers to preserve.
+        // See linear_scan.hpp which selects caller_save_regs().
     }
 };
