@@ -917,10 +917,9 @@ public:
 
                 gen->m_output << label_cont << ":\n";
                 if (stmt_for->update) {
-                    const auto var = gen->lookup_var(stmt_for->update->ident.value.value());
-                    gen->gen_expr(*stmt_for->update->expr);
-                    gen->pop("rax");
-                    gen->m_output << "    mov QWORD [rsp + " << (gen->m_stack_size - var.stack_loc - 1) * 8 << "], rax\n";
+                    NodeStmt update_stmt;
+                    update_stmt.var = stmt_for->update;
+                    gen->gen_stmt(update_stmt);
                 }
 
                 gen->m_output << "    jmp " << label_begin << "\n";

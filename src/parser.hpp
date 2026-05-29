@@ -1126,10 +1126,34 @@ public:
         NodeStmtAssign* update = nullptr;
         if (!(peek().has_value() && peek().value().type == TokenType::close_paren)) {
             if (peek().has_value() && peek().value().type == TokenType::ident
-                && peek(1).has_value() && peek(1).value().type == TokenType::eq) {
+                && peek(1).has_value()
+                && (peek(1).value().type == TokenType::eq
+                 || peek(1).value().type == TokenType::pluseq
+                 || peek(1).value().type == TokenType::minuseq
+                 || peek(1).value().type == TokenType::stareq
+                 || peek(1).value().type == TokenType::slasheq
+                 || peek(1).value().type == TokenType::percenteq
+                 || peek(1).value().type == TokenType::ampeq
+                 || peek(1).value().type == TokenType::pipeeq
+                 || peek(1).value().type == TokenType::careteq
+                 || peek(1).value().type == TokenType::shleq
+                 || peek(1).value().type == TokenType::shreq)) {
                 update = m_allocator.alloc<NodeStmtAssign>();
                 update->ident = consume();
-                consume(); // eq
+                auto op_token = consume();
+                switch (op_token.type) {
+                    case TokenType::pluseq: update->op = AssignOp::add_assign; break;
+                    case TokenType::minuseq: update->op = AssignOp::sub_assign; break;
+                    case TokenType::stareq: update->op = AssignOp::mul_assign; break;
+                    case TokenType::slasheq: update->op = AssignOp::div_assign; break;
+                    case TokenType::percenteq: update->op = AssignOp::mod_assign; break;
+                    case TokenType::ampeq: update->op = AssignOp::bitand_assign; break;
+                    case TokenType::pipeeq: update->op = AssignOp::bitor_assign; break;
+                    case TokenType::careteq: update->op = AssignOp::bitxor_assign; break;
+                    case TokenType::shleq: update->op = AssignOp::shl_assign; break;
+                    case TokenType::shreq: update->op = AssignOp::shr_assign; break;
+                    default: update->op = AssignOp::assign; break;
+                }
                 auto rhs = parse_expr();
                 if (!rhs) {
                     std::cerr << "Invalid expression in for update" << std::endl;
