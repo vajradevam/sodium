@@ -1,0 +1,7 @@
+struct Point {
+    var x;
+    var y;
+};
+var x = 42;
+x.foo = 10;
+return(0);

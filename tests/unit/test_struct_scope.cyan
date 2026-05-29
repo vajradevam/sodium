@@ -1,0 +1,40 @@
+struct Point {
+    var x;
+    var y;
+};
+
+// Struct in nested scope
+if (1) {
+    var inner: Point;
+    inner.x = 3;
+    inner.y = 4;
+    print(inner.x + inner.y);
+}
+
+// Multiple structs in different scopes
+var outside: Point;
+outside.x = 10;
+outside.y = 20;
+
+if (1) {
+    var block_p: Point;
+    block_p.x = 5;
+    block_p.y = 6;
+    outside.x = block_p.x;
+    outside.y = block_p.y;
+}
+
+print(outside.x);
+print(outside.y);
+
+// Struct in for loop body
+var loop_sum = 0;
+for (var i = 0; i < 3; i++) {
+    var loop_p: Point;
+    loop_p.x = i;
+    loop_p.y = i * 2;
+    loop_sum = loop_sum + loop_p.x + loop_p.y;
+}
+print(loop_sum);
+
+return(outside.x + outside.y + loop_sum);

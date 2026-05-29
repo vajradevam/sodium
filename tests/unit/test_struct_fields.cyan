@@ -1,0 +1,41 @@
+struct Point {
+    var x;
+    var y;
+};
+
+// Test field access in various expression contexts
+var p: Point;
+p.x = 5;
+p.y = 10;
+
+// Field in arithmetic
+var a = p.x + p.y;
+print(a);
+
+// Field comparison
+var cmp = p.x < p.y;
+print(cmp);
+
+// Field in ternary
+var t = p.x > 0 ? p.x : 0;
+print(t);
+
+// Field in function call
+function double_it(v) {
+    return(v * 2);
+}
+var doubled = double_it(p.y);
+print(doubled);
+
+// Multiple field accesses in one expression
+var combined = p.x * 3 + p.y * 2;
+print(combined);
+
+// Assign field value to regular var
+var tmp = p.x;
+p.x = p.y;
+p.y = tmp;
+print(p.x);
+print(p.y);
+
+return(a + cmp + t + doubled + combined + p.x + p.y);

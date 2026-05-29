@@ -76,10 +76,16 @@ UNIT_TESTS["test_print.cyan"]=0
 UNIT_TESTS["test_const_arr.cyan"]=55
 UNIT_TESTS["test_static2.cyan"]=56
 UNIT_TESTS["test_struct.cyan"]=91
+UNIT_TESTS["test_struct_fields.cyan"]=91
+UNIT_TESTS["test_struct_scope.cyan"]=20
 
 # Unit tests that should fail to compile
 declare -a COMPILE_FAIL_UNIT
 COMPILE_FAIL_UNIT+=("test_arr_scalar_assign.cyan")
+COMPILE_FAIL_UNIT+=("test_struct_bad_field.cyan")
+COMPILE_FAIL_UNIT+=("test_struct_not_struct.cyan")
+COMPILE_FAIL_UNIT+=("test_struct_unknown_type.cyan")
+COMPILE_FAIL_UNIT+=("test_struct_bad_read.cyan")
 
 # Unit tests that check stdout
 declare -A STDOUT_TESTS
