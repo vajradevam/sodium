@@ -1,0 +1,57 @@
+{
+  "name": "cyan-lsp-client",
+  "displayName": "Cyan Language Support",
+  "description": "LSP client + syntax highlighting for the Cyan language",
+  "version": "0.1.0",
+  "publisher": "cyan-lang",
+  "engines": {
+    "vscode": "^1.82.0"
+  },
+  "categories": [
+    "Programming Languages",
+    "Linters"
+  ],
+  "activationEvents": [
+    "onLanguage:cyan"
+  ],
+  "main": "./extension.js",
+  "contributes": {
+    "languages": [
+      {
+        "id": "cyan",
+        "aliases": [
+          "Cyan",
+          "cyan"
+        ],
+        "extensions": [
+          ".cyan"
+        ],
+        "configuration": "./language-configuration.json"
+      }
+    ],
+    "grammars": [
+      {
+        "language": "cyan",
+        "scopeName": "source.cyan",
+        "path": "./syntaxes/cyan.tmLanguage.json"
+      }
+    ],
+    "themes": [
+      {
+        "label": "Cyan Dark",
+        "uiTheme": "vs-dark",
+        "path": "./themes/cyan-dark.json"
+      }
+    ]
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "dependencies": {
+    "vscode-languageclient": "^9.0.1"
+  }
+}

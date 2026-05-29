@@ -1,0 +1,90 @@
+{
+  "$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
+  "name": "Cyan",
+  "scopeName": "source.cyan",
+  "fileTypes": [".cyan"],
+  "patterns": [
+    { "include": "#comments" },
+    { "include": "#strings" },
+    { "include": "#numbers" },
+    { "include": "#types" },
+    { "include": "#keywords" },
+    { "include": "#operators" },
+    { "include": "#identifiers" }
+  ],
+  "repository": {
+    "comments": {
+      "patterns": [
+        {
+          "begin": "/\\*",
+          "end": "\\*/",
+          "name": "comment.block.cyan"
+        },
+        {
+          "begin": "//",
+          "end": "$",
+          "name": "comment.line.double-slash.cyan"
+        }
+      ]
+    },
+    "strings": {
+      "patterns": [
+        {
+          "begin": "\"",
+          "end": "\"",
+          "name": "string.quoted.double.cyan",
+          "patterns": [
+            {
+              "match": "\\\\.",
+              "name": "constant.character.escape.cyan"
+            }
+          ]
+        }
+      ]
+    },
+    "numbers": {
+      "patterns": [
+        {
+          "match": "\\b[0-9]+\\b",
+          "name": "constant.numeric.cyan"
+        }
+      ]
+    },
+    "types": {
+      "patterns": [
+        {
+          "match": "\\b(i8|i16|i32|i64|u8|u16|u32|u64)\\b",
+          "name": "storage.type.cyan"
+        }
+      ]
+    },
+    "keywords": {
+      "patterns": [
+        {
+          "match": "\\b(return|var|if|else|while|for|print|function|break|continue|do|switch|case|const|default|global|static)\\b",
+          "name": "keyword.control.cyan"
+        },
+        {
+          "match": "\\b(true|false)\\b",
+          "name": "constant.language.cyan"
+        }
+      ]
+    },
+    "operators": {
+      "patterns": [
+        {
+          "match": "\\+\\+|--|[-+*/%&|^~]=?|<<=?|>>=?|&&|\\|\\||==|!=|<=?|>=?|=|\\?|:",
+          "name": "keyword.operator.cyan"
+        }
+      ]
+    },
+    "identifiers": {
+      "patterns": [
+        {
+          "match": "\\b([a-zA-Z_][a-zA-Z0-9_]*)\\b",
+          "name": "variable.other.cyan"
+        }
+      ]
+    }
+  }
+}
