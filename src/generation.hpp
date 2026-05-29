@@ -521,6 +521,10 @@ public:
                                 return;
                             }
                         }
+                        if (var.array_size > 0) {
+                            std::cerr << "Error: Array assignment requires an array literal (e.g., arr = [1, 2, 3])" << std::endl;
+                            exit(EXIT_FAILURE);
+                        }
                         if (stmt_assign->op == AssignOp::assign) {
                             gen->gen_expr(*stmt_assign->expr);
                             gen->pop("rax");

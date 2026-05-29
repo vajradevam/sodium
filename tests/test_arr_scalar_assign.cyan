@@ -1,0 +1,4 @@
+// Test that assigning a scalar to an array variable is rejected
+var arr[3];
+arr = 42;
+return(0);

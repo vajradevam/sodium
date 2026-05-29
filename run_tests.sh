@@ -72,6 +72,10 @@ EXIT_TESTS["test_static.cyan"]=123
 EXIT_TESTS["test_for_compound_update.cyan"]=55
 EXIT_TESTS["test_for_global_update.cyan"]=10
 
+# Tests that should fail to compile (compiler exits non-zero)
+declare -a COMPILE_FAIL_TESTS
+COMPILE_FAIL_TESTS+=("test_arr_scalar_assign.cyan")
+
 # Tests that also check stdout
 declare -A STDOUT_TESTS
 STDOUT_TESTS["test_print.cyan"]=0
@@ -131,6 +135,25 @@ for test_file in "${!EXIT_TESTS[@]}"; do
             echo "  stdout: $(cat /tmp/cyan_stdout.txt)"
         fi
         FAIL=$((FAIL + 1))
+    fi
+done
+
+# Compile-failure tests: compiler must exit non-zero
+for test_file in "${COMPILE_FAIL_TESTS[@]}"; do
+    if [ ! -f "$TEST_DIR/$test_file" ]; then
+        echo -e "${RED}[SKIP]${NC} $test_file (not found)"
+        continue
+    fi
+
+    echo -n "Testing $test_file (expect compile error)... "
+
+    if $COMPILER "$TEST_DIR/$test_file" > /tmp/cyan_compile.log 2>&1; then
+        echo -e "${RED}FAIL — compiled successfully (expected error)${NC}"
+        cat /tmp/cyan_compile.log
+        FAIL=$((FAIL + 1))
+    else
+        echo -e "${GREEN}PASS${NC} (correctly rejected)"
+        PASS=$((PASS + 1))
     fi
 done
 
