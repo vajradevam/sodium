@@ -979,22 +979,22 @@ public:
             gen_func_def(*func);
         }
 
-        if (!m_data_entries.empty() || !m_bss_entries.empty() || !m_strings.empty()) {
+        if (!m_data_entries.empty()) {
             m_output << "section .data\n";
             for (const auto& entry : m_data_entries) {
                 m_output << entry.name << ": dq " << entry.value << "\n";
             }
-            for (const auto& entry : m_strings) {
-                m_output << entry.label << ": db \"" << entry.value << "\", 0\n";
-            }
-            m_output << "section .bss\n";
-            for (const auto& entry : m_bss_entries) {
-                m_output << entry << ": resq 1\n";
-            }
-        } else if (!m_strings.empty()) {
+        }
+        if (!m_strings.empty()) {
             m_output << "section .rodata\n";
             for (const auto& entry : m_strings) {
                 m_output << entry.label << ": db \"" << entry.value << "\", 0\n";
+            }
+        }
+        if (!m_bss_entries.empty()) {
+            m_output << "section .bss\n";
+            for (const auto& entry : m_bss_entries) {
+                m_output << entry << ": resq 1\n";
             }
         }
 
@@ -1008,7 +1008,7 @@ private:
     }
 
     std::string new_string_label() {
-        return ".str" + std::to_string(m_string_count++);
+        return "str" + std::to_string(m_string_count++);
     }
 
     void push(const std::string& reg) {
