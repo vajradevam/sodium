@@ -149,6 +149,11 @@ public:
                     gen->push("rax");
                     return;
                 }
+                if (gen->m_constants.contains(name)) {
+                    gen->m_output << "    mov rax, " << gen->m_constants.at(name) << "\n";
+                    gen->push("rax");
+                    return;
+                }
                 std::cerr << format_err(expr_ident->ident.loc, "Undeclared identifier: " + name) << std::endl;
                 exit(EXIT_FAILURE);
             }
@@ -493,6 +498,14 @@ public:
                 gen->m_globals[stmt_global->name.value.value()] = true;
             }
 
+            void operator()(const NodeStmtConst* stmt_const) const
+            {
+                // const declarations are evaluated at compile time.
+                // If we reach here during codegen, the value is already
+                // in m_constants from collect_globals. This visitor is
+                // a no-op (constants produce no runtime code).
+            }
+
             void operator()(const NodeStmtExpr* stmt_expr) const
             {
                 gen->gen_expr(*stmt_expr->expr);
@@ -621,6 +634,10 @@ public:
                         gen->m_output << "    mov [rel " << name << "], rax\n";
                     }
                     return;
+                }
+                if (gen->m_constants.contains(name)) {
+                    std::cerr << format_err(stmt_assign->ident.loc, "Cannot assign to constant '" + name + "'") << std::endl;
+                    exit(EXIT_FAILURE);
                 }
                 std::cerr << format_err(stmt_assign->ident.loc, "Undeclared identifier: " + name) << std::endl;
                 exit(EXIT_FAILURE);
@@ -763,18 +780,17 @@ public:
 
             void operator()(const NodeStmtArrDecl* stmt_arr) const
             {
-                size_t size = 0;
-                if (auto int_lit = std::get_if<NodeExprIntLit*>(&stmt_arr->size->var)) {
-                    size = std::stoull((*int_lit)->int_lit.value.value());
-                } else {
-                    std::cerr << format_err(stmt_arr->loc, "Array size must be a constant integer") << std::endl;
+                // Evaluate size expression at compile time (must be constant).
+                auto const_size = gen->eval_const_expr(stmt_arr->size);
+                if (!const_size.has_value()) {
+                    std::cerr << format_err(stmt_arr->loc, "Array size must be a compile-time constant expression") << std::endl;
                     exit(EXIT_FAILURE);
                 }
+                size_t size = static_cast<size_t>(const_size.value());
                 auto& scope = gen->m_scopes.back();
                 scope.vars[stmt_arr->name.value.value()] = Var { .stack_loc = gen->m_stack_size, .array_size = size };
                 scope.var_count += size;
-                gen->gen_expr(*stmt_arr->size);
-                gen->pop("rcx");
+                gen->m_output << "    mov rcx, " << size << "\n";
                 std::string label_loop = gen->new_label();
                 std::string label_end = gen->new_label();
                 gen->m_output << label_loop << ":\n";
@@ -957,6 +973,151 @@ public:
         std::visit(visitor, stmt.var);
     }
 
+    // Evaluate a constant expression to an integer value at compile time.
+    // Returns an optional (empty if the expression is not a compile-time constant).
+    [[nodiscard]] std::optional<int64_t> eval_const_expr(const NodeExpr* expr) const {
+        struct ConstEvalVisitor {
+            const Generator* gen;
+            std::optional<int64_t> result;
+
+            void operator()(const NodeExprIntLit* lit) {
+                result = static_cast<int64_t>(std::stoll(lit->int_lit.value.value()));
+            }
+
+            void operator()(const NodeExprIdent* ident) {
+                const auto& name = ident->ident.value.value();
+                auto it = gen->m_constants.find(name);
+                if (it != gen->m_constants.end()) {
+                    result = it->second;
+                }
+                // else result stays empty (not a constant)
+            }
+
+            void operator()(const BinExpr* bin) {
+                struct BinVisitor {
+                    const Generator* gen;
+                    std::optional<int64_t> result;
+                    void operator()(const BinExprAdd* b) {
+                        auto lhs = gen->eval_const_expr(b->lhs);
+                        auto rhs = gen->eval_const_expr(b->rhs);
+                        if (lhs && rhs) result = lhs.value() + rhs.value();
+                    }
+                    void operator()(const BinExprSub* b) {
+                        auto lhs = gen->eval_const_expr(b->lhs);
+                        auto rhs = gen->eval_const_expr(b->rhs);
+                        if (lhs && rhs) result = lhs.value() - rhs.value();
+                    }
+                    void operator()(const BinExprMulti* b) {
+                        auto lhs = gen->eval_const_expr(b->lhs);
+                        auto rhs = gen->eval_const_expr(b->rhs);
+                        if (lhs && rhs) result = lhs.value() * rhs.value();
+                    }
+                    void operator()(const BinExprDiv* b) {
+                        auto lhs = gen->eval_const_expr(b->lhs);
+                        auto rhs = gen->eval_const_expr(b->rhs);
+                        if (lhs && rhs && rhs.value() != 0) result = lhs.value() / rhs.value();
+                    }
+                    void operator()(const BinExprMod* b) {
+                        auto lhs = gen->eval_const_expr(b->lhs);
+                        auto rhs = gen->eval_const_expr(b->rhs);
+                        if (lhs && rhs && rhs.value() != 0) result = lhs.value() % rhs.value();
+                    }
+                    void operator()(const BinExprLT* b) {
+                        auto lhs = gen->eval_const_expr(b->lhs);
+                        auto rhs = gen->eval_const_expr(b->rhs);
+                        if (lhs && rhs) result = (lhs.value() < rhs.value()) ? 1 : 0;
+                    }
+                    void operator()(const BinExprGT* b) {
+                        auto lhs = gen->eval_const_expr(b->lhs);
+                        auto rhs = gen->eval_const_expr(b->rhs);
+                        if (lhs && rhs) result = (lhs.value() > rhs.value()) ? 1 : 0;
+                    }
+                    void operator()(const BinExprLTE* b) {
+                        auto lhs = gen->eval_const_expr(b->lhs);
+                        auto rhs = gen->eval_const_expr(b->rhs);
+                        if (lhs && rhs) result = (lhs.value() <= rhs.value()) ? 1 : 0;
+                    }
+                    void operator()(const BinExprGTE* b) {
+                        auto lhs = gen->eval_const_expr(b->lhs);
+                        auto rhs = gen->eval_const_expr(b->rhs);
+                        if (lhs && rhs) result = (lhs.value() >= rhs.value()) ? 1 : 0;
+                    }
+                    void operator()(const BinExprEQ* b) {
+                        auto lhs = gen->eval_const_expr(b->lhs);
+                        auto rhs = gen->eval_const_expr(b->rhs);
+                        if (lhs && rhs) result = (lhs.value() == rhs.value()) ? 1 : 0;
+                    }
+                    void operator()(const BinExprNEQ* b) {
+                        auto lhs = gen->eval_const_expr(b->lhs);
+                        auto rhs = gen->eval_const_expr(b->rhs);
+                        if (lhs && rhs) result = (lhs.value() != rhs.value()) ? 1 : 0;
+                    }
+                    void operator()(const BinExprAnd* b) {
+                        auto lhs = gen->eval_const_expr(b->lhs);
+                        auto rhs = gen->eval_const_expr(b->rhs);
+                        if (lhs && rhs) result = (lhs.value() && rhs.value()) ? 1 : 0;
+                    }
+                    void operator()(const BinExprOr* b) {
+                        auto lhs = gen->eval_const_expr(b->lhs);
+                        auto rhs = gen->eval_const_expr(b->rhs);
+                        if (lhs && rhs) result = (lhs.value() || rhs.value()) ? 1 : 0;
+                    }
+                    void operator()(const BinExprBitAnd* b) {
+                        auto lhs = gen->eval_const_expr(b->lhs);
+                        auto rhs = gen->eval_const_expr(b->rhs);
+                        if (lhs && rhs) result = lhs.value() & rhs.value();
+                    }
+                    void operator()(const BinExprBitOr* b) {
+                        auto lhs = gen->eval_const_expr(b->lhs);
+                        auto rhs = gen->eval_const_expr(b->rhs);
+                        if (lhs && rhs) result = lhs.value() | rhs.value();
+                    }
+                    void operator()(const BinExprXor* b) {
+                        auto lhs = gen->eval_const_expr(b->lhs);
+                        auto rhs = gen->eval_const_expr(b->rhs);
+                        if (lhs && rhs) result = lhs.value() ^ rhs.value();
+                    }
+                    void operator()(const BinExprShl* b) {
+                        auto lhs = gen->eval_const_expr(b->lhs);
+                        auto rhs = gen->eval_const_expr(b->rhs);
+                        if (lhs && rhs) result = lhs.value() << rhs.value();
+                    }
+                    void operator()(const BinExprShr* b) {
+                        auto lhs = gen->eval_const_expr(b->lhs);
+                        auto rhs = gen->eval_const_expr(b->rhs);
+                        if (lhs && rhs) result = lhs.value() >> rhs.value();
+                    }
+                };
+                BinVisitor bv{gen, std::nullopt};
+                std::visit(bv, bin->var);
+                result = bv.result;
+            }
+
+            void operator()(const NodeExprBitNot* not_expr) {
+                auto inner = gen->eval_const_expr(not_expr->expr);
+                if (inner) result = ~(inner.value());
+            }
+
+            void operator()(const NodeExprTernary* ternary) {
+                auto cond = gen->eval_const_expr(ternary->cond);
+                if (!cond) return;
+                auto branch = cond.value() ? ternary->then_expr : ternary->else_expr;
+                result = gen->eval_const_expr(branch);
+            }
+
+            // All other expression types are not compile-time constant
+            void operator()(const NodeExprCall*) {}
+            void operator()(const NodeExprStringLit*) {}
+            void operator()(const NodeExprIndex*) {}
+            void operator()(const NodeExprRead*) {}
+            void operator()(const NodeExprArrLit*) {}
+        };
+
+        ConstEvalVisitor visitor{this, std::nullopt};
+        std::visit(visitor, expr->var);
+        return visitor.result;
+    }
+
     // Pre-collect all global/static variable declarations from the AST.
     // This must run before any code generation so that m_global_inits,
     // m_data_entries, and m_bss_entries are fully populated before the
@@ -980,6 +1141,14 @@ public:
                 } else {
                     m_bss_entries.push_back(name);
                 }
+            } else if (auto* const_stmt = std::get_if<NodeStmtConst*>(&stmt.var)) {
+                const auto& name = (*const_stmt)->name.value.value();
+                auto val = eval_const_expr((*const_stmt)->expr);
+                if (!val.has_value()) {
+                    std::cerr << format_err((*const_stmt)->name.loc, "Const initializer is not a compile-time constant expression") << std::endl;
+                    exit(EXIT_FAILURE);
+                }
+                m_constants[name] = val.value();
             } else if (auto* block_stmt = std::get_if<NodeStmtBlock*>(&stmt.var)) {
                 collect_globals((*block_stmt)->block->stmts);
             } else if (auto* if_stmt = std::get_if<NodeStmtIf*>(&stmt.var)) {
@@ -1120,6 +1289,7 @@ private:
     std::vector<LoopContext> m_loop_stack;
     std::vector<std::string> m_break_stack;
     std::unordered_map<std::string, bool> m_globals;
+    std::unordered_map<std::string, int64_t> m_constants;
     std::vector<GlobalInit> m_global_inits;
     struct DataEntry {
         std::string name;

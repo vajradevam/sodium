@@ -56,6 +56,7 @@ enum class TokenType {
     _do,
     _switch,
     _case,
+    _const,
     _default,
     _global,
     _static,
@@ -173,6 +174,9 @@ public:
                 }
                 else if (buf == "default") {
                     tokens.push_back({ .type = TokenType::_default, .loc = tok_loc });
+                }
+                else if (buf == "const") {
+                    tokens.push_back({ .type = TokenType::_const, .loc = tok_loc });
                 }
                 else if (buf == "global") {
                     tokens.push_back({ .type = TokenType::_global, .loc = tok_loc });

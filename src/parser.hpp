@@ -189,6 +189,7 @@ struct NodeBlock;
 struct NodeStmtFor;
 struct NodeStmtSwitch;
 struct NodeStmtGlobal;
+struct NodeStmtConst;
 struct NodeStmtExpr;
 struct NodeStmtBreak {
     SourceLoc loc {};
@@ -242,12 +243,17 @@ struct NodeStmtAssign {
 };
 
 struct NodeStmt {
-    std::variant<NodeStmtExit*, NodeStmtLet*, NodeStmtIf*, NodeStmtWhile*, NodeStmtDoWhile*, NodeStmtSwitch*, NodeStmtGlobal*, NodeStmtExpr*, NodeStmtAssign*, NodeStmtFor*, NodeStmtPrint*, NodeStmtBlock*, NodeStmtReturn*, NodeStmtArrDecl*, NodeStmtArrAssign*, NodeStmtBreak*, NodeStmtContinue*> var;
+    std::variant<NodeStmtExit*, NodeStmtLet*, NodeStmtIf*, NodeStmtWhile*, NodeStmtDoWhile*, NodeStmtSwitch*, NodeStmtGlobal*, NodeStmtConst*, NodeStmtExpr*, NodeStmtAssign*, NodeStmtFor*, NodeStmtPrint*, NodeStmtBlock*, NodeStmtReturn*, NodeStmtArrDecl*, NodeStmtArrAssign*, NodeStmtBreak*, NodeStmtContinue*> var;
 };
 
 struct NodeStmtGlobal {
     Token name;
     NodeExpr* expr; // nullptr = zero-init (.bss)
+};
+
+struct NodeStmtConst {
+    Token name;
+    NodeExpr* expr;
 };
 
 struct NodeStmtExpr {
@@ -1340,6 +1346,27 @@ public:
             }
             consume();
             return NodeStmt { .var = stmt_global };
+        } else if (peek().has_value() && peek().value().type == TokenType::_const) {
+            consume();
+            if (!peek().has_value() || peek().value().type != TokenType::ident) {
+                error("Expected identifier after 'const'");
+            }
+            auto stmt_const = m_allocator.alloc<NodeStmtConst>();
+            stmt_const->name = consume();
+            if (!peek().has_value() || peek().value().type != TokenType::eq) {
+                error("Expected '=' after const name");
+            }
+            consume();
+            if (auto expr = parse_expr()) {
+                stmt_const->expr = expr.value();
+            } else {
+                error("Expected expression in const declaration");
+            }
+            if (!peek().has_value() || peek().value().type != TokenType::semi) {
+                error("Expected ';' after const declaration");
+            }
+            consume();
+            return NodeStmt { .var = stmt_const };
         } else if (peek().has_value() && peek().value().type == TokenType::_while) {
             return parse_while_stmt();
         } else if (peek().has_value() && peek().value().type == TokenType::_for) {
