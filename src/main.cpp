@@ -41,8 +41,20 @@ int main(int argc, char* argv[]) {
         file << generator.gen_prog();
     }
 
-    system("nasm -felf64 ./out.asm");
-    system("ld -o out ./out.o");
+    {
+        int ret = system("nasm -felf64 ./out.asm");
+        if (ret != 0) {
+            std::cerr << "nasm assembly failed (exit code " << ret << ")" << std::endl;
+            exit(EXIT_FAILURE);
+        }
+    }
+    {
+        int ret = system("ld -o out ./out.o");
+        if (ret != 0) {
+            std::cerr << "linking failed (exit code " << ret << ")" << std::endl;
+            exit(EXIT_FAILURE);
+        }
+    }
 
     return EXIT_SUCCESS;
 }
