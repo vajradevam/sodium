@@ -94,23 +94,23 @@ public:
         m_scopes.pop_back();
     }
 
-    void declare_var(const std::string& name, IntType type = IntType::i64) {
+    void declare_var(const std::string& name, IntType type = IntType::i64, SourceLoc loc = {}) {
         auto& scope = m_scopes.back();
         if (scope.vars.contains(name)) {
-            std::cerr << "Identifier already used in this scope: " << name << std::endl;
+            std::cerr << format_err(loc, "Identifier already used in this scope: " + name) << std::endl;
             exit(EXIT_FAILURE);
         }
         scope.vars[name] = Var { .stack_loc = m_stack_size, .type = type };
         scope.var_count++;
     }
 
-    Var lookup_var(const std::string& name) {
+    Var lookup_var(const std::string& name, SourceLoc loc = {}) {
         for (auto it = m_scopes.rbegin(); it != m_scopes.rend(); ++it) {
             if (it->vars.contains(name)) {
                 return it->vars.at(name);
             }
         }
-        std::cerr << "Undeclared identifier: " << name << std::endl;
+        std::cerr << format_err(loc, "Undeclared identifier: " + name) << std::endl;
         exit(EXIT_FAILURE);
     }
 
@@ -149,7 +149,7 @@ public:
                     gen->push("rax");
                     return;
                 }
-                std::cerr << "Undeclared identifier: " << name << std::endl;
+                std::cerr << format_err(expr_ident->ident.loc, "Undeclared identifier: " + name) << std::endl;
                 exit(EXIT_FAILURE);
             }
 
@@ -164,7 +164,7 @@ public:
 
             void operator()(const NodeExprIndex* expr_index)
             {
-                auto var = gen->lookup_var(expr_index->name.value.value());
+                auto var = gen->lookup_var(expr_index->name.value.value(), expr_index->name.loc);
                 gen->gen_expr(*expr_index->index);
                 gen->pop("rdi");
                 size_t base_offset = (gen->m_stack_size - var.stack_loc - 1) * 8;
@@ -477,7 +477,7 @@ public:
                     scope.var_count += (*arr_lit)->elements.size();
                     gen->gen_expr(*stmt_let->expr);
                 } else {
-                    gen->declare_var(stmt_let->ident.value.value(), var_type);
+                    gen->declare_var(stmt_let->ident.value.value(), var_type, stmt_let->ident.loc);
                     gen->gen_expr(*stmt_let->expr);
                     gen->pop("rax");
                     gen->truncate(var_type);
@@ -509,7 +509,7 @@ public:
                         if (stmt_assign->op == AssignOp::assign && var.array_size > 0) {
                             if (auto arr_lit = std::get_if<NodeExprArrLit*>(&stmt_assign->expr->var)) {
                                 if ((*arr_lit)->elements.size() != var.array_size) {
-                                    std::cerr << "Array size mismatch" << std::endl;
+                                    std::cerr << format_err(stmt_assign->ident.loc, "Array size mismatch") << std::endl;
                                     exit(EXIT_FAILURE);
                                 }
                                 size_t base_offset = (gen->m_stack_size - var.stack_loc - 1) * 8;
@@ -522,7 +522,7 @@ public:
                             }
                         }
                         if (var.array_size > 0) {
-                            std::cerr << "Error: Array assignment requires an array literal (e.g., arr = [1, 2, 3])" << std::endl;
+                            std::cerr << format_err(stmt_assign->ident.loc, "Array assignment requires an array literal (e.g., arr = [1, 2, 3])") << std::endl;
                             exit(EXIT_FAILURE);
                         }
                         if (stmt_assign->op == AssignOp::assign) {
@@ -622,7 +622,7 @@ public:
                     }
                     return;
                 }
-                std::cerr << "Undeclared identifier: " << name << std::endl;
+                std::cerr << format_err(stmt_assign->ident.loc, "Undeclared identifier: " + name) << std::endl;
                 exit(EXIT_FAILURE);
             }
 
@@ -767,7 +767,7 @@ public:
                 if (auto int_lit = std::get_if<NodeExprIntLit*>(&stmt_arr->size->var)) {
                     size = std::stoull((*int_lit)->int_lit.value.value());
                 } else {
-                    std::cerr << "Array size must be a constant integer" << std::endl;
+                    std::cerr << format_err(stmt_arr->loc, "Array size must be a constant integer") << std::endl;
                     exit(EXIT_FAILURE);
                 }
                 auto& scope = gen->m_scopes.back();
@@ -793,7 +793,7 @@ public:
                 gen->gen_expr(*stmt_arr_assign->expr);
                 gen->pop("rax");
                 gen->pop("rdi");
-                auto var = gen->lookup_var(stmt_arr_assign->name.value.value());
+                auto var = gen->lookup_var(stmt_arr_assign->name.value.value(), stmt_arr_assign->name.loc);
                 size_t base_offset = (gen->m_stack_size - var.stack_loc - 1) * 8;
                 gen->m_output << "    lea rcx, [rsp + " << base_offset << "]\n";
                 gen->m_output << "    mov rsi, rdi\n";
@@ -812,7 +812,7 @@ public:
                     gen->m_output << "    jmp " << gen->m_func_epilogue_label << "\n";
                 } else {
                     if (!stmt_ret->expr) {
-                        std::cerr << "return with no value at top level" << std::endl;
+                        std::cerr << format_err(stmt_ret->loc, "return with no value at top level") << std::endl;
                         exit(EXIT_FAILURE);
                     }
                     gen->gen_expr(*stmt_ret->expr);
@@ -931,16 +931,16 @@ public:
                 gen->m_break_stack.pop_back();
             }
 
-            void operator()(const NodeStmtBreak*) const
+            void operator()(const NodeStmtBreak* stmt_break) const
             {
                 if (gen->m_break_stack.empty()) {
-                    std::cerr << "break outside loop or switch" << std::endl;
+                    std::cerr << format_err(stmt_break->loc, "break outside loop or switch") << std::endl;
                     exit(EXIT_FAILURE);
                 }
                 gen->m_output << "    jmp " << gen->m_break_stack.back() << "\n";
             }
 
-            void operator()(const NodeStmtContinue*) const
+            void operator()(const NodeStmtContinue* stmt_continue) const
             {
                 for (auto it = gen->m_loop_stack.rbegin(); it != gen->m_loop_stack.rend(); ++it) {
                     if (!it->continue_label.empty()) {
@@ -948,7 +948,7 @@ public:
                         return;
                     }
                 }
-                std::cerr << "continue outside loop" << std::endl;
+                std::cerr << format_err(stmt_continue->loc, "continue outside loop") << std::endl;
                 exit(EXIT_FAILURE);
             }
         };

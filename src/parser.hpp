@@ -164,11 +164,13 @@ struct NodeStmtExit {
 
 struct NodeStmtReturn {
     NodeExpr* expr;
+    SourceLoc loc {};
 };
 
 struct NodeStmtArrDecl {
     Token name;
     NodeExpr* size;
+    SourceLoc loc {};
 };
 
 struct NodeStmtArrAssign {
@@ -188,8 +190,12 @@ struct NodeStmtFor;
 struct NodeStmtSwitch;
 struct NodeStmtGlobal;
 struct NodeStmtExpr;
-struct NodeStmtBreak {};
-struct NodeStmtContinue {};
+struct NodeStmtBreak {
+    SourceLoc loc {};
+};
+struct NodeStmtContinue {
+    SourceLoc loc {};
+};
 
 struct NodeStmtDoWhile {
     NodeExpr* cond;
@@ -298,18 +304,15 @@ public:
             consume(); // ?
             auto then_expr = parse_expr();
             if (!then_expr) {
-                std::cerr << "Expected expression after '?'" << std::endl;
-                exit(EXIT_FAILURE);
+                error("Expected expression after '?'");
             }
             if (!peek().has_value() || peek().value().type != TokenType::colon) {
-                std::cerr << "Expected ':' in ternary expression" << std::endl;
-                exit(EXIT_FAILURE);
+                error("Expected ':' in ternary expression");
             }
             consume(); // :
             auto else_expr = parse_expr();
             if (!else_expr) {
-                std::cerr << "Expected expression after ':'" << std::endl;
-                exit(EXIT_FAILURE);
+                error("Expected expression after ':'");
             }
             auto node = m_allocator.alloc<NodeExprTernary>();
             node->cond = lhs.value();
@@ -332,8 +335,7 @@ public:
             consume();
             auto rhs = parse_and_expr();
             if (!rhs) {
-                std::cerr << "Expected expression after ||" << std::endl;
-                exit(EXIT_FAILURE);
+                error("Expected expression after ||");
             }
             auto node = m_allocator.alloc<BinExprOr>();
             node->lhs = lhs.value();
@@ -356,8 +358,7 @@ public:
             consume();
             auto rhs = parse_bitor_expr();
             if (!rhs) {
-                std::cerr << "Expected expression after &&" << std::endl;
-                exit(EXIT_FAILURE);
+                error("Expected expression after &&");
             }
             auto node = m_allocator.alloc<BinExprAnd>();
             node->lhs = lhs.value();
@@ -380,8 +381,7 @@ public:
             consume();
             auto rhs = parse_bitxor_expr();
             if (!rhs) {
-                std::cerr << "Expected expression after |" << std::endl;
-                exit(EXIT_FAILURE);
+                error("Expected expression after |");
             }
             auto node = m_allocator.alloc<BinExprBitOr>();
             node->lhs = lhs.value();
@@ -404,8 +404,7 @@ public:
             consume();
             auto rhs = parse_bitand_expr();
             if (!rhs) {
-                std::cerr << "Expected expression after ^" << std::endl;
-                exit(EXIT_FAILURE);
+                error("Expected expression after ^");
             }
             auto node = m_allocator.alloc<BinExprXor>();
             node->lhs = lhs.value();
@@ -428,8 +427,7 @@ public:
             consume();
             auto rhs = parse_eq_expr();
             if (!rhs) {
-                std::cerr << "Expected expression after &" << std::endl;
-                exit(EXIT_FAILURE);
+                error("Expected expression after &");
             }
             auto node = m_allocator.alloc<BinExprBitAnd>();
             node->lhs = lhs.value();
@@ -452,8 +450,7 @@ public:
             auto op = consume().type;
             auto rhs = parse_cmp_expr();
             if (!rhs) {
-                std::cerr << "Expected expression after operator" << std::endl;
-                exit(EXIT_FAILURE);
+                error("Expected expression after operator");
             }
 
             if (op == TokenType::eq_eq) {
@@ -490,8 +487,7 @@ public:
             auto op = consume().type;
             auto rhs = parse_shift_expr();
             if (!rhs) {
-                std::cerr << "Expected expression after operator" << std::endl;
-                exit(EXIT_FAILURE);
+                error("Expected expression after operator");
             }
 
             if (op == TokenType::lt) {
@@ -545,8 +541,7 @@ public:
             auto op = consume().type;
             auto rhs = parse_add_expr();
             if (!rhs) {
-                std::cerr << "Expected expression after shift operator" << std::endl;
-                exit(EXIT_FAILURE);
+                error("Expected expression after shift operator");
             }
 
             if (op == TokenType::shl) {
@@ -581,8 +576,7 @@ public:
             auto op = consume().type;
             auto rhs = parse_mul_expr();
             if (!rhs) {
-                std::cerr << "Expected expression after operator" << std::endl;
-                exit(EXIT_FAILURE);
+                error("Expected expression after operator");
             }
 
             if (op == TokenType::plus) {
@@ -618,8 +612,7 @@ public:
             auto op = consume().type;
             auto rhs = parse_primary_expr();
             if (!rhs) {
-                std::cerr << "Expected expression after operator" << std::endl;
-                exit(EXIT_FAILURE);
+                error("Expected expression after operator");
             }
 
             if (op == TokenType::star) {
@@ -676,8 +669,7 @@ public:
             consume(); // read
             consume(); // (
             if (peek().has_value() && peek().value().type != TokenType::close_paren) {
-                std::cerr << "read() takes no arguments" << std::endl;
-                exit(EXIT_FAILURE);
+                error("read() takes no arguments");
             }
             consume(); // )
             auto read_expr = m_allocator.alloc<NodeExprRead>();
@@ -693,12 +685,10 @@ public:
                 if (auto idx = parse_expr()) {
                     expr_index->index = idx.value();
                 } else {
-                    std::cerr << "Expected index expression" << std::endl;
-                    exit(EXIT_FAILURE);
+                    error("Expected index expression");
                 }
                 if (!peek().has_value() || peek().value().type != TokenType::close_square) {
-                    std::cerr << "Expected ']'" << std::endl;
-                    exit(EXIT_FAILURE);
+                    error("Expected ']'");
                 }
                 consume(); // ]
                 auto expr = m_allocator.alloc<NodeExpr>();
@@ -713,16 +703,14 @@ public:
                     if (auto arg = parse_expr()) {
                         expr_call->args.push_back(arg.value());
                     } else {
-                        std::cerr << "Invalid argument in function call" << std::endl;
-                        exit(EXIT_FAILURE);
+                        error("Invalid argument in function call");
                     }
                     if (peek().has_value() && peek().value().type == TokenType::comma) {
                         consume();
                     }
                 }
                 if (!peek().has_value() || peek().value().type != TokenType::close_paren) {
-                    std::cerr << "Expected ')' after function arguments" << std::endl;
-                    exit(EXIT_FAILURE);
+                    error("Expected ')' after function arguments");
                 }
                 consume(); // )
                 auto expr = m_allocator.alloc<NodeExpr>();
@@ -748,8 +736,7 @@ public:
             consume();
             auto expr = parse_primary_expr();
             if (!expr) {
-                std::cerr << "Expected expression after '-'" << std::endl;
-                exit(EXIT_FAILURE);
+                error("Expected expression after '-'");
             }
             auto int_lit = m_allocator.alloc<NodeExprIntLit>();
             int_lit->int_lit = Token { .type = TokenType::int_lit, .value = "0" };
@@ -768,8 +755,7 @@ public:
             consume();
             auto expr = parse_primary_expr();
             if (!expr) {
-                std::cerr << "Expected expression after '~'" << std::endl;
-                exit(EXIT_FAILURE);
+                error("Expected expression after '~'");
             }
             auto node = m_allocator.alloc<NodeExprBitNot>();
             node->expr = expr.value();
@@ -782,12 +768,10 @@ public:
             consume();
             auto expr = parse_expr();
             if (!expr) {
-                std::cerr << "Expected expression" << std::endl;
-                exit(EXIT_FAILURE);
+                error("Expected expression");
             }
             if (!peek().has_value() || peek().value().type != TokenType::close_paren) {
-                std::cerr << "Expected ')'" << std::endl;
-                exit(EXIT_FAILURE);
+                error("Expected ')'");
             }
             consume();
             return expr;
@@ -799,16 +783,14 @@ public:
                 if (auto elem = parse_expr()) {
                     arr_lit->elements.push_back(elem.value());
                 } else {
-                    std::cerr << "Expected expression in array literal" << std::endl;
-                    exit(EXIT_FAILURE);
+                    error("Expected expression in array literal");
                 }
                 if (peek().has_value() && peek().value().type == TokenType::comma) {
                     consume();
                 }
             }
             if (!peek().has_value() || peek().value().type != TokenType::close_square) {
-                std::cerr << "Expected ']'" << std::endl;
-                exit(EXIT_FAILURE);
+                error("Expected ']'");
             }
             consume(); // ]
             auto expr = m_allocator.alloc<NodeExpr>();
@@ -829,13 +811,11 @@ public:
                 if (auto stmt = parse_stmt()) {
                     block->stmts.push_back(stmt.value());
                 } else {
-                    std::cerr << "Invalid statement" << std::endl;
-                    exit(EXIT_FAILURE);
+                    error("Invalid statement");
                 }
             }
             if (!peek().has_value() || peek().value().type != TokenType::close_brace) {
-                std::cerr << "Expected '}'" << std::endl;
-                exit(EXIT_FAILURE);
+                error("Expected '}'");
             }
             consume();
         } else {
@@ -843,8 +823,7 @@ public:
             if (auto stmt = parse_stmt()) {
                 block->stmts.push_back(stmt.value());
             } else {
-                std::cerr << "Invalid statement" << std::endl;
-                exit(EXIT_FAILURE);
+                error("Invalid statement");
             }
         }
         return block;
@@ -854,18 +833,15 @@ public:
     {
         consume(); // if
         if (!peek().has_value() || peek().value().type != TokenType::open_paren) {
-            std::cerr << "Expected '(' after if" << std::endl;
-            exit(EXIT_FAILURE);
+            error("Expected '(' after if");
         }
         consume(); // (
         auto cond = parse_expr();
         if (!cond) {
-            std::cerr << "Expected expression in if condition" << std::endl;
-            exit(EXIT_FAILURE);
+            error("Expected expression in if condition");
         }
         if (!peek().has_value() || peek().value().type != TokenType::close_paren) {
-            std::cerr << "Expected ')' after if condition" << std::endl;
-            exit(EXIT_FAILURE);
+            error("Expected ')' after if condition");
         }
         consume(); // )
 
@@ -893,18 +869,15 @@ public:
     {
         consume(); // while
         if (!peek().has_value() || peek().value().type != TokenType::open_paren) {
-            std::cerr << "Expected '(' after while" << std::endl;
-            exit(EXIT_FAILURE);
+            error("Expected '(' after while");
         }
         consume(); // (
         auto cond = parse_expr();
         if (!cond) {
-            std::cerr << "Expected expression in while condition" << std::endl;
-            exit(EXIT_FAILURE);
+            error("Expected expression in while condition");
         }
         if (!peek().has_value() || peek().value().type != TokenType::close_paren) {
-            std::cerr << "Expected ')' after while condition" << std::endl;
-            exit(EXIT_FAILURE);
+            error("Expected ')' after while condition");
         }
         consume(); // )
 
@@ -922,32 +895,27 @@ public:
         auto body = parse_block();
 
         if (!peek().has_value() || peek().value().type != TokenType::_while) {
-            std::cerr << "Expected 'while' after do body" << std::endl;
-            exit(EXIT_FAILURE);
+            error("Expected 'while' after do body");
         }
         consume(); // while
 
         if (!peek().has_value() || peek().value().type != TokenType::open_paren) {
-            std::cerr << "Expected '(' after while" << std::endl;
-            exit(EXIT_FAILURE);
+            error("Expected '(' after while");
         }
         consume(); // (
 
         auto cond = parse_expr();
         if (!cond) {
-            std::cerr << "Expected expression in do-while condition" << std::endl;
-            exit(EXIT_FAILURE);
+            error("Expected expression in do-while condition");
         }
 
         if (!peek().has_value() || peek().value().type != TokenType::close_paren) {
-            std::cerr << "Expected ')' after do-while condition" << std::endl;
-            exit(EXIT_FAILURE);
+            error("Expected ')' after do-while condition");
         }
         consume(); // )
 
         if (!peek().has_value() || peek().value().type != TokenType::semi) {
-            std::cerr << "Expected ';' after do-while" << std::endl;
-            exit(EXIT_FAILURE);
+            error("Expected ';' after do-while");
         }
         consume(); // ;
 
@@ -961,23 +929,19 @@ public:
     {
         consume(); // switch
         if (!peek().has_value() || peek().value().type != TokenType::open_paren) {
-            std::cerr << "Expected '(' after switch" << std::endl;
-            exit(EXIT_FAILURE);
+            error("Expected '(' after switch");
         }
         consume(); // (
         auto expr = parse_expr();
         if (!expr) {
-            std::cerr << "Expected expression in switch" << std::endl;
-            exit(EXIT_FAILURE);
+            error("Expected expression in switch");
         }
         if (!peek().has_value() || peek().value().type != TokenType::close_paren) {
-            std::cerr << "Expected ')' after switch expression" << std::endl;
-            exit(EXIT_FAILURE);
+            error("Expected ')' after switch expression");
         }
         consume(); // )
         if (!peek().has_value() || peek().value().type != TokenType::open_brace) {
-            std::cerr << "Expected '{' after switch" << std::endl;
-            exit(EXIT_FAILURE);
+            error("Expected '{' after switch");
         }
         consume(); // {
 
@@ -990,26 +954,22 @@ public:
                 consume(); // case
                 auto val = parse_expr();
                 if (!val) {
-                    std::cerr << "Expected value after 'case'" << std::endl;
-                    exit(EXIT_FAILURE);
+                    error("Expected value after 'case'");
                 }
                 sc.value = val.value();
                 if (!peek().has_value() || peek().value().type != TokenType::colon) {
-                    std::cerr << "Expected ':' after case value" << std::endl;
-                    exit(EXIT_FAILURE);
+                    error("Expected ':' after case value");
                 }
                 consume(); // :
             } else if (peek().value().type == TokenType::_default) {
                 consume(); // default
                 sc.value = nullptr;
                 if (!peek().has_value() || peek().value().type != TokenType::colon) {
-                    std::cerr << "Expected ':' after default" << std::endl;
-                    exit(EXIT_FAILURE);
+                    error("Expected ':' after default");
                 }
                 consume(); // :
             } else {
-                std::cerr << "Expected 'case' or 'default' in switch" << std::endl;
-                exit(EXIT_FAILURE);
+                error("Expected 'case' or 'default' in switch");
             }
 
             while (peek().has_value()
@@ -1019,16 +979,14 @@ public:
                 if (auto s = parse_stmt()) {
                     sc.stmts.push_back(s.value());
                 } else {
-                    std::cerr << "Invalid statement in switch case" << std::endl;
-                    exit(EXIT_FAILURE);
+                    error("Invalid statement in switch case");
                 }
             }
             stmt_switch->cases.push_back(std::move(sc));
         }
 
         if (!peek().has_value() || peek().value().type != TokenType::close_brace) {
-            std::cerr << "Expected '}' after switch body" << std::endl;
-            exit(EXIT_FAILURE);
+            error("Expected '}' after switch body");
         }
         consume(); // }
 
@@ -1039,23 +997,19 @@ public:
     {
         consume(); // print
         if (!peek().has_value() || peek().value().type != TokenType::open_paren) {
-            std::cerr << "Expected '(' after print" << std::endl;
-            exit(EXIT_FAILURE);
+            error("Expected '(' after print");
         }
         consume(); // (
         auto expr = parse_expr();
         if (!expr) {
-            std::cerr << "Expected expression in print" << std::endl;
-            exit(EXIT_FAILURE);
+            error("Expected expression in print");
         }
         if (!peek().has_value() || peek().value().type != TokenType::close_paren) {
-            std::cerr << "Expected ')' after print expression" << std::endl;
-            exit(EXIT_FAILURE);
+            error("Expected ')' after print expression");
         }
         consume(); // )
         if (!peek().has_value() || peek().value().type != TokenType::semi) {
-            std::cerr << "Expected ';' after print" << std::endl;
-            exit(EXIT_FAILURE);
+            error("Expected ';' after print");
         }
         consume(); // ;
         auto stmt_print = m_allocator.alloc<NodeStmtPrint>();
@@ -1067,8 +1021,7 @@ public:
     {
         consume(); // for
         if (!peek().has_value() || peek().value().type != TokenType::open_paren) {
-            std::cerr << "Expected '(' after for" << std::endl;
-            exit(EXIT_FAILURE);
+            error("Expected '(' after for");
         }
         consume(); // (
 
@@ -1083,8 +1036,7 @@ public:
             if (auto expr = parse_expr()) {
                 stmt_let->expr = expr.value();
             } else {
-                std::cerr << "Invalid expression in for init" << std::endl;
-                exit(EXIT_FAILURE);
+                error("Invalid expression in for init");
             }
             init = NodeStmt { .var = stmt_let };
         } else if (peek().has_value() && peek().value().type == TokenType::ident
@@ -1095,15 +1047,13 @@ public:
             if (auto expr = parse_expr()) {
                 stmt_assign->expr = expr.value();
             } else {
-                std::cerr << "Invalid expression in for init" << std::endl;
-                exit(EXIT_FAILURE);
+                error("Invalid expression in for init");
             }
             init = NodeStmt { .var = stmt_assign };
         }
 
         if (!peek().has_value() || peek().value().type != TokenType::semi) {
-            std::cerr << "Expected ';' after for init" << std::endl;
-            exit(EXIT_FAILURE);
+            error("Expected ';' after for init");
         }
         consume(); // ;
 
@@ -1111,15 +1061,13 @@ public:
         if (!(peek().has_value() && peek().value().type == TokenType::semi)) {
             auto c = parse_expr();
             if (!c) {
-                std::cerr << "Invalid expression in for condition" << std::endl;
-                exit(EXIT_FAILURE);
+                error("Invalid expression in for condition");
             }
             cond = c.value();
         }
 
         if (!peek().has_value() || peek().value().type != TokenType::semi) {
-            std::cerr << "Expected ';' after for condition" << std::endl;
-            exit(EXIT_FAILURE);
+            error("Expected ';' after for condition");
         }
         consume(); // ;
 
@@ -1156,19 +1104,16 @@ public:
                 }
                 auto rhs = parse_expr();
                 if (!rhs) {
-                    std::cerr << "Invalid expression in for update" << std::endl;
-                    exit(EXIT_FAILURE);
+                    error("Invalid expression in for update");
                 }
                 update->expr = rhs.value();
             } else {
-                std::cerr << "Invalid for update (must be assignment)" << std::endl;
-                exit(EXIT_FAILURE);
+                error("Invalid for update (must be assignment)");
             }
         }
 
         if (!peek().has_value() || peek().value().type != TokenType::close_paren) {
-            std::cerr << "Expected ')' after for update" << std::endl;
-            exit(EXIT_FAILURE);
+            error("Expected ')' after for update");
         }
         consume(); // )
 
@@ -1186,22 +1131,19 @@ public:
     {
         consume(); // function
         if (!peek().has_value() || peek().value().type != TokenType::ident) {
-            std::cerr << "Expected function name" << std::endl;
-            exit(EXIT_FAILURE);
+            error("Expected function name");
         }
         auto func = m_allocator.alloc<NodeFuncDef>();
         func->name = consume();
 
         if (!peek().has_value() || peek().value().type != TokenType::open_paren) {
-            std::cerr << "Expected '(' after function name" << std::endl;
-            exit(EXIT_FAILURE);
+            error("Expected '(' after function name");
         }
         consume(); // (
 
         while (peek().has_value() && peek().value().type != TokenType::close_paren) {
             if (peek().value().type != TokenType::ident) {
-                std::cerr << "Expected parameter name" << std::endl;
-                exit(EXIT_FAILURE);
+                error("Expected parameter name");
             }
             func->params.push_back(consume());
             if (peek().has_value() && peek().value().type == TokenType::comma) {
@@ -1210,8 +1152,7 @@ public:
         }
 
         if (!peek().has_value() || peek().value().type != TokenType::close_paren) {
-            std::cerr << "Expected ')' after parameters" << std::endl;
-            exit(EXIT_FAILURE);
+            error("Expected ')' after parameters");
         }
         consume(); // )
 
@@ -1221,22 +1162,25 @@ public:
 
     std::optional<NodeStmt> parse_return_stmt()
     {
+        SourceLoc ret_loc = peek().value().loc;
         consume(); // return
         NodeStmtReturn* stmt_ret = nullptr;
         if (peek().has_value() && peek().value().type != TokenType::semi) {
             stmt_ret = m_allocator.alloc<NodeStmtReturn>();
+            stmt_ret->loc = ret_loc;
             if (auto expr = parse_expr()) {
                 stmt_ret->expr = expr.value();
             } else {
-                std::cerr << "Invalid expression in return" << std::endl;
+                std::cerr << format_err(ret_loc, "Invalid expression in return") << std::endl;
                 exit(EXIT_FAILURE);
             }
         } else {
             stmt_ret = m_allocator.alloc<NodeStmtReturn>();
+            stmt_ret->loc = ret_loc;
             stmt_ret->expr = nullptr;
         }
         if (!peek().has_value() || peek().value().type != TokenType::semi) {
-            std::cerr << "Expected ';' after return" << std::endl;
+            std::cerr << format_err(ret_loc, "Expected ';' after return") << std::endl;
             exit(EXIT_FAILURE);
         }
         consume(); // ;
@@ -1262,23 +1206,25 @@ public:
         if (peek().has_value() && peek().value().type == TokenType::let
             && peek(1).has_value() && peek(1).value().type == TokenType::ident
             && peek(2).has_value() && peek(2).value().type == TokenType::open_square) {
+                SourceLoc arr_loc = peek(1).value().loc;
                 consume();
                 auto stmt_arr = m_allocator.alloc<NodeStmtArrDecl>();
                 stmt_arr->name = consume();
+                stmt_arr->loc = arr_loc;
                 consume(); // [
                 if (auto sz = parse_expr()) {
                     stmt_arr->size = sz.value();
                 } else {
-                    std::cerr << "Expected array size" << std::endl;
+                    std::cerr << format_err(arr_loc, "Expected array size") << std::endl;
                     exit(EXIT_FAILURE);
                 }
                 if (!peek().has_value() || peek().value().type != TokenType::close_square) {
-                    std::cerr << "Expected ']'" << std::endl;
+                    std::cerr << format_err(arr_loc, "Expected ']'") << std::endl;
                     exit(EXIT_FAILURE);
                 }
                 consume(); // ]
                 if (!peek().has_value() || peek().value().type != TokenType::semi) {
-                    std::cerr << "Expected ';'" << std::endl;
+                    std::cerr << format_err(arr_loc, "Expected ';'") << std::endl;
                     exit(EXIT_FAILURE);
                 }
                 consume(); // ;
@@ -1294,25 +1240,21 @@ public:
                 if (auto type = parse_type()) {
                     stmt_let->type = type.value();
                 } else {
-                    std::cerr << "Expected type after ':'" << std::endl;
-                    exit(EXIT_FAILURE);
+                    error("Expected type after ':'");
                 }
                 if (!peek().has_value() || peek().value().type != TokenType::eq) {
-                    std::cerr << "Expected '=' after type" << std::endl;
-                    exit(EXIT_FAILURE);
+                    error("Expected '=' after type");
                 }
                 consume();
                 if (auto expr = parse_expr()) {
                     stmt_let->expr = expr.value();
                 } else {
-                    std::cerr << "Invalid expression" << std::endl;
-                    exit(EXIT_FAILURE);
+                    error("Invalid expression");
                 }
                 if (peek().has_value() && peek().value().type == TokenType::semi) {
                     consume();
                 } else {
-                    std::cerr << "Expected ';'" << std::endl;
-                    exit(EXIT_FAILURE);
+                    error("Expected ';'");
                 }
                 return NodeStmt { .var = stmt_let };
         } else if (
@@ -1326,15 +1268,13 @@ public:
                 if (auto expr = parse_expr()) {
                     stmt_let->expr = expr.value();
                 } else {
-                    std::cerr << "Invalid expression in variable declaration" << std::endl;
-                    exit(EXIT_FAILURE);
+                    error("Invalid expression in variable declaration");
                 }
 
                 if (peek().has_value() && peek().value().type == TokenType::semi) {
                     consume();
                 } else {
-                    std::cerr << "Expected `;`" << std::endl;
-                    exit(EXIT_FAILURE);
+                    error("Expected `;`");
                 }
 
                 return NodeStmt { .var = stmt_let };
@@ -1347,13 +1287,11 @@ public:
         } else if (peek().has_value() && peek().value().type == TokenType::_static) {
             consume();
             if (!peek().has_value() || peek().value().type != TokenType::let) {
-                std::cerr << "Expected 'var' after 'static'" << std::endl;
-                exit(EXIT_FAILURE);
+                error("Expected 'var' after 'static'");
             }
             consume();
             if (!peek().has_value() || peek().value().type != TokenType::ident) {
-                std::cerr << "Expected identifier after 'static var'" << std::endl;
-                exit(EXIT_FAILURE);
+                error("Expected identifier after 'static var'");
             }
             auto stmt_global = m_allocator.alloc<NodeStmtGlobal>();
             stmt_global->name = consume();
@@ -1361,8 +1299,7 @@ public:
             if (peek().has_value() && peek().value().type == TokenType::colon) {
                 consume();
                 if (!parse_type()) {
-                    std::cerr << "Expected type after ':'" << std::endl;
-                    exit(EXIT_FAILURE);
+                    error("Expected type after ':'");
                 }
             }
             if (peek().has_value() && peek().value().type == TokenType::eq) {
@@ -1370,26 +1307,22 @@ public:
                 if (auto expr = parse_expr()) {
                     stmt_global->expr = expr.value();
                 } else {
-                    std::cerr << "Expected expression in static declaration" << std::endl;
-                    exit(EXIT_FAILURE);
+                    error("Expected expression in static declaration");
                 }
             }
             if (!peek().has_value() || peek().value().type != TokenType::semi) {
-                std::cerr << "Expected ';' after static declaration" << std::endl;
-                exit(EXIT_FAILURE);
+                error("Expected ';' after static declaration");
             }
             consume();
             return NodeStmt { .var = stmt_global };
         } else if (peek().has_value() && peek().value().type == TokenType::_global) {
             consume();
             if (!peek().has_value() || peek().value().type != TokenType::let) {
-                std::cerr << "Expected 'var' after 'global'" << std::endl;
-                exit(EXIT_FAILURE);
+                error("Expected 'var' after 'global'");
             }
             consume();
             if (!peek().has_value() || peek().value().type != TokenType::ident) {
-                std::cerr << "Expected identifier after 'global var'" << std::endl;
-                exit(EXIT_FAILURE);
+                error("Expected identifier after 'global var'");
             }
             auto stmt_global = m_allocator.alloc<NodeStmtGlobal>();
             stmt_global->name = consume();
@@ -1399,13 +1332,11 @@ public:
                 if (auto expr = parse_expr()) {
                     stmt_global->expr = expr.value();
                 } else {
-                    std::cerr << "Expected expression in global declaration" << std::endl;
-                    exit(EXIT_FAILURE);
+                    error("Expected expression in global declaration");
                 }
             }
             if (!peek().has_value() || peek().value().type != TokenType::semi) {
-                std::cerr << "Expected ';' after global declaration" << std::endl;
-                exit(EXIT_FAILURE);
+                error("Expected ';' after global declaration");
             }
             consume();
             return NodeStmt { .var = stmt_global };
@@ -1426,59 +1357,58 @@ public:
                 if (auto idx = parse_expr()) {
                     stmt_arr_assign->index = idx.value();
                 } else {
-                    std::cerr << "Expected index in array assignment" << std::endl;
-                    exit(EXIT_FAILURE);
+                    error("Expected index in array assignment");
                 }
                 if (!peek().has_value() || peek().value().type != TokenType::close_square) {
-                    std::cerr << "Expected ']'" << std::endl;
-                    exit(EXIT_FAILURE);
+                    error("Expected ']'");
                 }
                 consume(); // ]
                 if (!peek().has_value() || peek().value().type != TokenType::eq) {
-                    std::cerr << "Expected '=' in array assignment" << std::endl;
-                    exit(EXIT_FAILURE);
+                    error("Expected '=' in array assignment");
                 }
                 consume(); // =
                 if (auto expr = parse_expr()) {
                     stmt_arr_assign->expr = expr.value();
                 } else {
-                    std::cerr << "Invalid expression in array assignment" << std::endl;
-                    exit(EXIT_FAILURE);
+                    error("Invalid expression in array assignment");
                 }
                 if (peek().has_value() && peek().value().type == TokenType::semi) {
                     consume();
                 } else {
-                    std::cerr << "Expected ';' after array assignment" << std::endl;
-                    exit(EXIT_FAILURE);
+                    error("Expected ';' after array assignment");
                 }
                 return NodeStmt { .var = stmt_arr_assign };
         } else if (peek().has_value() && peek().value().type == TokenType::_break) {
+            SourceLoc brk_loc = peek().value().loc;
             consume();
             if (!peek().has_value() || peek().value().type != TokenType::semi) {
-                std::cerr << "Expected ';' after break" << std::endl;
+                std::cerr << format_err(brk_loc, "Expected ';' after break") << std::endl;
                 exit(EXIT_FAILURE);
             }
             consume();
-            return NodeStmt { .var = m_allocator.alloc<NodeStmtBreak>() };
+            auto stmt_break = m_allocator.alloc<NodeStmtBreak>();
+            stmt_break->loc = brk_loc;
+            return NodeStmt { .var = stmt_break };
         } else if (peek().has_value() && peek().value().type == TokenType::_continue) {
+            SourceLoc cont_loc = peek().value().loc;
             consume();
             if (!peek().has_value() || peek().value().type != TokenType::semi) {
-                std::cerr << "Expected ';' after continue" << std::endl;
+                std::cerr << format_err(cont_loc, "Expected ';' after continue") << std::endl;
                 exit(EXIT_FAILURE);
             }
             consume();
-            return NodeStmt { .var = m_allocator.alloc<NodeStmtContinue>() };
+            auto stmt_continue = m_allocator.alloc<NodeStmtContinue>();
+            stmt_continue->loc = cont_loc;
+            return NodeStmt { .var = stmt_continue };
         } else if (
             peek().has_value() && peek().value().type == TokenType::plusplus) {
                 consume();
                 if (!peek().has_value() || peek().value().type != TokenType::ident) {
-                    std::cerr << "Expected identifier after '++'" << std::endl;
-                    exit(EXIT_FAILURE);
+                    error("Expected identifier after '++'");
                 }
                 auto ident = consume();
                 if (!peek().has_value() || peek().value().type != TokenType::semi) {
-                    std::cerr << "Expected ';' after ++ident" << std::endl;
-                    exit(EXIT_FAILURE);
+                    error("Expected ';' after ++ident");
                 }
                 consume();
                 auto stmt = m_allocator.alloc<NodeStmtAssign>();
@@ -1504,13 +1434,11 @@ public:
             peek().has_value() && peek().value().type == TokenType::minusminus) {
                 consume();
                 if (!peek().has_value() || peek().value().type != TokenType::ident) {
-                    std::cerr << "Expected identifier after '--'" << std::endl;
-                    exit(EXIT_FAILURE);
+                    error("Expected identifier after '--'");
                 }
                 auto ident = consume();
                 if (!peek().has_value() || peek().value().type != TokenType::semi) {
-                    std::cerr << "Expected ';' after --ident" << std::endl;
-                    exit(EXIT_FAILURE);
+                    error("Expected ';' after --ident");
                 }
                 consume();
                 auto stmt = m_allocator.alloc<NodeStmtAssign>();
@@ -1539,7 +1467,7 @@ public:
                 auto ident = consume();
                 bool is_inc = consume().type == TokenType::plusplus;
                 if (!peek().has_value() || peek().value().type != TokenType::semi) {
-                    std::cerr << "Expected ';' after " << (is_inc ? "i++" : "i--") << std::endl;
+                    std::cerr << format_err(ident.loc, "Expected ';' after " + std::string(is_inc ? "i++" : "i--")) << std::endl;
                     exit(EXIT_FAILURE);
                 }
                 consume();
@@ -1605,15 +1533,13 @@ public:
                 if (auto expr = parse_expr()) {
                     stmt_assign->expr = expr.value();
                 } else {
-                    std::cerr << "Invalid expression in assignment" << std::endl;
-                    exit(EXIT_FAILURE);
+                    error("Invalid expression in assignment");
                 }
 
                 if (peek().has_value() && peek().value().type == TokenType::semi) {
                     consume();
                 } else {
-                    std::cerr << "Expected `;` after assignment" << std::endl;
-                    exit(EXIT_FAILURE);
+                    error("Expected `;` after assignment");
                 }
 
                 return NodeStmt { .var = stmt_assign };
@@ -1623,13 +1549,11 @@ public:
             auto stmt_expr = m_allocator.alloc<NodeStmtExpr>();
             auto expr = parse_primary_expr();
             if (!expr) {
-                std::cerr << "Invalid expression statement" << std::endl;
-                exit(EXIT_FAILURE);
+                error("Invalid expression statement");
             }
             stmt_expr->expr = expr.value();
             if (!peek().has_value() || peek().value().type != TokenType::semi) {
-                std::cerr << "Expected ';' after expression" << std::endl;
-                exit(EXIT_FAILURE);
+                error("Expected ';' after expression");
             }
             consume();
             return NodeStmt { .var = stmt_expr };
@@ -1650,8 +1574,7 @@ public:
             } else if (auto stmt = parse_stmt()) {
                 prog.stmts.push_back(stmt.value());
             } else {
-                std::cerr << "Invalid statement at top level" << std::endl;
-                exit(EXIT_FAILURE);
+                error("Invalid statement at top level");
             }
         }
         return prog;
@@ -1669,6 +1592,12 @@ private:
 
     inline Token consume() {
         return m_tokens.at(m_index++);
+    }
+
+    [[noreturn]] void error(const std::string& msg) {
+        SourceLoc loc = peek().has_value() ? peek().value().loc : SourceLoc{};
+        std::cerr << format_err(loc, msg) << std::endl;
+        exit(EXIT_FAILURE);
     }
 
     const std::vector<Token> m_tokens;
