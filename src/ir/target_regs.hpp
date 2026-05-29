@@ -94,7 +94,7 @@ struct TargetRegisterInfo {
         info.add(3, "rdx", true, false);    // arg #3
         info.add(4, "rsi", true, false);    // arg #2
         info.add(5, "rdi", true, false);    // arg #1
-        info.add(6, "rbp", false, true);    // callee-save (optional frame ptr)
+        info.add(6, "rbp", false, true, true, false);  // frame pointer (reserved)
         info.add(7, "rsp", false, false, true, false);  // reserved: stack pointer
         info.add(8, "r8",  true, false);    // arg #5
         info.add(9, "r9",  true, false);    // arg #6

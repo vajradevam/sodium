@@ -183,32 +183,62 @@ public:
                 m_backend.xor_(preg_name(insn.dst), operand_name(insn, 1));
                 break;
 
-            case IROpcode::SHL:
-                m_backend.mov(preg_name(insn.dst), operand_name(insn, 0));
+            case IROpcode::SHL: {
+                std::string dst = preg_name(insn.dst);
                 if (insn.operands[1].is_imm()) {
-                    m_backend.shl(preg_name(insn.dst), std::to_string(insn.operands[1].imm));
+                    m_backend.mov(dst, operand_name(insn, 0));
+                    m_backend.shl(dst, std::to_string(insn.operands[1].imm));
                 } else {
-                    m_backend.mov("rcx", operand_name(insn, 1));
-                    m_backend.shl(preg_name(insn.dst), "cl");
+                    // x86-64 requires shift count in CL (rcx).
+                    // If dst == rcx, use r11 as scratch to avoid clobber.
+                    if (dst == "rcx") {
+                        m_backend.mov("r11", operand_name(insn, 0));
+                        m_backend.mov("rcx", operand_name(insn, 1));
+                        m_backend.emit_insn("shl", "r11, cl");
+                        m_backend.mov("rcx", "r11");
+                    } else {
+                        m_backend.mov(dst, operand_name(insn, 0));
+                        m_backend.mov("rcx", operand_name(insn, 1));
+                        m_backend.shl(dst, "cl");
+                    }
                 }
                 break;
+            }
 
-            case IROpcode::SHR:
-                m_backend.mov(preg_name(insn.dst), operand_name(insn, 0));
+            case IROpcode::SHR: {
+                std::string dst = preg_name(insn.dst);
                 if (insn.operands[1].is_imm()) {
-                    m_backend.shr(preg_name(insn.dst), std::to_string(insn.operands[1].imm));
+                    m_backend.mov(dst, operand_name(insn, 0));
+                    m_backend.shr(dst, std::to_string(insn.operands[1].imm));
                 } else {
-                    m_backend.mov("rcx", operand_name(insn, 1));
-                    m_backend.shr(preg_name(insn.dst), "cl");
+                    if (dst == "rcx") {
+                        m_backend.mov("r11", operand_name(insn, 0));
+                        m_backend.mov("rcx", operand_name(insn, 1));
+                        m_backend.emit_insn("shr", "r11, cl");
+                        m_backend.mov("rcx", "r11");
+                    } else {
+                        m_backend.mov(dst, operand_name(insn, 0));
+                        m_backend.mov("rcx", operand_name(insn, 1));
+                        m_backend.shr(dst, "cl");
+                    }
                 }
                 break;
+            }
 
-            case IROpcode::ASHR:
-                m_backend.mov(preg_name(insn.dst), operand_name(insn, 0));
-                m_backend.mov("rcx", operand_name(insn, 1));
-                // x86-64: sar with cl
-                m_backend.emit_insn("sar", preg_name(insn.dst) + ", cl");
+            case IROpcode::ASHR: {
+                std::string dst = preg_name(insn.dst);
+                if (dst == "rcx") {
+                    m_backend.mov("r11", operand_name(insn, 0));
+                    m_backend.mov("rcx", operand_name(insn, 1));
+                    m_backend.emit_insn("sar", "r11, cl");
+                    m_backend.mov("rcx", "r11");
+                } else {
+                    m_backend.mov(dst, operand_name(insn, 0));
+                    m_backend.mov("rcx", operand_name(insn, 1));
+                    m_backend.emit_insn("sar", dst + ", cl");
+                }
                 break;
+            }
 
             // Comparisons
             case IROpcode::CMP_EQ:

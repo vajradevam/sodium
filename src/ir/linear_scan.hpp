@@ -97,22 +97,36 @@ public:
         auto ranges = compute_live_ranges(func);
 
         // Step 2: Allocate.
-        // Use only caller-save registers to avoid callee-save clobber issues.
-        auto available = m_tri.caller_save_regs();
+        // Use all allocatable registers. For values that span CALL
+        // instructions, prefer callee-save registers (which survive calls).
+        // Caller-save registers get clobbered by CALL instructions,
+        // so we avoid assigning them to values that span calls.
+        auto all_regs = m_tri.allocatable_regs();
 
         for (auto& range : ranges) {
             // 2a. Expire old intervals.
             expire_old_intervals(range.start);
 
-            // 2b. Find a free register.
-            int free_reg = find_free_register(range, available);
+            // 2b. Determine register preference order.
+            // If the value spans a call, prefer callee-save registers.
+            std::vector<int> preferred;
+            if (range.spans_call) {
+                // Try callee-save first, fall back to caller-save
+                preferred = m_tri.callee_save_regs();
+                auto caller = m_tri.caller_save_regs();
+                preferred.insert(preferred.end(), caller.begin(), caller.end());
+            } else {
+                preferred = all_regs;
+            }
+
+            // 2c. Find a free register.
+            int free_reg = find_free_register(range, preferred);
 
             if (free_reg >= 0) {
-                // Assign the register.
                 assign_register(range, free_reg);
             } else {
-                // 2c. Need to spill.
-                spill(range, available);
+                // 2d. Need to spill.
+                spill(range, preferred);
             }
         }
 

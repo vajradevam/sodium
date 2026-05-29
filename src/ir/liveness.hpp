@@ -13,6 +13,7 @@ struct LiveRange {
     uint32_t vreg = 0;
     uint32_t start = 0;   ///< first instruction index where live
     uint32_t end = 0;     ///< one past last instruction index where live
+    bool spans_call = false;  ///< range includes a CALL instruction
 
     bool overlaps(const LiveRange& other) const {
         return start < other.end && other.start < end;
@@ -49,6 +50,10 @@ inline InstructionNumbering number_instructions(const IRFunction& func) {
 /// definition (or use) to its last use. This is a conservative
 /// approximation — it may overestimate liveness, but it's correct
 /// and sufficient for linear scan allocation.
+///
+/// Also marks intervals that span CALL instructions (values that
+/// must survive a function call and therefore need a callee-save
+/// register to avoid being clobbered).
 inline LiveRanges compute_live_ranges(const IRFunction& func) {
     // Number all instructions linearly.
     auto numbering = number_instructions(func);
@@ -58,9 +63,17 @@ inline LiveRanges compute_live_ranges(const IRFunction& func) {
     std::map<uint32_t, uint32_t> last_pos;
     std::set<uint32_t> all_vregs;
 
+    // Track positions of CALL instructions.
+    std::set<uint32_t> call_positions;
+
     uint32_t idx = 0;
     for (auto& block : func.blocks) {
         for (auto& insn : block.instructions) {
+            // Track CALL and CALL_REG positions
+            if (insn.op == IROpcode::CALL || insn.op == IROpcode::CALL_REG) {
+                call_positions.insert(idx);
+            }
+
             // Destination (definition)
             if (insn.dst != IRInstruction::NONE_VREG) {
                 if (first_pos.find(insn.dst) == first_pos.end())
@@ -91,6 +104,16 @@ inline LiveRanges compute_live_ranges(const IRFunction& func) {
         r.start = first_pos[vreg];
         r.end = last_pos[vreg] + 1;  // one past last use
         if (r.end > numbering.count) r.end = numbering.count;
+
+        // Check if this interval spans any CALL instruction.
+        r.spans_call = false;
+        for (uint32_t cp : call_positions) {
+            if (cp > r.start && cp < r.end) {
+                r.spans_call = true;
+                break;
+            }
+        }
+
         ranges.push_back(r);
     }
 
