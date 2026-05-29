@@ -666,6 +666,7 @@ public:
                 auto label_end = gen->new_label();
 
                 gen->m_loop_stack.push_back({ .begin_label = label_begin, .end_label = label_end, .continue_label = label_begin });
+                gen->m_break_stack.push_back(label_end);
 
                 gen->m_output << label_begin << ":\n";
                 gen->gen_expr(*stmt_while->cond);
@@ -683,6 +684,7 @@ public:
                 gen->m_output << label_end << ":\n";
 
                 gen->m_loop_stack.pop_back();
+                gen->m_break_stack.pop_back();
             }
 
             void operator()(const NodeStmtDoWhile* stmt_do_while) const
@@ -692,6 +694,7 @@ public:
                 auto label_end = gen->new_label();
 
                 gen->m_loop_stack.push_back({ .begin_label = label_begin, .end_label = label_end, .continue_label = label_cont });
+                gen->m_break_stack.push_back(label_end);
 
                 gen->m_output << label_begin << ":\n";
 
@@ -709,12 +712,13 @@ public:
                 gen->m_output << label_end << ":\n";
 
                 gen->m_loop_stack.pop_back();
+                gen->m_break_stack.pop_back();
             }
 
             void operator()(const NodeStmtSwitch* stmt_switch) const
             {
                 auto label_end = gen->new_label();
-                gen->m_loop_stack.push_back({ .begin_label = "", .end_label = label_end, .continue_label = "" });
+                gen->m_break_stack.push_back(label_end);
 
                 gen->gen_expr(*stmt_switch->expr);
 
@@ -754,7 +758,7 @@ public:
                 }
 
                 gen->m_output << label_end << ":\n";
-                gen->m_loop_stack.pop_back();
+                gen->m_break_stack.pop_back();
             }
 
             void operator()(const NodeStmtArrDecl* stmt_arr) const
@@ -896,6 +900,7 @@ public:
                 auto label_end = gen->new_label();
 
                 gen->m_loop_stack.push_back({ .begin_label = label_begin, .end_label = label_end, .continue_label = label_cont });
+                gen->m_break_stack.push_back(label_end);
 
                 gen->m_output << label_begin << ":\n";
 
@@ -923,15 +928,16 @@ public:
                 gen->m_output << label_end << ":\n";
 
                 gen->m_loop_stack.pop_back();
+                gen->m_break_stack.pop_back();
             }
 
             void operator()(const NodeStmtBreak*) const
             {
-                if (gen->m_loop_stack.empty()) {
-                    std::cerr << "break outside loop" << std::endl;
+                if (gen->m_break_stack.empty()) {
+                    std::cerr << "break outside loop or switch" << std::endl;
                     exit(EXIT_FAILURE);
                 }
-                gen->m_output << "    jmp " << gen->m_loop_stack.back().end_label << "\n";
+                gen->m_output << "    jmp " << gen->m_break_stack.back() << "\n";
             }
 
             void operator()(const NodeStmtContinue*) const
@@ -1112,6 +1118,7 @@ private:
     std::vector<Scope> m_scopes;
     std::vector<StringEntry> m_strings;
     std::vector<LoopContext> m_loop_stack;
+    std::vector<std::string> m_break_stack;
     std::unordered_map<std::string, bool> m_globals;
     std::vector<GlobalInit> m_global_inits;
     struct DataEntry {
