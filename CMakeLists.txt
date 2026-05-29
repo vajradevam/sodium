@@ -8,6 +8,10 @@ set(BACKEND_SOURCES
     src/backend/x86_64/backend.cpp
 )
 
+set(IR_SOURCES
+    src/ir/dump.cpp
+)
+
 add_executable(sodium
     src/main.cpp
     src/arena.cpp
@@ -17,6 +21,7 @@ add_executable(sodium
     src/ast_printer.cpp
     src/preprocessor.cpp
     ${BACKEND_SOURCES}
+    ${IR_SOURCES}
 )
 
 add_executable(cyan-lsp
@@ -29,4 +34,5 @@ add_executable(cyan-lsp
     src/ast_printer.cpp
     src/preprocessor.cpp
     ${BACKEND_SOURCES}
+    ${IR_SOURCES}
 )
