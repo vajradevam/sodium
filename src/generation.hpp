@@ -818,6 +818,7 @@ public:
                     gen->m_output << "    mov rax, 60\n";
                     gen->pop("rdi");
                     gen->m_output << "    syscall\n";
+                    gen->m_emitted_exit = true;
                 }
             }
 
@@ -968,9 +969,11 @@ public:
             gen_stmt(stmt);
         }
 
-        m_output << "    mov rax, 60\n";
-        m_output << "    mov rdi, 0\n";
-        m_output << "    syscall\n";
+        if (!m_emitted_exit) {
+            m_output << "    mov rax, 60\n";
+            m_output << "    mov rdi, 0\n";
+            m_output << "    syscall\n";
+        }
 
         for (const auto& func : m_prog.funcs) {
             gen_func_def(*func);
@@ -1055,6 +1058,7 @@ private:
     size_t m_label_count = 0;
     size_t m_string_count = 0;
     bool m_in_function = false;
+    bool m_emitted_exit = false;
     std::vector<Scope> m_scopes;
     std::vector<StringEntry> m_strings;
     std::vector<LoopContext> m_loop_stack;
