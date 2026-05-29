@@ -237,6 +237,30 @@ void Generator::gen_expr(const NodeExpr& expr)
                 }
             }
 
+            void operator()(const NodeExprFieldAccess* field_access) const
+            {
+                const auto& obj_name = field_access->obj_name.value.value();
+                const auto& field_name = field_access->field_name.value.value();
+                auto var = gen->lookup_var(obj_name, field_access->obj_name.loc);
+                if (var.struct_type.empty()) {
+                    lsp_exit(field_access->obj_name.loc, "Not a struct variable: " + obj_name);
+                }
+                auto struct_info = gen->get_struct_info(var.struct_type);
+                if (!struct_info.has_value()) {
+                    lsp_exit(field_access->field_name.loc, "Unknown struct type: " + var.struct_type);
+                }
+                auto offset_it = struct_info.value().field_offsets.find(field_name);
+                if (offset_it == struct_info.value().field_offsets.end()) {
+                    lsp_exit(field_access->field_name.loc, "Unknown field '" + field_name + "' in struct '" + var.struct_type + "'");
+                }
+                size_t field_offset = offset_it->second;
+                // Compute address: base of struct + field_offset * 8
+                size_t base_offset = (gen->m_stack_size - var.stack_loc - 1) * 8;
+                size_t field_addr_offset = base_offset - field_offset * 8;
+                gen->m_output << "    mov rax, [rsp + " << field_addr_offset << "]\n";
+                gen->push("rax");
+            }
+
             void operator()(const NodeExprCall* expr_call)
             {
                 const auto& fname = expr_call->name.value.value();
@@ -463,6 +487,24 @@ void Generator::gen_stmt(const NodeStmt& stmt)
             void operator()(const NodeStmtLet* stmt_let) const
             {
                 auto var_type = stmt_let->type.value_or(IntType::i64);
+                
+                // Handle struct-typed variable: var p: Point
+                if (!stmt_let->struct_type_name.empty()) {
+                    auto struct_info = gen->get_struct_info(stmt_let->struct_type_name);
+                    if (!struct_info.has_value()) {
+                        lsp_exit(stmt_let->ident.loc, "Unknown struct type: " + stmt_let->struct_type_name);
+                    }
+                    auto& scope = gen->m_scopes.back();
+                    scope.vars[stmt_let->ident.value.value()] = Var { .stack_loc = gen->m_stack_size, .array_size = struct_info.value().size, .struct_type = stmt_let->struct_type_name };
+                    scope.var_count += struct_info.value().size;
+                    // Zero-initialize all fields
+                    for (size_t i = 0; i < struct_info.value().size; i++) {
+                        gen->m_output << "    push 0\n";
+                    }
+                    gen->m_stack_size += struct_info.value().size;
+                    return;
+                }
+                
                 if (auto arr_lit = std::get_if<NodeExprArrLit*>(&stmt_let->expr->var)) {
                     auto& scope = gen->m_scopes.back();
                     scope.vars[stmt_let->ident.value.value()] = Var { .stack_loc = gen->m_stack_size, .array_size = (*arr_lit)->elements.size(), .type = var_type };
@@ -967,6 +1009,70 @@ void Generator::gen_stmt(const NodeStmt& stmt)
                 }
                 lsp_exit(stmt_continue->loc, "continue outside loop");
             }
+
+            void operator()(const NodeStmtFieldAssign* stmt_field) const
+            {
+                const auto& obj_name = stmt_field->obj_name.value.value();
+                const auto& field_name = stmt_field->field_name.value.value();
+                auto var = gen->lookup_var(obj_name, stmt_field->obj_name.loc);
+                if (var.struct_type.empty()) {
+                    lsp_exit(stmt_field->obj_name.loc, "Not a struct variable: " + obj_name);
+                }
+                auto struct_info = gen->get_struct_info(var.struct_type);
+                if (!struct_info.has_value()) {
+                    lsp_exit(stmt_field->field_name.loc, "Unknown struct type: " + var.struct_type);
+                }
+                auto offset_it = struct_info.value().field_offsets.find(field_name);
+                if (offset_it == struct_info.value().field_offsets.end()) {
+                    lsp_exit(stmt_field->field_name.loc, "Unknown field '" + field_name + "' in struct '" + var.struct_type + "'");
+                }
+                size_t field_offset = offset_it->second;
+                size_t base_offset = (gen->m_stack_size - var.stack_loc - 1) * 8;
+                size_t field_addr_offset = base_offset - field_offset * 8;
+                
+                if (stmt_field->op == AssignOp::assign) {
+                    gen->gen_expr(*stmt_field->expr);
+                    gen->pop("rax");
+                    gen->m_output << "    mov QWORD [rsp + " << field_addr_offset << "], rax\n";
+                } else {
+                    // Compound assignment: read field, apply op, write back
+                    gen->m_output << "    push QWORD [rsp + " << field_addr_offset << "]\n";
+                    gen->m_stack_size++;
+                    gen->gen_expr(*stmt_field->expr);
+                    gen->pop("rdi");
+                    gen->pop("rax");
+                    switch (stmt_field->op) {
+                        case AssignOp::add_assign:
+                            gen->m_output << "    add rax, rdi\n"; break;
+                        case AssignOp::sub_assign:
+                            gen->m_output << "    sub rax, rdi\n"; break;
+                        case AssignOp::mul_assign:
+                            gen->m_output << "    imul rax, rdi\n"; break;
+                        case AssignOp::div_assign:
+                            gen->m_output << "    cqo\n";
+                            gen->m_output << "    idiv rdi\n"; break;
+                        case AssignOp::mod_assign:
+                            gen->m_output << "    cqo\n";
+                            gen->m_output << "    idiv rdi\n";
+                            gen->m_output << "    mov rax, rdx\n"; break;
+                        case AssignOp::bitand_assign:
+                            gen->m_output << "    and rax, rdi\n"; break;
+                        case AssignOp::bitor_assign:
+                            gen->m_output << "    or rax, rdi\n"; break;
+                        case AssignOp::bitxor_assign:
+                            gen->m_output << "    xor rax, rdi\n"; break;
+                        case AssignOp::shl_assign:
+                            gen->m_output << "    mov rcx, rdi\n";
+                            gen->m_output << "    shl rax, cl\n"; break;
+                        case AssignOp::shr_assign:
+                            gen->m_output << "    mov rcx, rdi\n";
+                            gen->m_output << "    shr rax, cl\n"; break;
+                        default:
+                            break;
+                    }
+                    gen->m_output << "    mov QWORD [rsp + " << field_addr_offset << "], rax\n";
+                }
+            }
         };
 
         StmtVisitor visitor { .gen = this };
@@ -1110,6 +1216,7 @@ void Generator::gen_stmt(const NodeStmt& stmt)
             void operator()(const NodeExprIndex*) {}
             void operator()(const NodeExprRead*) {}
             void operator()(const NodeExprArrLit*) {}
+            void operator()(const NodeExprFieldAccess*) {}
         };
 
         ConstEvalVisitor visitor{this, std::nullopt};
@@ -1184,6 +1291,18 @@ void Generator::collect_globals(const std::vector<NodeStmt>& stmts)
             m_func_names[func->name.value.value()] = true;
         }
 
+        // Populate struct type information
+        for (const auto* sd : m_prog.structs) {
+            StructInfo info;
+            for (size_t i = 0; i < sd->fields.size(); i++) {
+                const auto& field_name = sd->fields[i].value.value();
+                info.field_names.push_back(field_name);
+                info.field_offsets[field_name] = i; // each field is 1 qword
+            }
+            info.size = sd->fields.size();
+            m_struct_types[sd->name.value.value()] = info;
+        }
+
         // Pre-collect global/static declarations from top-level stmts and all
         // function bodies before any code emission. This ensures m_global_inits,
         // m_data_entries, and m_bss_entries are fully populated before the
@@ -1250,6 +1369,16 @@ std::string Generator::new_label()
 std::string Generator::new_string_label()
 {
         return "str" + std::to_string(m_string_count++);
+}
+
+bool Generator::is_struct_type(const std::string& name) const {
+    return m_struct_types.find(name) != m_struct_types.end();
+}
+
+std::optional<StructInfo> Generator::get_struct_info(const std::string& name) const {
+    auto it = m_struct_types.find(name);
+    if (it != m_struct_types.end()) return it->second;
+    return {};
 }
 
 void Generator::push(const std::string& reg)

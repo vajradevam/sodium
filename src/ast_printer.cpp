@@ -57,6 +57,9 @@ void print_ast_expr(const NodeExpr& expr, int indent) {
             std::cout << std::string(indent, ' ') << "Index(" << e->name.value.value() << ")\n";
             print_ast_expr(e->index, indent + 2);
         },
+        [indent](const NodeExprFieldAccess* e) {
+            std::cout << std::string(indent, ' ') << "FieldAccess(" << e->obj_name.value.value() << "." << e->field_name.value.value() << ")\n";
+        },
         [indent](const NodeExprBitNot* e) {
             std::cout << std::string(indent, ' ') << "BitNot\n";
             print_ast_expr(e->expr, indent + 2);
@@ -88,7 +91,11 @@ void print_ast_stmt(const NodeStmt& stmt, int indent) {
             print_ast_expr(e->expr, indent + 2);
         },
         [indent](const NodeStmtLet* e) {
-            std::cout << std::string(indent, ' ') << "Let(" << e->ident.value.value() << ")\n";
+            std::cout << std::string(indent, ' ') << "Let(" << e->ident.value.value();
+            if (!e->struct_type_name.empty()) {
+                std::cout << " : " << e->struct_type_name;
+            }
+            std::cout << ")\n";
             print_ast_expr(e->expr, indent + 2);
         },
         [indent](const NodeStmtIf* e) {
@@ -137,6 +144,15 @@ void print_ast_stmt(const NodeStmt& stmt, int indent) {
             int op_idx = static_cast<int>(e->op);
             const char* op_str = (op_idx >= 0 && op_idx < 11) ? op_names[op_idx] : "?";
             std::cout << std::string(indent, ' ') << "Assign(" << e->ident.value.value() << " " << op_str << " ...)\n";
+            print_ast_expr(e->expr, indent + 2);
+        },
+        [indent](const NodeStmtFieldAssign* e) {
+            static const char* op_names[] = {
+                "=", "+=", "-=", "*=", "/=", "%=", "&=", "|=", "^=", "<<=", ">>="
+            };
+            int op_idx = static_cast<int>(e->op);
+            const char* op_str = (op_idx >= 0 && op_idx < 11) ? op_names[op_idx] : "?";
+            std::cout << std::string(indent, ' ') << "FieldAssign(" << e->obj_name.value.value() << "." << e->field_name.value.value() << " " << op_str << " ...)\n";
             print_ast_expr(e->expr, indent + 2);
         },
         [indent](const NodeStmtFor* e) {
@@ -194,6 +210,12 @@ void print_ast_stmt(const NodeStmt& stmt, int indent) {
 
 void dump_ast(const NodeProg& prog) {
     std::cout << "Program\n";
+    for (const auto* sd : prog.structs) {
+        std::cout << "  Struct(" << sd->name.value.value() << ")\n";
+        for (const auto& f : sd->fields) {
+            std::cout << "    field: " << f.value.value() << "\n";
+        }
+    }
     for (const auto& s : prog.stmts) {
         print_ast_stmt(s, 2);
     }

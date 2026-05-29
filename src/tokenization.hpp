@@ -92,7 +92,9 @@ enum class TokenType {
     _u8,
     _u16,
     _u32,
-    _u64
+    _u64,
+    _struct,
+    dot
 };
 
 struct Token {

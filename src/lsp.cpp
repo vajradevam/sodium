@@ -274,6 +274,7 @@ void walk_stmt(const NodeStmt& stmt, SymbolTable& table) {
         void operator()(const NodeStmtArrAssign*) {}
         void operator()(const NodeStmtBreak*) {}
         void operator()(const NodeStmtContinue*) {}
+        void operator()(const NodeStmtFieldAssign*) {}
     };
     std::visit(Walker{table}, stmt.var);
 }
@@ -305,6 +306,16 @@ ParseResult parse_document(const std::string& text, const std::string& filename 
         auto prog_opt = parser.parse_prog();
         if (prog_opt.has_value()) {
             NodeProg prog = std::move(prog_opt.value());
+
+            // Walk struct definitions (they're separate from stmts)
+            for (const auto* sd : prog.structs) {
+                DeclInfo info;
+                info.name = sd->name.value.value_or("<anon>");
+                info.loc = sd->name.loc;
+                info.symbol_kind = 5; // Struct (LSP SymbolKind=5 is Class, close enough)
+                info.detail = "struct " + info.name;
+                result.symbols.all_decls.push_back(info);
+            }
 
             // Walk functions first (they're separate from stmts)
             for (const auto* func : prog.funcs) {

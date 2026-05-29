@@ -75,6 +75,7 @@ UNIT_TESTS["test_for_global_update.cyan"]=10
 UNIT_TESTS["test_print.cyan"]=0
 UNIT_TESTS["test_const_arr.cyan"]=55
 UNIT_TESTS["test_static2.cyan"]=56
+UNIT_TESTS["test_struct.cyan"]=91
 
 # Unit tests that should fail to compile
 declare -a COMPILE_FAIL_UNIT

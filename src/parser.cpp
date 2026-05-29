@@ -444,8 +444,22 @@ std::optional<NodeExpr*> Parser::parse_primary_expr()
                 expr->var = expr_call;
                 return expr;
             } else {
+                auto ident = consume();
+                // Check for field access: ident.field
+                if (peek().has_value() && peek().value().type == TokenType::dot) {
+                    consume(); // .
+                    if (!peek().has_value() || peek().value().type != TokenType::ident) {
+                        error("Expected field name after '.'");
+                    }
+                    auto expr_field = m_allocator.alloc<NodeExprFieldAccess>();
+                    expr_field->obj_name = ident;
+                    expr_field->field_name = consume();
+                    auto expr = m_allocator.alloc<NodeExpr>();
+                    expr->var = expr_field;
+                    return expr;
+                }
                 auto expr_ident = m_allocator.alloc<NodeExprIdent>();
-                expr_ident->ident = consume();
+                expr_ident->ident = ident;
                 auto expr = m_allocator.alloc<NodeExpr>();
                 expr->var = expr_ident;
                 return expr;
@@ -1055,17 +1069,29 @@ std::optional<NodeStmt> Parser::parse_stmt() {
                 consume(); // :
                 if (auto type = parse_type()) {
                     stmt_let->type = type.value();
+                    if (!peek().has_value() || peek().value().type != TokenType::eq) {
+                        error("Expected '=' after type");
+                    }
+                    consume();
+                    if (auto expr = parse_expr()) {
+                        stmt_let->expr = expr.value();
+                    } else {
+                        error("Invalid expression");
+                    }
+                } else if (auto struct_name = parse_struct_type_name()) {
+                    stmt_let->struct_type_name = struct_name.value();
+                    stmt_let->expr = nullptr;
+                    // Optional initializer: var p: Point = ...
+                    if (peek().has_value() && peek().value().type == TokenType::eq) {
+                        consume();
+                        if (auto expr = parse_expr()) {
+                            stmt_let->expr = expr.value();
+                        } else {
+                            error("Invalid expression");
+                        }
+                    }
                 } else {
                     error("Expected type after ':'");
-                }
-                if (!peek().has_value() || peek().value().type != TokenType::eq) {
-                    error("Expected '=' after type");
-                }
-                consume();
-                if (auto expr = parse_expr()) {
-                    stmt_let->expr = expr.value();
-                } else {
-                    error("Invalid expression");
                 }
                 if (peek().has_value() && peek().value().type == TokenType::semi) {
                     consume();
@@ -1376,6 +1402,51 @@ std::optional<NodeStmt> Parser::parse_stmt() {
                 return NodeStmt { .var = stmt };
         } else if (
             peek().has_value() && peek().value().type == TokenType::ident
+            && peek(1).has_value() && peek(1).value().type == TokenType::dot
+            && peek(2).has_value() && peek(2).value().type == TokenType::ident
+            && peek(3).has_value()
+             && (peek(3).value().type == TokenType::eq
+              || peek(3).value().type == TokenType::pluseq
+              || peek(3).value().type == TokenType::minuseq
+              || peek(3).value().type == TokenType::stareq
+              || peek(3).value().type == TokenType::slasheq
+              || peek(3).value().type == TokenType::percenteq
+              || peek(3).value().type == TokenType::ampeq
+              || peek(3).value().type == TokenType::pipeeq
+              || peek(3).value().type == TokenType::careteq
+              || peek(3).value().type == TokenType::shleq
+              || peek(3).value().type == TokenType::shreq)) {
+                auto stmt_field_assign = m_allocator.alloc<NodeStmtFieldAssign>();
+                stmt_field_assign->obj_name = consume();
+                consume(); // .
+                stmt_field_assign->field_name = consume();
+                auto op_token = consume();
+                switch (op_token.type) {
+                    case TokenType::pluseq: stmt_field_assign->op = AssignOp::add_assign; break;
+                    case TokenType::minuseq: stmt_field_assign->op = AssignOp::sub_assign; break;
+                    case TokenType::stareq: stmt_field_assign->op = AssignOp::mul_assign; break;
+                    case TokenType::slasheq: stmt_field_assign->op = AssignOp::div_assign; break;
+                    case TokenType::percenteq: stmt_field_assign->op = AssignOp::mod_assign; break;
+                    case TokenType::ampeq: stmt_field_assign->op = AssignOp::bitand_assign; break;
+                    case TokenType::pipeeq: stmt_field_assign->op = AssignOp::bitor_assign; break;
+                    case TokenType::careteq: stmt_field_assign->op = AssignOp::bitxor_assign; break;
+                    case TokenType::shleq: stmt_field_assign->op = AssignOp::shl_assign; break;
+                    case TokenType::shreq: stmt_field_assign->op = AssignOp::shr_assign; break;
+                    default: stmt_field_assign->op = AssignOp::assign; break;
+                }
+                if (auto expr = parse_expr()) {
+                    stmt_field_assign->expr = expr.value();
+                } else {
+                    error("Invalid expression in field assignment");
+                }
+                if (peek().has_value() && peek().value().type == TokenType::semi) {
+                    consume();
+                } else {
+                    error("Expected ';' after field assignment");
+                }
+                return NodeStmt { .var = stmt_field_assign };
+        } else if (
+            peek().has_value() && peek().value().type == TokenType::ident
             && peek(1).has_value()
              && (peek(1).value().type == TokenType::eq
               || peek(1).value().type == TokenType::pluseq
@@ -1445,6 +1516,16 @@ std::optional<NodeProg> Parser::parse_prog() {
         while (peek().has_value()) {
             if (peek().value().type == TokenType::_function) {
                 prog.funcs.push_back(parse_func_def());
+            } else if (peek().value().type == TokenType::_struct) {
+                auto struct_def = parse_struct_def();
+                // Register the struct type for type resolution
+                StructTypeInfo info;
+                for (const auto& f : struct_def->fields) {
+                    info.field_names.push_back(f.value.value());
+                }
+                info.size = struct_def->fields.size();
+                m_struct_types[struct_def->name.value.value()] = info;
+                prog.structs.push_back(struct_def);
             } else if (auto stmt = parse_stmt()) {
                 prog.stmts.push_back(stmt.value());
             } else {
@@ -1452,6 +1533,56 @@ std::optional<NodeProg> Parser::parse_prog() {
             }
         }
         return prog;
+}
+
+NodeStructDef* Parser::parse_struct_def() {
+    consume(); // struct
+    if (!peek().has_value() || peek().value().type != TokenType::ident) {
+        error("Expected struct name after 'struct'");
+    }
+    auto def = m_allocator.alloc<NodeStructDef>();
+    def->name = consume();
+    if (!peek().has_value() || peek().value().type != TokenType::open_brace) {
+        error("Expected '{' after struct name");
+    }
+    consume(); // {
+    while (peek().has_value() && peek().value().type != TokenType::close_brace) {
+        if (peek().value().type == TokenType::let) {
+            consume(); // var
+            if (!peek().has_value() || peek().value().type != TokenType::ident) {
+                error("Expected field name in struct");
+            }
+            def->fields.push_back(consume());
+            if (!peek().has_value() || peek().value().type != TokenType::semi) {
+                error("Expected ';' after struct field");
+            }
+            consume(); // ;
+        } else {
+            error("Expected struct field declaration (var name;)");
+        }
+    }
+    if (!peek().has_value() || peek().value().type != TokenType::close_brace) {
+        error("Expected '}' after struct fields");
+    }
+    consume(); // }
+    if (!peek().has_value() || peek().value().type != TokenType::semi) {
+        error("Expected ';' after struct definition");
+    }
+    consume(); // ;
+    return def;
+}
+
+std::optional<std::string> Parser::parse_struct_type_name() {
+    if (peek().has_value() && peek().value().type == TokenType::ident
+        && peek().value().value.has_value()) {
+        auto name = peek().value().value.value();
+        auto it = m_struct_types.find(name);
+        if (it != m_struct_types.end()) {
+            consume(); // consume the struct type name
+            return name;
+        }
+    }
+    return {};
 }
 
 

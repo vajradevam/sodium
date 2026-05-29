@@ -1,0 +1,48 @@
+struct Point {
+    var x;
+    var y;
+};
+
+struct Color {
+    var r;
+    var g;
+    var b;
+};
+
+// Test basic field access
+var p: Point;
+p.x = 5;
+p.y = 3;
+
+// Test field read and arithmetic
+var sum = p.x + p.y;
+print(sum);
+
+// Test compound assignment on fields
+p.x += 2;
+p.y *= 2;
+print(p.x);
+print(p.y);
+
+// Test multiple structs
+var c: Color;
+c.r = 10;
+c.g = 20;
+c.b = 30;
+print(c.r);
+print(c.g);
+print(c.b);
+
+// Test struct inside function
+function test_struct() {
+    var inner: Point;
+    inner.x = 4;
+    inner.y = 6;
+    return(inner.x + inner.y);
+}
+
+var result = test_struct();
+print(result);
+
+// Final result: small enough to fit in exit code
+return(sum + p.x + p.y + c.r + c.g + c.b + result);

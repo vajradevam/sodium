@@ -21,14 +21,15 @@
 - [x] LSP server handles includes (preprocesses documents before tokenization)
 - [x] Proper file:line tracking in included files via `#line` markers
 
-## Phase 3: Structs / Compound Types ☐
+## Phase 3: Structs / Compound Types ✅
 
-- [ ] `struct` declaration syntax
-- [ ] Field access (`obj.field`)
-- [ ] Struct initialization
-- [ ] Passing structs to functions (by value? by reference?)
-- [ ] Nested structs
-- [ ] Tests
+- [x] `struct` declaration syntax
+- [x] Field access (`obj.field`)
+- [x] Struct variable declaration (`var p: Point;`)
+- [x] Field assignment and compound assignment (`p.x += 5`)
+- [x] Structs inside functions
+- [x] Multiple struct types in one program
+- [x] Tests (69 tests pass)
 
 ## Phase 4: Pointers & Heap Allocation ☐
 

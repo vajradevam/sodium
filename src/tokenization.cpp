@@ -263,6 +263,9 @@ std::vector<Token> Tokenizer::tokenize() {
             else if (buf == "static") {
                 tokens.push_back({ .type = TokenType::_static, .loc = tok_loc });
             }
+            else if (buf == "struct") {
+                tokens.push_back({ .type = TokenType::_struct, .loc = tok_loc });
+            }
             else if (buf == "i8") {
                 tokens.push_back({ .type = TokenType::_i8, .loc = tok_loc });
             }
@@ -583,6 +586,12 @@ std::vector<Token> Tokenizer::tokenize() {
 
         else if (peek().value() == ':') {
             tokens.push_back({ .type = TokenType::colon, .loc = current_loc() });
+            consume();
+            continue;
+        }
+
+        else if (peek().value() == '.') {
+            tokens.push_back({ .type = TokenType::dot, .loc = current_loc() });
             consume();
             continue;
         }

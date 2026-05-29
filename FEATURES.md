@@ -36,6 +36,10 @@
 | `read()` builtin (integer from stdin) | ✅ |
 | Top-level statements (outside functions) | ✅ |
 | String literals (`"hello"`) | ✅ |
+| Struct declarations (`struct Name { var field; ... }`) | ✅ |
+| Struct variable declarations (`var p: Point;`) | ✅ |
+| Field access (`p.x`) | ✅ |
+| Field assignment and compound assignment (`p.x += 5`, `p.x *= 2`) | ✅ |
 
 ### Tooling & Infrastructure
 | Feature | Status |
@@ -61,7 +65,6 @@
 
 | Feature | Notes |
 |---------|-------|
-| Structs | Compound data types |
 | String operations | Concatenation, comparison, length |
 
 ## 🧭 Medium Priority

@@ -4,6 +4,7 @@
 #include <iostream>
 #include <iterator>
 #include <optional>
+#include <unordered_map>
 #include <variant>
 #include <vector>
 
@@ -32,6 +33,11 @@ struct NodeExprStringLit { Token value; };
 struct NodeExprIndex {
     Token name;
     NodeExpr* index;
+};
+
+struct NodeExprFieldAccess {
+    Token obj_name;
+    Token field_name;
 };
 
 struct BinExprAdd  { NodeExpr* lhs; NodeExpr* rhs; };
@@ -76,7 +82,7 @@ struct NodeExprArrLit {
 };
 
 struct NodeExpr {
-    std::variant<NodeExprIntLit*, NodeExprIdent*, BinExpr*, NodeExprCall*, NodeExprStringLit*, NodeExprIndex*, NodeExprBitNot*, NodeExprTernary*, NodeExprRead*, NodeExprArrLit*> var;
+    std::variant<NodeExprIntLit*, NodeExprIdent*, BinExpr*, NodeExprCall*, NodeExprStringLit*, NodeExprIndex*, NodeExprBitNot*, NodeExprTernary*, NodeExprRead*, NodeExprArrLit*, NodeExprFieldAccess*> var;
 };
 
 // ── Statement AST nodes ────────────────────────────────────────────────────
@@ -104,6 +110,7 @@ struct NodeStmtLet {
     Token ident;
     NodeExpr* expr;
     std::optional<IntType> type {};
+    std::string struct_type_name {}; // non-empty if struct-typed (e.g., "var p: Point")
 };
 
 struct NodeBlock;
@@ -154,12 +161,19 @@ struct NodeStmtAssign {
     AssignOp op = AssignOp::assign;
 };
 
+struct NodeStmtFieldAssign {
+    Token obj_name;
+    Token field_name;
+    NodeExpr* expr;
+    AssignOp op = AssignOp::assign;
+};
+
 struct NodeStmt {
     std::variant<NodeStmtExit*, NodeStmtLet*, NodeStmtIf*, NodeStmtWhile*,
                  NodeStmtDoWhile*, NodeStmtSwitch*, NodeStmtGlobal*, NodeStmtConst*,
                  NodeStmtExpr*, NodeStmtAssign*, NodeStmtFor*, NodeStmtPrint*,
                  NodeStmtBlock*, NodeStmtReturn*, NodeStmtArrDecl*, NodeStmtArrAssign*,
-                 NodeStmtBreak*, NodeStmtContinue*> var;
+                 NodeStmtBreak*, NodeStmtContinue*, NodeStmtFieldAssign*> var;
 };
 
 struct NodeStmtGlobal {
@@ -198,6 +212,13 @@ struct NodeFuncDef {
     NodeBlock* body;
 };
 
+// ── Struct definitions ─────────────────────────────────────────────────────
+
+struct NodeStructDef {
+    Token name;
+    std::vector<Token> fields;
+};
+
 struct NodeBlock {
     std::vector<NodeStmt> stmts;
 };
@@ -205,6 +226,14 @@ struct NodeBlock {
 struct NodeProg {
     std::vector<NodeStmt> stmts;
     std::vector<NodeFuncDef*> funcs;
+    std::vector<NodeStructDef*> structs;
+};
+
+// ── Struct type info (populated during parsing for type lookup) ────────────
+
+struct StructTypeInfo {
+    std::vector<std::string> field_names;
+    size_t size; // total size in qwords (one per field)
 };
 
 // ── Parser ─────────────────────────────────────────────────────────────────
@@ -240,7 +269,9 @@ public:
     std::optional<NodeStmt> parse_if_stmt();
     NodeBlock*              parse_block();
     NodeFuncDef*            parse_func_def();
+    NodeStructDef*          parse_struct_def();
     std::optional<IntType>  parse_type();
+    std::optional<std::string> parse_struct_type_name();
 
 private:
     [[nodiscard]] inline std::optional<Token> peek(int offset = 0) const {
@@ -255,4 +286,8 @@ private:
     const std::vector<Token> m_tokens;
     size_t m_index = 0;
     ArenaAllocator m_allocator;
+
+    // Struct type registry: struct name -> field info
+    // Populated during parsing so type annotations can be resolved.
+    std::unordered_map<std::string, StructTypeInfo> m_struct_types;
 };
