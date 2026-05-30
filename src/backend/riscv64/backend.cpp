@@ -214,27 +214,16 @@ void RISCV64Backend::mul(const std::string& dst, const std::string& src) {
 
 void RISCV64Backend::signed_div(const std::string& dst, const std::string& dividend,
                                  const std::string& divisor) {
-    // RISC-V: div rd, rs1, rs2 — no fixed register constraints
-    // But dst must be one of the operands; div is three-operand
-    // We need to do: mov temp, dividend; div dst, temp, divisor
-    // But if dividend == dst, we can use directly
-    if (dividend == dst) {
-        emit_rri("div", dst, dst, divisor);
-    } else {
-        mov(m_scratch, dividend);
-        emit_rri("div", dst, m_scratch, divisor);
-    }
+    // RISC-V div is a true three-operand instruction: div rd, rs1, rs2
+    // Both source registers are read before the destination is written,
+    // so rd may equal rs1 or rs2. No scratch register needed.
+    emit_rri("div", dst, dividend, divisor);
 }
 
 void RISCV64Backend::signed_mod(const std::string& dst, const std::string& dividend,
                                  const std::string& divisor) {
-    // RISC-V: rem rd, rs1, rs2
-    if (dividend == dst) {
-        emit_rri("rem", dst, dst, divisor);
-    } else {
-        mov(m_scratch, dividend);
-        emit_rri("rem", dst, m_scratch, divisor);
-    }
+    // RISC-V rem is also three-operand: rem rd, rs1, rs2
+    emit_rri("rem", dst, dividend, divisor);
 }
 
 void RISCV64Backend::neg(const std::string& reg) {
@@ -448,7 +437,11 @@ std::string RISCV64Backend::addr_sp(int offset) const {
 }
 
 std::string RISCV64Backend::addr_fp(int offset) const {
-    return addr_reg_offset("s0", offset);
+    // RISC-V prologue saves ra at s0-8 and old s0 at s0-16.
+    // Local variables go below the saved frame (s0-16 and lower),
+    // so adjust the offset by -16 to skip the prologue frame.
+    // This matches x86-64 where rbp points to the saved rbp slot.
+    return addr_reg_offset("s0", offset - 16);
 }
 
 std::string RISCV64Backend::addr_indexed(const std::string& base, const std::string& index, int scale) const {

@@ -142,7 +142,7 @@ struct TargetRegisterInfo {
         info.add(5,  "t0", true, false);   // caller-save temp
         info.add(6,  "t1", true, false);
         info.add(7,  "t2", true, false);
-        info.add(8,  "s0", false, true);   // callee-save / frame pointer
+        info.add(8,  "s0", false, true, true, false);   // frame pointer (reserved, not allocatable)
         info.add(9,  "s1", false, true);   // callee-save
         info.add(10, "a0", true, false);   // arg #1 / return value
         info.add(11, "a1", true, false);   // arg #2
