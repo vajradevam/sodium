@@ -114,7 +114,10 @@ struct TargetRegisterInfo {
         return info;
     }
 
-    /// RISC-V LP64 calling convention register file (placeholder).
+    /// RISC-V LP64 calling convention register file.
+    /// Registers defined per the RISC-V calling convention:
+    /// x0=zero, x1=ra, x2=sp, x3=gp, x4=tp, x5-7/t0-2, x8-9/s0-1,
+    /// x10-17/a0-a7, x18-27/s2-s11, x28-31/t3-t6.
     static TargetRegisterInfo riscv64_lp64() {
         TargetRegisterInfo info;
 

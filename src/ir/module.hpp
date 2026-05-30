@@ -34,9 +34,9 @@ struct IRModule {
     std::vector<StringLit> strings;
 
     /// Global variable initializers (code to run in _start before main).
+    /// Currently, the name is stored and the Generator emits the initializer
+    /// expression directly. Future work: store the IR initializer here.
     struct GlobalInit {
-        /// We'll store IR values / instructions here once generation.cpp
-        /// is ported to IR. For now it's a placeholder.
         std::string name;
     };
     std::vector<GlobalInit> global_inits;
