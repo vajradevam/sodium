@@ -9,6 +9,12 @@
       converts to decimal string for pipeline compatibility.
 - [x] **`!` logical NOT operator** — parser + codegen. Emits `CMP_EQ %dst, %x, 0`
       in IR, no backend changes needed.
+- [x] **`argc()` / `argv()` builtins** — runtime globals populated by `_start`
+      from kernel stack. Both x86-64 and RISC-V conventions handled.
+- [x] **`print_str()` builtin** — prints string literals to stdout via raw write
+      syscall, appends newline.
+- [x] **Unified `print`** — compile-time dispatch: string literals go to
+      `print_str`, everything else to `print_int`.
 
 ## Phase 5: File I/O & Runtime
 
@@ -16,7 +22,6 @@
 - [ ] `fread` / `fwrite` builtins
 - [ ] `fprintf` / `fscanf` builtins
 - [ ] Text file reading/writing
-- [ ] Argument to `_start` (argc, argv)
 - [ ] Large-block free list for >2048 byte allocations
 - [ ] Growable heap via `mmap` / `brk`
 - [ ] True coalescing to reduce fragmentation
