@@ -78,4 +78,14 @@ _sodium_print_str:
     mv a1, t0
     mv a2, t2
     ecall
+    # write trailing newline
+    addi sp, sp, -16
+    li t0, 10
+    sb t0, 0(sp)
+    li a7, 64
+    li a0, 1
+    mv a1, sp
+    li a2, 1
+    ecall
+    addi sp, sp, 16
     ret

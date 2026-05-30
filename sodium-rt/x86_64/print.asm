@@ -71,5 +71,14 @@ _sodium_print_str:
     mov rsi, rbx            ; buf
     mov rdx, rcx            ; len
     syscall
+    ; write trailing newline
+    sub rsp, 16             ; reserve temp space (red zone may not be enough)
+    mov byte [rsp], 10      ; newline
+    mov rax, 1
+    mov rdi, 1
+    mov rsi, rsp
+    mov rdx, 1
+    syscall
+    add rsp, 16
     pop rbx
     ret

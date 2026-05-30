@@ -1,7 +1,6 @@
-// Test argc(), argv(), and print_str builtins
+// Test unified print, argc(), argv()
 
 // --- argc() ---
-// When run without extra arguments, argc should be 1 (the program name).
 var ac = argc();
 if (ac < 1) {
     return(1);  // fail: argc should never be < 1
@@ -16,9 +15,9 @@ if (p == 0) {
     return(3);  // fail: argv(0) should not be null
 }
 
-// --- print_str ---
-// Just ensure it doesn't crash
-print_str("argc test: ok");
-print_str("\n");
+// --- unified print ---
+// print with a string literal should work
+print("argc test: ok");
+print(ac);  // print integer
 
 return(0);  // pass

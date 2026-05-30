@@ -66,6 +66,8 @@ ok "Installed cyan-lsp → $INSTALL_DIR/cyan-lsp"
 
 # Install runtime libraries alongside the binary
 info "Installing runtime libraries..."
+# Remove old runtime dir first to prevent nested sodium-rt/sodium-rt/ on reinstall
+rm -rf "$INSTALL_DIR/sodium-rt"
 cp -r "$SODIUM_DIR/sodium-rt" "$INSTALL_DIR/sodium-rt"
 chmod -R +r "$INSTALL_DIR/sodium-rt"
 ok "Installed sodium-rt → $INSTALL_DIR/sodium-rt/"
@@ -98,6 +100,6 @@ echo "  cyan-lsp = $(which cyan-lsp)"
 echo ""
 echo "Try it out:"
 echo "  echo 'return(42);' > test.cyan"
-echo "  sodium test.cyan && ./sodium-out/out && echo \$?"
+echo "  sodium test.cyan && ./test && echo \$?"
 echo ""
 ok "Installation complete!"

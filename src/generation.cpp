@@ -1103,9 +1103,17 @@ void Generator::gen_stmt(const NodeStmt& stmt)
 
         void operator()(const NodeStmtPrint* stmt_print) const
         {
-            gen->gen_expr(*stmt_print->expr);
-            uint32_t val = gen->pop_vreg();
-            gen->m_ir.call("_sodium_print_int", {IRValue::vreg(val)});
+            // Unify print: string literal → print_str, everything else → print_int
+            if (std::holds_alternative<NodeExprStringLit*>(stmt_print->expr->var)) {
+                // String literal: push its address and call _sodium_print_str
+                gen->gen_expr(*stmt_print->expr);
+                uint32_t addr = gen->pop_vreg();
+                gen->m_ir.call("_sodium_print_str", {IRValue::vreg(addr)});
+            } else {
+                gen->gen_expr(*stmt_print->expr);
+                uint32_t val = gen->pop_vreg();
+                gen->m_ir.call("_sodium_print_int", {IRValue::vreg(val)});
+            }
         }
 
         void operator()(const NodeStmtBlock* stmt_block) const
