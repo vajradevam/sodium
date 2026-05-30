@@ -62,9 +62,12 @@ void RISCV64Backend::func_prologue() {
 }
 
 void RISCV64Backend::func_epilogue() {
-    emit_insn("ld", "ra, -8(s0)");
-    emit_insn("ld", "s0, -16(s0)");
-    emit_insn("addi", "sp, s0, 0");
+    // Restore sp to the frame pointer first, THEN restore registers.
+    // Order matters: restoring s0 before sp would clobber the frame pointer,
+    // causing sp to be set to the caller's s0 (wrong!).
+    emit_insn("addi", "sp, s0, 0");   // sp = s0 = original_sp
+    emit_insn("ld", "ra, -8(sp)");    // ra = [original_sp - 8]
+    emit_insn("ld", "s0, -16(sp)");   // s0 = [original_sp - 16] = caller's s0
 }
 
 void RISCV64Backend::ret() {
