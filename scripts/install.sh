@@ -1,8 +1,13 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-SODIUM_DIR="$(cd "$(dirname "$0")" && pwd)"
-INSTALL_PREFIX="${INSTALL_PREFIX:-/usr/local}"
+SODIUM_DIR="$(cd "$(dirname "$(dirname "$0")")" && pwd)"
+# Use ~/.local by default if /usr/local isn't writable
+if [ -z "${INSTALL_PREFIX-}" ] && [ ! -w "/usr/local/bin" ]; then
+    INSTALL_PREFIX="$HOME/.local"
+else
+    INSTALL_PREFIX="${INSTALL_PREFIX:-/usr/local}"
+fi
 INSTALL_DIR="${INSTALL_DIR:-$INSTALL_PREFIX/bin}"
 VSCODE="${1:-}"
 INSTALL_VSCODE=false
