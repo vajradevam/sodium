@@ -77,6 +77,7 @@ enum class TokenType {
     tilde,
     shl,
     shr,
+    bang,
     question,
     colon,
     percenteq,

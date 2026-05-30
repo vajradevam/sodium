@@ -535,6 +535,19 @@ std::optional<NodeExpr*> Parser::parse_primary_expr()
             return out;
         }
 
+        else if (peek().has_value() && peek().value().type == TokenType::bang) {
+            consume();
+            auto expr = parse_primary_expr();
+            if (!expr) {
+                error("Expected expression after '!'");
+            }
+            auto node = m_allocator.alloc<NodeExprLogNot>();
+            node->expr = expr.value();
+            auto out = m_allocator.alloc<NodeExpr>();
+            out->var = node;
+            return out;
+        }
+
         else if (peek().has_value() && peek().value().type == TokenType::open_paren) {
             consume();
             auto expr = parse_expr();

@@ -72,6 +72,10 @@ void print_ast_expr(const NodeExpr& expr, int indent) {
             std::cout << std::string(indent, ' ') << "BitNot\n";
             print_ast_expr(e->expr, indent + 2);
         },
+        [indent](const NodeExprLogNot* e) {
+            std::cout << std::string(indent, ' ') << "LogNot\n";
+            print_ast_expr(e->expr, indent + 2);
+        },
         [indent](const NodeExprTernary* e) {
             std::cout << std::string(indent, ' ') << "Ternary\n";
             print_ast_expr(e->cond, indent + 2);

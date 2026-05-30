@@ -1,0 +1,64 @@
+// Logical NOT (!) operator tests
+//
+// Tests ! on zero, non-zero, double negation, and in conditions.
+
+function test_not() {
+    var ok = 0;
+
+    // !0 should be 1 (true)
+    var a = !0;
+    if (a == 1) ok = ok + 1;
+
+    // !1 should be 0 (false)
+    var b = !1;
+    if (b == 0) ok = ok + 1;
+
+    // !42 (non-zero) should be 0
+    var c = !42;
+    if (c == 0) ok = ok + 1;
+
+    // Double negation: !!0 == 0
+    var d = !!0;
+    if (d == 0) ok = ok + 1;
+
+    // Double negation: !!1 == 1
+    var e = !!1;
+    if (e == 1) ok = ok + 1;
+
+    // ! on negative value
+    var f = !(-1);
+    if (f == 0) ok = ok + 1;
+
+    // ! in conditions: non-zero flag
+    var flag = 1;
+    if (!flag == 0) ok = ok + 1;
+
+    // ! in conditions: zero flag
+    flag = 0;
+    if (!flag == 1) ok = ok + 1;
+
+    // Combined with comparison
+    var x = 5;
+    if (!(x == 5) == 0) ok = ok + 1;
+    if (!(x != 5) == 1) ok = ok + 1;
+
+    // ! on result of comparison
+    if (!(ok > 0) == 0) ok = ok + 1;
+
+    // !!!1 = !(!(!1)) = !(!0) = !1 = 0
+    if (!!!1 == 0) ok = ok + 1;
+
+    // Nested in expressions: !1 + !0 = 0 + 1 = 1
+    var h = !1 + !0;
+    if (h == 1) ok = ok + 1;
+
+    // (!0) * (!0) = 1 * 1 = 1
+    var i = (!0) * (!0);
+    if (i == 1) ok = ok + 1;
+
+    return (ok);
+}
+
+var result = test_not();
+print(result);
+return (result);

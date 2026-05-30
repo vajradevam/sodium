@@ -386,6 +386,14 @@ void Generator::gen_expr(const NodeExpr& expr)
             gen->push_vreg(v);
         }
 
+        void operator()(const NodeExprLogNot* log_not)
+        {
+            gen->gen_expr(*log_not->expr);
+            uint32_t src = gen->pop_vreg();
+            uint32_t v = gen->m_ir.cmp_eq(IRValue::vreg(src), IRValue::imm_i64(0));
+            gen->push_vreg(v);
+        }
+
         void operator()(const NodeExprTernary* ternary)
         {
             gen->gen_expr(*ternary->cond);
@@ -1351,6 +1359,11 @@ void Generator::gen_stmt(const NodeStmt& stmt)
         void operator()(const NodeExprBitNot* not_expr) {
             auto inner = gen->eval_const_expr(not_expr->expr);
             if (inner) result = ~(inner.value());
+        }
+
+        void operator()(const NodeExprLogNot* log_not) {
+            auto inner = gen->eval_const_expr(log_not->expr);
+            if (inner) result = (inner.value() == 0) ? 1 : 0;
         }
 
         void operator()(const NodeExprTernary* ternary) {

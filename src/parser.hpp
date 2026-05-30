@@ -80,6 +80,7 @@ struct BinExpr {
 };
 
 struct NodeExprBitNot { NodeExpr* expr; };
+struct NodeExprLogNot { NodeExpr* expr; };
 
 struct NodeExprTernary {
     NodeExpr* cond;
@@ -94,7 +95,7 @@ struct NodeExprArrLit {
 };
 
 struct NodeExpr {
-    std::variant<NodeExprIntLit*, NodeExprIdent*, BinExpr*, NodeExprCall*, NodeExprStringLit*, NodeExprIndex*, NodeExprBitNot*, NodeExprTernary*, NodeExprRead*, NodeExprArrLit*, NodeExprFieldAccess*, NodeExprAddrOf*, NodeExprDeref*> var;
+    std::variant<NodeExprIntLit*, NodeExprIdent*, BinExpr*, NodeExprCall*, NodeExprStringLit*, NodeExprIndex*, NodeExprBitNot*, NodeExprLogNot*, NodeExprTernary*, NodeExprRead*, NodeExprArrLit*, NodeExprFieldAccess*, NodeExprAddrOf*, NodeExprDeref*> var;
 };
 
 // ── Statement AST nodes ────────────────────────────────────────────────────

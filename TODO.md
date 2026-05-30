@@ -5,6 +5,10 @@
 - [x] **Spill code in register allocator** — store callee-save values to stack
       when caller-save registers are exhausted. Previously, values spanning >5
       calls on x86-64 got silently corrupted. Now uses fp-relative LOAD/STORE.
+- [x] **Hex literal syntax** (`0xFF`, `0xAB`) — tokenizer-level `0x`/`0X` prefix,
+      converts to decimal string for pipeline compatibility.
+- [x] **`!` logical NOT operator** — parser + codegen. Emits `CMP_EQ %dst, %x, 0`
+      in IR, no backend changes needed.
 
 ## Phase 5: File I/O & Runtime
 
@@ -27,8 +31,6 @@
 
 ## Phase 7: Language Completeness
 
-- [ ] `!` logical NOT operator (parser + codegen)
-- [ ] Hex literal syntax (`0xFF`, `0xAB`)
 - [ ] Pointer type annotations (`var p: int*`)
 - [ ] Pointer arithmetic (`ptr + 1`, `ptr - 1`)
 - [ ] Null pointer safety (check before deref)

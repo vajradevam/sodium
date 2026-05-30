@@ -548,12 +548,7 @@ std::vector<Token> Tokenizer::tokenize() {
                 consume();
                 tokens.push_back({ .type = TokenType::neq, .loc = loc });
             } else {
-                if (g_lsp_mode) {
-                    g_lsp_errors.push_back({loc, "Expected '!='"});
-                    throw LSPAbort();
-                }
-                std::cerr << format_err(loc, "Expected '!='") << std::endl;
-                exit(EXIT_FAILURE);
+                tokens.push_back({ .type = TokenType::bang, .loc = loc });
             }
             continue;
         }
