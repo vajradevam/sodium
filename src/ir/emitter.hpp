@@ -358,7 +358,7 @@ public:
                 break;
 
             case IROpcode::SYSCALL:
-                m_backend.emit_insn("syscall", "");
+                m_backend.syscall();
                 break;
 
             case IROpcode::PUSH:
@@ -437,12 +437,8 @@ private:
     }
 
     void emit_cmp(const IRInstruction& insn, const std::string& cc) {
-        auto dst = preg_name(insn.dst);
-        auto a = operand_name(insn, 0);
-        auto b = operand_name(insn, 1);
-        m_backend.mov(dst, a);
-        m_backend.cmp(dst, b);
-        m_backend.set_cc(low8(dst), cc);
-        m_backend.movzx(dst, low8(dst), 8);
+        m_backend.cmp_result(preg_name(insn.dst),
+                             operand_name(insn, 0),
+                             operand_name(insn, 1), cc);
     }
 };

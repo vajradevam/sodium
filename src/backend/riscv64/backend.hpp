@@ -74,6 +74,8 @@ public:
     void jz(const std::string& label) override;
     void jnz(const std::string& label) override;
     void set_cc(const std::string& reg, const std::string& condition) override;
+    void cmp_result(const std::string& dst, const std::string& a,
+                    const std::string& b, const std::string& condition) override;
 
     // Control
     void call(const std::string& target) override;

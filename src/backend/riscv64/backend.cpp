@@ -354,6 +354,32 @@ void RISCV64Backend::set_cc(const std::string& reg, const std::string& condition
     }
 }
 
+void RISCV64Backend::cmp_result(const std::string& dst, const std::string& a,
+                                 const std::string& b, const std::string& condition) {
+    // Self-contained comparison directly producing a boolean in dst.
+    // No dependence on cmp() state — optimal for RISC-V.
+    if (condition == "e") {
+        // (a == b) → sub t, a, b; seqz dst, t
+        emit_rri("sub", m_scratch, a, b);
+        emit_insn("seqz", dst + ", " + m_scratch);
+    } else if (condition == "ne") {
+        emit_rri("sub", m_scratch, a, b);
+        emit_insn("snez", dst + ", " + m_scratch);
+    } else if (condition == "l") {
+        emit_rri("slt", dst, a, b);
+    } else if (condition == "le") {
+        // a <= b → !(b < a)
+        emit_rri("slt", m_scratch, b, a);
+        emit_ri("xori", dst, m_scratch, 1);
+    } else if (condition == "g") {
+        emit_rri("slt", dst, b, a);
+    } else if (condition == "ge") {
+        // a >= b → !(a < b)
+        emit_rri("slt", m_scratch, a, b);
+        emit_ri("xori", dst, m_scratch, 1);
+    }
+}
+
 // ---- control ----
 
 void RISCV64Backend::call(const std::string& target) {

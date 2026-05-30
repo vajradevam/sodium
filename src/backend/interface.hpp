@@ -155,6 +155,12 @@ public:
     /// Set byte to 0/1 based on condition (sete/setne/setl/etc, or slt/slti).
     virtual void set_cc(const std::string& reg, const std::string& condition) = 0;
 
+    /// Compare a and b, produce boolean (0 or 1) in dst based on condition.
+    /// This is a self-contained comparison that does not rely on flags.
+    /// Conditions: "eq", "ne", "lt", "le", "gt", "ge" (signed).
+    virtual void cmp_result(const std::string& dst, const std::string& a,
+                            const std::string& b, const std::string& condition) = 0;
+
     // ----------------------------------------------------------------
     // Control flow
     // ----------------------------------------------------------------

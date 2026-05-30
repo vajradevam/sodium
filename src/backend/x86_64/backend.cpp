@@ -330,6 +330,15 @@ void X8664Backend::set_cc(const std::string& reg, const std::string& condition) 
     emit_insn("set" + condition, reg);
 }
 
+void X8664Backend::cmp_result(const std::string& dst, const std::string& a,
+                               const std::string& b, const std::string& condition) {
+    // Self-contained comparison: dst = (a COND b) ? 1 : 0
+    mov(dst, a);
+    cmp(dst, b);
+    set_cc(low8(dst), condition);
+    movzx(dst, low8(dst), 8);
+}
+
 // ---- control ----
 
 void X8664Backend::call(const std::string& target) {
