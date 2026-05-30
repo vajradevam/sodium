@@ -1,5 +1,18 @@
 #include "backend.hpp"
 #include <sstream>
+#include <unordered_map>
+
+// Map 64-bit register name to 32-bit subregister
+static std::string low32(const std::string& r) {
+    static const std::unordered_map<std::string, std::string> m = {
+        {"rax", "eax"}, {"rbx", "ebx"}, {"rcx", "ecx"}, {"rdx", "edx"},
+        {"rsi", "esi"}, {"rdi", "edi"}, {"rbp", "ebp"}, {"rsp", "esp"},
+        {"r8", "r8d"}, {"r9", "r9d"}, {"r10", "r10d"}, {"r11", "r11d"},
+        {"r12", "r12d"}, {"r13", "r13d"}, {"r14", "r14d"}, {"r15", "r15d"},
+    };
+    auto it = m.find(r);
+    return it != m.end() ? it->second : r;
+}
 
 X8664Backend::X8664Backend(std::ostream& os)
     : m_output(&os) {}
@@ -104,7 +117,7 @@ void X8664Backend::load_s32(const std::string& dst, const std::string& addr) {
 }
 
 void X8664Backend::load_u32(const std::string& dst, const std::string& addr) {
-    emit_insn("mov", "eax, dword " + addr);
+    emit_insn("mov", low32(dst) + ", dword " + addr);
 }
 
 // ---- width-specific stores ----
