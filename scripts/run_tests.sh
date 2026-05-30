@@ -67,6 +67,7 @@ UNIT_TESTS["test_switch_default.cyan"]=99
 UNIT_TESTS["test_switch_continue.cyan"]=12
 UNIT_TESTS["test_global.cyan"]=15
 UNIT_TESTS["test_global_func.cyan"]=3
+UNIT_TESTS["test_hex.cyan"]=14
 UNIT_TESTS["test_arr_lit.cyan"]=150
 UNIT_TESTS["test_types.cyan"]=44
 UNIT_TESTS["test_types_compound.cyan"]=15
@@ -111,6 +112,7 @@ COMPILE_FAIL_UNIT+=("test_struct_bad_read.cyan")
 COMPILE_FAIL_UNIT+=("test_ptr_bad_addr.cyan")
 COMPILE_FAIL_UNIT+=("test_bad_const_assign.cyan")
 COMPILE_FAIL_UNIT+=("test_bad_ops.cyan")
+COMPILE_FAIL_UNIT+=("test_bad_hex.cyan")
 
 # Unit tests that check stdout
 declare -A STDOUT_TESTS

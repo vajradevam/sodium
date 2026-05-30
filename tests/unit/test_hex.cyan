@@ -1,0 +1,53 @@
+// Hex literal tests
+//
+// Exercises 0x and 0X prefix, various hex values, and comparison
+// with decimal equivalents.
+
+function test_hex() {
+    // Basic hex values (lowercase x)
+    var a = 0xFF;       // 255
+    var b = 0xAB;       // 171
+    var c = 0x10;       // 16
+    var d = 0x0;        // 0
+    var e = 0x1;        // 1
+    var f = 0xA;        // 10
+    var g = 0xf;        // 15 (lowercase digits)
+
+    // Upper case X prefix
+    var h = 0XFF;       // 255
+    var i = 0XAB;       // 171
+
+    // Larger values
+    var j = 0xDEAD;     // 57005
+    var k = 0xCAFE;     // 51966
+
+    var ok = 0;
+    if (a == 255) ok = ok + 1;
+    if (b == 171) ok = ok + 1;
+    if (c == 16) ok = ok + 1;
+    if (d == 0) ok = ok + 1;
+    if (e == 1) ok = ok + 1;
+    if (f == 10) ok = ok + 1;
+    if (g == 15) ok = ok + 1;
+    if (h == 255) ok = ok + 1;
+    if (i == 171) ok = ok + 1;
+    if (j == 57005) ok = ok + 1;
+    if (k == 51966) ok = ok + 1;
+
+    // Hex in expressions
+    var sum = 0x10 + 0x20;     // 16 + 32 = 48
+    if (sum == 48) ok = ok + 1;
+
+    var prod = 0xA * 0xA;       // 10 * 10 = 100
+    if (prod == 100) ok = ok + 1;
+
+    // Hex in global initializer
+    static var hex_arr = 0xFF;
+    if (hex_arr == 255) ok = ok + 1;
+
+    return (ok);
+}
+
+var result = test_hex();
+print(result);
+return (result);

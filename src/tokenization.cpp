@@ -1,4 +1,5 @@
 #include "tokenization.hpp"
+#include <cstdint>
 
 // Global definitions
 bool g_show_code = false;
@@ -322,8 +323,47 @@ std::vector<Token> Tokenizer::tokenize() {
             SourceLoc tok_loc = current_loc();
             buf.push_back(consume());
 
-            while (peek().has_value() && std::isdigit(peek().value())) {
-                buf.push_back(consume());
+            // Check for hex literal: 0x or 0X
+            if (buf == "0" && peek().has_value() &&
+                (peek().value() == 'x' || peek().value() == 'X')) {
+                consume(); // consume 'x' or 'X'
+                buf.clear();
+                // Must have at least one hex digit
+                if (!peek().has_value() ||
+                    !std::isxdigit(static_cast<unsigned char>(peek().value()))) {
+                    if (g_lsp_mode) {
+                        g_lsp_errors.push_back({current_loc(),
+                            "Expected hexadecimal digit after '0x'"});
+                        throw LSPAbort();
+                    }
+                    std::cerr << format_err(current_loc(),
+                        "Expected hexadecimal digit after '0x'") << std::endl;
+                    exit(EXIT_FAILURE);
+                }
+                // Collect hex digits
+                std::string hex_buf;
+                while (peek().has_value() &&
+                       std::isxdigit(static_cast<unsigned char>(peek().value()))) {
+                    hex_buf.push_back(consume());
+                }
+
+                // Convert hex string to uint64_t, then to decimal string
+                uint64_t val = 0;
+                for (char c : hex_buf) {
+                    val *= 16;
+                    if (c >= '0' && c <= '9')
+                        val += static_cast<uint64_t>(c - '0');
+                    else if (c >= 'a' && c <= 'f')
+                        val += static_cast<uint64_t>(10 + c - 'a');
+                    else if (c >= 'A' && c <= 'F')
+                        val += static_cast<uint64_t>(10 + c - 'A');
+                }
+                buf = std::to_string(val);
+            } else {
+                // Decimal: consume remaining digits
+                while (peek().has_value() && std::isdigit(peek().value())) {
+                    buf.push_back(consume());
+                }
             }
             tokens.push_back({ .type = TokenType::int_lit, .value = buf, .loc = tok_loc });
             buf.clear();
