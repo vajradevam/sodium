@@ -71,6 +71,7 @@ UNIT_TESTS["test_hex.cyan"]=14
 UNIT_TESTS["test_not.cyan"]=14
 UNIT_TESTS["test_argc.cyan"]=0
 UNIT_TESTS["test_argv_basic.cyan"]=0
+UNIT_TESTS["test_no_explicit_return.cyan"]=0
 UNIT_TESTS["test_arr_lit.cyan"]=150
 UNIT_TESTS["test_types.cyan"]=44
 UNIT_TESTS["test_types_compound.cyan"]=15

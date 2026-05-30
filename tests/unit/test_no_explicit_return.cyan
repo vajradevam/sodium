@@ -1,0 +1,3 @@
+// Test that a program without explicit return/exit works
+// The compiler auto-generates _sodium_exit(0) in this case.
+print("ok");
