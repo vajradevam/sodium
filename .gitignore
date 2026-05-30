@@ -1,6 +1,4 @@
 build/
-out
-out.asm
-out.o
+sodium-out/
 sodium-rt/**/*.o
 sodium-rt/**/*.a

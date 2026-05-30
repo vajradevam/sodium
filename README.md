@@ -15,7 +15,7 @@ cmake -B build && cmake --build build
 
 # Compile and run a Cyan program (x86-64)
 ./build/sodium my_program.cyan
-./out
+./sodium-out/out
 echo $?   # exit code
 ```
 
@@ -34,7 +34,7 @@ return(42);
 ```
 
 ```bash
-sodium hello.cyan && ./out && echo $?
+sodium hello.cyan && ./sodium-out/out && echo $?
 # outputs: 42
 ```
 
@@ -215,11 +215,11 @@ Cyan compiles to **two backends** from the same source:
 ```bash
 # x86-64 (native)
 ./build/sodium program.cyan
-./out
+./sodium-out/out
 
 # RISC-V 64 (cross-compile)
 ./build/sodium --target riscv64 program.cyan
-qemu-riscv64 ./out
+qemu-riscv64 ./sodium-out/out
 ```
 
 All language features work identically on both targets. The full test suite

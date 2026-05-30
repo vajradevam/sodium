@@ -137,7 +137,7 @@ for test_file in "${!UNIT_TESTS[@]}"; do
         continue
     fi
 
-    ./out > /tmp/cyan_stdout.txt 2>&1; actual_exit=$?
+    ./sodium-out/out > /tmp/cyan_stdout.txt 2>&1; actual_exit=$?
 
     exit_ok=0
     [ "$actual_exit" -eq "$expected_exit" ] && exit_ok=1
@@ -193,7 +193,7 @@ for stdin_entry in "${!STDIN_TESTS[@]}"; do
         FAIL=$((FAIL + 1))
         continue
     fi
-    echo "$stdin_value" | ./out > /tmp/cyan_stdout.txt 2>&1; actual_exit=$?
+    echo "$stdin_value" | ./sodium-out/out > /tmp/cyan_stdout.txt 2>&1; actual_exit=$?
     if [ "$actual_exit" -eq "$expected_exit" ]; then
         echo -e "${GREEN}PASS${NC} (exit: $actual_exit)"
         PASS=$((PASS + 1))
@@ -228,7 +228,7 @@ for test_file in "${!INTEGRATION_TESTS[@]}"; do
         FAIL=$((FAIL + 1))
         continue
     fi
-    ./out > /tmp/cyan_stdout.txt 2>&1; actual_exit=$?
+    ./sodium-out/out > /tmp/cyan_stdout.txt 2>&1; actual_exit=$?
     if [ "$actual_exit" -eq "$expected_exit" ]; then
         echo -e "${GREEN}PASS${NC} (exit: $actual_exit)"
         PASS=$((PASS + 1))
@@ -259,7 +259,7 @@ for test_file in "${!INCLUDE_TESTS[@]}"; do
         FAIL=$((FAIL + 1))
         continue
     fi
-    ./out > /tmp/cyan_stdout.txt 2>&1; actual_exit=$?
+    ./sodium-out/out > /tmp/cyan_stdout.txt 2>&1; actual_exit=$?
     if [ "$actual_exit" -eq "$expected_exit" ]; then
         echo -e "${GREEN}PASS${NC} (exit: $actual_exit)"
         PASS=$((PASS + 1))
@@ -313,7 +313,7 @@ if command -v qemu-riscv64 &>/dev/null && command -v riscv64-elf-gcc &>/dev/null
             continue
         fi
 
-        qemu-riscv64 ./out > /tmp/cyan_stdout.txt 2>&1; actual_exit=$?
+        qemu-riscv64 ./sodium-out/out > /tmp/cyan_stdout.txt 2>&1; actual_exit=$?
 
         if [ "$actual_exit" -eq "$expected_exit" ]; then
             echo -e "${GREEN}PASS${NC} (exit: $actual_exit)"
@@ -359,7 +359,7 @@ if command -v qemu-riscv64 &>/dev/null && command -v riscv64-elf-gcc &>/dev/null
             FAIL=$((FAIL + 1))
             continue
         fi
-        qemu-riscv64 ./out > /tmp/cyan_stdout.txt 2>&1; actual_exit=$?
+        qemu-riscv64 ./sodium-out/out > /tmp/cyan_stdout.txt 2>&1; actual_exit=$?
         if [ "$actual_exit" -eq "$expected_exit" ]; then
             echo -e "${GREEN}PASS${NC} (exit: $actual_exit)"
             PASS=$((PASS + 1))
@@ -386,7 +386,7 @@ if command -v qemu-riscv64 &>/dev/null && command -v riscv64-elf-gcc &>/dev/null
             FAIL=$((FAIL + 1))
             continue
         fi
-        qemu-riscv64 ./out > /tmp/cyan_stdout.txt 2>&1; actual_exit=$?
+        qemu-riscv64 ./sodium-out/out > /tmp/cyan_stdout.txt 2>&1; actual_exit=$?
         if [ "$actual_exit" -eq "$expected_exit" ]; then
             echo -e "${GREEN}PASS${NC} (exit: $actual_exit)"
             PASS=$((PASS + 1))

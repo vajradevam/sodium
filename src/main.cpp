@@ -112,11 +112,17 @@ int main(int argc, char* argv[]) {
         exit(EXIT_FAILURE);
     };
 
+    // Output directory
+    std::string out_dir = "sodium-out";
+    // Create output directory (ignore error if exists)
+    system(("mkdir -p " + out_dir).c_str());
+
     // Select backend and target info
     Backend* backend = nullptr;
     TargetRegisterInfo* tri = nullptr;
-    std::string asm_file = "out.asm";
-    std::string obj_file = "out.o";
+    std::string asm_file = out_dir + "/out.asm";
+    std::string obj_file = out_dir + "/out.o";
+    std::string exe_file = out_dir + "/out";
     std::string asm_cmd, link_cmd, rt_dir;
 
     if (target == "x86_64") {
@@ -124,13 +130,13 @@ int main(int argc, char* argv[]) {
         tri = new TargetRegisterInfo(TargetRegisterInfo::x86_64_systemv());
         rt_dir = resolve_rt_dir();
         asm_cmd = "nasm -felf64 " + asm_file + " -o " + obj_file;
-        link_cmd = "ld -o out " + obj_file + " " + rt_dir + "/sodium-rt.a";
+        link_cmd = "ld -o " + exe_file + " " + obj_file + " " + rt_dir + "/sodium-rt.a";
     } else if (target == "riscv64") {
         backend = new RISCV64Backend();
         tri = new TargetRegisterInfo(TargetRegisterInfo::riscv64_lp64());
         rt_dir = resolve_rt_dir();
         asm_cmd = "riscv64-elf-as -march=rv64gc -mno-relax -o " + obj_file + " " + asm_file;
-        link_cmd = "riscv64-elf-gcc -nostdlib -static -Wl,--no-relax -o out " + obj_file + " " + rt_dir + "/sodium-rt.a";
+        link_cmd = "riscv64-elf-gcc -nostdlib -static -Wl,--no-relax -o " + exe_file + " " + obj_file + " " + rt_dir + "/sodium-rt.a";
     } else {
         std::cerr << "Unsupported target: " << target << " (use x86_64 or riscv64)" << std::endl;
         exit(EXIT_FAILURE);
