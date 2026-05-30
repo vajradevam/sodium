@@ -1,0 +1,50 @@
+Program
+  Let(n)
+    IntLit(10)
+  Let(k)
+    IntLit(3)
+  Let(n_fact)
+    Call(factorial)
+      Ident(n)
+  Let(k_fact)
+    Call(factorial)
+      Ident(k)
+  Let(nk_fact)
+    Call(factorial)
+      BinExpr
+      op: -
+          Ident(n)
+          Ident(k)
+  Let(result)
+    BinExpr
+    op: /
+        Ident(n_fact)
+        BinExpr
+        op: *
+            Ident(k_fact)
+            Ident(nk_fact)
+  Print
+    Ident(result)
+  Return
+    Ident(result)
+  Function(factorial)
+    params: n
+    body:
+      If
+        BinExpr
+        op: <=
+            Ident(n)
+            IntLit(1)
+        then:
+          Return
+            IntLit(1)
+        else:
+          Return
+            BinExpr
+            op: *
+                Ident(n)
+                Call(factorial)
+                  BinExpr
+                  op: -
+                      Ident(n)
+                      IntLit(1)

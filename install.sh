@@ -44,6 +44,12 @@ chmod +x "$INSTALL_DIR/sodium" "$INSTALL_DIR/cyan-lsp"
 ok "Installed sodium → $INSTALL_DIR/sodium"
 ok "Installed cyan-lsp → $INSTALL_DIR/cyan-lsp"
 
+# Install runtime libraries alongside the binary
+info "Installing runtime libraries..."
+cp -r "$SODIUM_DIR/sodium-rt" "$INSTALL_DIR/sodium-rt"
+chmod -R +r "$INSTALL_DIR/sodium-rt"
+ok "Installed sodium-rt → $INSTALL_DIR/sodium-rt/"
+
 # ── VS Code extension ───────────────────────────────────────────────
 if [ "$INSTALL_VSCODE" = true ]; then
     info "Installing VS Code extension..."

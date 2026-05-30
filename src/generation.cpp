@@ -197,6 +197,13 @@ void Generator::flush_function() {
     auto blocks = func->blocks; // copy blocks
     uint32_t slot_count = func->stack_slots;
 
+    // Dump IR before allocation if requested
+    if (m_emit_ir) {
+        std::cerr << "; --- IR for " << func_name << " ---\n";
+        std::cerr << func->to_string();
+        std::cerr << "; --- end IR ---\n";
+    }
+
     auto allocation = [&]() {
         LinearScanAllocator alloc(*m_tri_ptr);
         return alloc.allocate(*func);

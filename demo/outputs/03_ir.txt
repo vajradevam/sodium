@@ -1,0 +1,74 @@
+; --- IR for _start_body ---
+function _start_body(34 vregs, 6 stack slots):
+  .entry:
+      %0 = load_i64 10
+      %1 = frame_addr slot0
+      store [%1], %0
+      %2 = load_i64 3
+      %3 = frame_addr slot1
+      store [%3], %2
+      %4 = frame_addr slot0
+      %5 = load [%4]
+      %6 = call factorial(%5)
+      %7 = frame_addr slot2
+      store [%7], %6
+      %8 = frame_addr slot1
+      %9 = load [%8]
+      %10 = call factorial(%9)
+      %11 = frame_addr slot3
+      store [%11], %10
+      %12 = frame_addr slot0
+      %13 = load [%12]
+      %14 = frame_addr slot1
+      %15 = load [%14]
+      %16 = sub %13, %15
+      %17 = call factorial(%16)
+      %18 = frame_addr slot4
+      store [%18], %17
+      %19 = frame_addr slot2
+      %20 = load [%19]
+      %21 = frame_addr slot3
+      %22 = load [%21]
+      %23 = frame_addr slot4
+      %24 = load [%23]
+      %25 = mul %22, %24
+      %26 = div %20, %25
+      %27 = frame_addr slot5
+      store [%27], %26
+      %28 = frame_addr slot5
+      %29 = load [%28]
+      %30 = call _sodium_print_int(%29)
+      %31 = frame_addr slot5
+      %32 = load [%31]
+      %33 = call _sodium_exit(%32)
+      ret_void
+; --- end IR ---
+; --- IR for factorial ---
+function factorial(15 vregs, 1 stack slots):
+  .entry:
+      %0 = load_param 0
+      %1 = frame_addr slot0
+      store [%1], %0
+      %2 = frame_addr slot0
+      %3 = load [%2]
+      %4 = load_i64 1
+      %5 = cmp_le %3, %4
+      br %5, .L2, .L0
+  .L2:
+      %6 = load_i64 1
+      ret %6
+      jmp .L1
+  .L0:
+      %7 = frame_addr slot0
+      %8 = load [%7]
+      %9 = frame_addr slot0
+      %10 = load [%9]
+      %11 = load_i64 1
+      %12 = sub %10, %11
+      %13 = call factorial(%12)
+      %14 = mul %8, %13
+      ret %14
+  .L1:
+  .Lfactorial_epilogue:
+      ret_void
+; --- end IR ---

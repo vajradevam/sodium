@@ -70,8 +70,103 @@ private:
     /// Insert callee-save register pushes in the entry block and pops
     /// before each return.
     void insert_callee_save_code() {
-        // Disabled: allocator only uses caller-save registers, so
-        // there are no callee-save registers to preserve.
-        // See linear_scan.hpp which selects caller_save_regs().
+        // Collect callee-save physical registers that are actually used
+        // in this function (after virtual regs have been replaced).
+        std::set<int> used_callee_save;
+        auto callee_save = m_tri.callee_save_regs();
+        std::set<int> cs_set(callee_save.begin(), callee_save.end());
+
+        for (auto& block : m_func.blocks) {
+            for (auto& insn : block.instructions) {
+                // Destination register
+                if (insn.dst != IRInstruction::NONE_VREG) {
+                    if (cs_set.count(static_cast<int>(insn.dst)))
+                        used_callee_save.insert(static_cast<int>(insn.dst));
+                }
+                // Source operands
+                for (auto& op : insn.operands) {
+                    if (op.is_vreg()) {
+                        if (cs_set.count(static_cast<int>(op.vreg_id)))
+                            used_callee_save.insert(static_cast<int>(op.vreg_id));
+                    }
+                }
+            }
+        }
+
+        if (used_callee_save.empty()) return;
+
+        // Insert PUSH instructions at the start of the entry block
+        // (after the first block's label, before any other instructions).
+        auto& entry_block = m_func.blocks[0];
+        std::vector<IRInstruction> pushes;
+        for (int preg : used_callee_save) {
+            IRInstruction push;
+            push.op = IROpcode::PUSH;
+            push.operands.push_back(IRValue::vreg(static_cast<uint32_t>(preg)));
+            pushes.push_back(push);
+        }
+        entry_block.instructions.insert(entry_block.instructions.begin(),
+                                        pushes.begin(), pushes.end());
+
+        // Insert POP instructions (in reverse order) before each RET/RET_VOID.
+        // For RET with a return value, we must ensure the return value is
+        // moved to the return register (rax) BEFORE the POPs, since a POP
+        // would clobber a callee-save register holding the return value.
+        int ret_reg = m_tri.ret_reg;
+        for (auto& block : m_func.blocks) {
+            for (size_t i = 0; i < block.instructions.size(); i++) {
+                auto& insn = block.instructions[i];
+                if (insn.op == IROpcode::RET) {
+                    // Move return value to return register before POPs
+                    if (!insn.operands.empty()) {
+                        auto& ret_op = insn.operands[0];
+                        if (ret_op.is_vreg() &&
+                            static_cast<int>(ret_op.vreg_id) != ret_reg) {
+                            // If the return value is in a callee-save register
+                            // (or any non-rax register), insert COPY to rax first
+                            IRInstruction copy;
+                            copy.op = IROpcode::COPY;
+                            copy.dst = static_cast<uint32_t>(ret_reg);
+                            copy.operands.push_back(ret_op);
+                            block.instructions.insert(
+                                block.instructions.begin() +
+                                static_cast<ptrdiff_t>(i), copy);
+                            // Update the RET to reference rax instead
+                            ret_op = IRValue::vreg(static_cast<uint32_t>(ret_reg));
+                            i++; // skip past the COPY
+                        }
+                    }
+                    // Now insert POPs before the RET
+                    std::vector<IRInstruction> pops;
+                    for (auto it = used_callee_save.rbegin();
+                         it != used_callee_save.rend(); ++it) {
+                        IRInstruction pop;
+                        pop.op = IROpcode::POP;
+                        pop.operands.push_back(
+                            IRValue::vreg(static_cast<uint32_t>(*it)));
+                        pops.push_back(pop);
+                    }
+                    block.instructions.insert(
+                        block.instructions.begin() + static_cast<ptrdiff_t>(i),
+                        pops.begin(), pops.end());
+                    i += pops.size();
+                } else if (insn.op == IROpcode::RET_VOID) {
+                    // Just insert POPs before the RET_VOID
+                    std::vector<IRInstruction> pops;
+                    for (auto it = used_callee_save.rbegin();
+                         it != used_callee_save.rend(); ++it) {
+                        IRInstruction pop;
+                        pop.op = IROpcode::POP;
+                        pop.operands.push_back(
+                            IRValue::vreg(static_cast<uint32_t>(*it)));
+                        pops.push_back(pop);
+                    }
+                    block.instructions.insert(
+                        block.instructions.begin() + static_cast<ptrdiff_t>(i),
+                        pops.begin(), pops.end());
+                    i += pops.size();
+                }
+            }
+        }
     }
 };
