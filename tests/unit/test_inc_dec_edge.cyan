@@ -1,0 +1,81 @@
+// Test: increment/decrement edge cases
+// ++ and -- are statement-level constructs in Cyan (desugared to x = x + 1)
+
+var ok = 1;
+
+// ── Pre-increment as statement ──
+var a = 5;
+++a;
+if (a != 6) { ok = 0; }
+
+// ── Post-increment as statement ──
+var b = 5;
+b++;
+if (b != 6) { ok = 0; }
+
+// ── Pre-decrement as statement ──
+var c = 5;
+--c;
+if (c != 4) { ok = 0; }
+
+// ── Post-decrement as statement ──
+var d = 5;
+d--;
+if (d != 4) { ok = 0; }
+
+// ── Chained increment statements ──
+var e = 0;
+++e;
+++e;
+++e;
+if (e != 3) { ok = 0; }
+
+// ── Decrement in while loop ──
+var f = 5;
+while (f > 0) {
+    --f;
+}
+if (f != 0) { ok = 0; }
+
+// ── Increment in for-loop update ──
+var g_sum = 0;
+for (var g = 0; g < 5; g++) {
+    g_sum = g_sum + g;
+}
+if (g_sum != 10) { ok = 0; }  // 0+1+2+3+4 = 10
+
+// ── Decrement in for-loop update ──
+var h_sum = 0;
+for (var h = 5; h > 0; h--) {
+    h_sum = h_sum + h;
+}
+if (h_sum != 15) { ok = 0; }  // 5+4+3+2+1 = 15
+
+// ── Pre-increment in for-loop update ──
+var i_sum = 0;
+for (var i = 0; i < 5; ++i) {
+    i_sum = i_sum + i;
+}
+if (i_sum != 10) { ok = 0; }
+
+// ── Increment typed variable ──
+var ti: i8 = 127;
+++ti;
+// i8: 127 + 1 = -128 (overflow)
+if (ti != -128) { ok = 0; }
+
+// ── Decrement typed variable (u8 overflow) ──
+var td: u8 = 0;
+td--;
+// u8: 0 - 1 = 255 (underflow)
+if (td != 255) { ok = 0; }
+
+// ── Increment/decrement intermixed with other ops ──
+var j = 0;
+j++;
+j++;
+j++;
+j--;
+if (j != 2) { ok = 0; }  // 0+3-1 = 2
+
+return(ok);

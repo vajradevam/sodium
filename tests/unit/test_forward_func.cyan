@@ -1,0 +1,58 @@
+// Test: forward function references
+// Functions can reference other functions defined later in the source.
+// The compiler collects all function names before code generation.
+
+var ok = 1;
+
+function caller() {
+    return(callee() + callee2());
+}
+
+function callee() {
+    return(10);
+}
+
+function callee2() {
+    return(20);
+}
+
+// Mutual recursion
+function even(n) {
+    if (n == 0) return(1);
+    return(odd(n - 1));
+}
+
+function odd(n) {
+    if (n == 0) return(0);
+    return(even(n - 1));
+}
+
+// Test forward reference
+var r1 = caller();    // 10 + 20 = 30
+if (r1 != 30) { ok = 0; }
+
+// Test mutual recursion
+var r2 = even(4);     // 4 → odd(3) → even(2) → odd(1) → even(0) → 1
+if (r2 != 1) { ok = 0; }
+
+var r3 = odd(5);      // 5 → even(4) → odd(3) → even(2) → odd(1) → even(0) → 1
+if (r3 != 1) { ok = 0; }
+
+// Function returning from multiple levels
+function deep_caller(n) {
+    if (n <= 0) return(0);
+    return(1 + deep_mid(n));
+}
+
+function deep_mid(n) {
+    return(deep_callee(n * 2));
+}
+
+function deep_callee(n) {
+    return(n);
+}
+
+var r4 = deep_caller(5);   // 1 + deep_mid(5) = 1 + deep_callee(10) = 1 + 10 = 11
+if (r4 != 11) { ok = 0; }
+
+return(ok);

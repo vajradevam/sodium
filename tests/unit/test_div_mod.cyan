@@ -1,0 +1,85 @@
+// Test: division and modulo edge cases
+// Tests signed division and modulo behavior
+
+var ok = 1;
+
+// ── Basic division ──
+var a = 100 / 3;     // 33
+var b = 100 / 10;    // 10
+var c = 7 / 2;       // 3 (truncated toward zero)
+var d = -7 / 2;      // -3
+var e = 7 / -2;      // -3
+var f = -7 / -2;     // 3
+
+if (a != 33)  { ok = 0; }
+if (b != 10)  { ok = 0; }
+if (c != 3)   { ok = 0; }
+if (d != -3)  { ok = 0; }
+if (e != -3)  { ok = 0; }
+if (f != 3)   { ok = 0; }
+
+// ── Basic modulo ──
+var g = 100 % 3;     // 1
+var h = 100 % 10;    // 0
+var i = 7 % 2;       // 1
+var j = -7 % 2;      // -1 (sign follows dividend)
+var k = 7 % -2;      // 1
+var l = -7 % -2;     // -1
+
+if (g != 1)  { ok = 0; }
+if (h != 0)  { ok = 0; }
+if (i != 1)  { ok = 0; }
+if (j != -1) { ok = 0; }
+if (k != 1)  { ok = 0; }
+if (l != -1) { ok = 0; }
+
+// ── Division by 1 and -1 ──
+var m = 12345 / 1;   // 12345
+var n = 12345 / -1;  // -12345
+var o = -12345 / 1;  // -12345
+
+if (m != 12345)  { ok = 0; }
+if (n != -12345) { ok = 0; }
+if (o != -12345) { ok = 0; }
+
+// ── Modulo by 1 ──
+var p = 12345 % 1;   // 0
+var q = -12345 % 1;  // 0
+
+if (p != 0) { ok = 0; }
+if (q != 0) { ok = 0; }
+
+// ── Large number division ──
+var big = 1000000;
+var r = big / 1000;    // 1000
+var s = big % 1000;    // 0
+
+if (r != 1000) { ok = 0; }
+if (s != 0)    { ok = 0; }
+
+// ── Chained division ──
+var t = 100 / 2 / 5;   // 100/2 = 50, 50/5 = 10
+// Note: division is left-associative (via parse_mul_expr)
+if (t != 10) { ok = 0; }
+
+// ── Mixed div and mod ──
+var u = 100 / 3 * 3 + 100 % 3;   // 33*3 + 1 = 99 + 1 = 100
+if (u != 100) { ok = 0; }
+
+// ── Division in compound assignment chain ──
+var v = 100;
+v /= 2;
+v /= 5;
+v /= 2;        // 100/2=50, 50/5=10, 10/2=5
+if (v != 5) { ok = 0; }
+
+var w = 100;
+w %= 7;        // 100 % 7 = 2
+w %= 2;        // 2 % 2 = 0
+if (w != 0) { ok = 0; }
+
+// ── Modulo with zero dividend ──
+var x = 0 % 7;       // 0
+if (x != 0) { ok = 0; }
+
+return(ok);

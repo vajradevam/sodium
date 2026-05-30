@@ -1,0 +1,125 @@
+// Test: Integer type conversions, overflow, and sign extension
+// Types: i8, i16, i32, u8, u16, u32
+// All stored as 64-bit on the stack but truncated/extended on load/store.
+
+var ok = 1;
+
+// ── i8: signed 8-bit (-128 to 127) ──
+var i8_a: i8 = 127;
+if (i8_a != 127) { ok = 0; }
+
+i8_a = -128;
+if (i8_a != -128) { ok = 0; }
+
+// Overflow: 128 wraps to -128
+i8_a = 128;
+if (i8_a != -128) { ok = 0; }
+
+i8_a = -129;     // -129 wraps to 127 in i8
+if (i8_a != 127) { ok = 0; }
+
+// Addition overflow
+i8_a = 100;
+i8_a += 30;      // 130 → -126
+if (i8_a != -126) { ok = 0; }
+
+// ── u8: unsigned 8-bit (0 to 255) ──
+var u8_a: u8 = 255;
+if (u8_a != 255) { ok = 0; }
+
+u8_a = 0;
+if (u8_a != 0) { ok = 0; }
+
+// Overflow: 256 wraps to 0
+u8_a = 256;
+if (u8_a != 0) { ok = 0; }
+
+// Negative assigns to u8: wraps around
+u8_a = -1;
+if (u8_a != 255) { ok = 0; }
+
+// Addition overflow
+u8_a = 200;
+u8_a += 100;     // 300 → 44
+if (u8_a != 44) { ok = 0; }
+
+// ── i16: signed 16-bit ──
+var i16_a: i16 = 32767;
+if (i16_a != 32767) { ok = 0; }
+
+i16_a = -32768;
+if (i16_a != -32768) { ok = 0; }
+
+i16_a = 32768;   // overflow: -32768
+if (i16_a != -32768) { ok = 0; }
+
+// ── u16: unsigned 16-bit ──
+var u16_a: u16 = 65535;
+if (u16_a != 65535) { ok = 0; }
+
+u16_a = 65536;   // overflow: 0
+if (u16_a != 0) { ok = 0; }
+
+// ── i32: signed 32-bit ──
+var i32_a: i32 = 2147483647;
+if (i32_a != 2147483647) { ok = 0; }
+
+i32_a = -2147483648;
+if (i32_a != -2147483648) { ok = 0; }
+
+i32_a = 2147483648;  // overflow: -2147483648
+if (i32_a != -2147483648) { ok = 0; }
+
+// ── u32: unsigned 32-bit ──
+var u32_a: u32 = 4294967295;
+if (u32_a != 4294967295) { ok = 0; }
+
+u32_a = 4294967296;  // overflow: 0
+if (u32_a != 0) { ok = 0; }
+
+// ── Compound assignment with type truncation ──
+var tv: i8 = 0;
+tv = tv + 200;     // 200 → -56 when truncated to i8
+if (tv != -56) { ok = 0; }
+
+tv += 100;         // -56 + 100 = 44, fits in i8
+if (tv != 44) { ok = 0; }
+
+// ── i8 multiplication overflow ──
+var im: i8 = 20;
+im = im * 10;      // 200 → -56
+if (im != -56) { ok = 0; }
+
+// ── u8 multiplication overflow ──
+var um: u8 = 20;
+um = um * 10;      // 200 → 200 (fits in u8)
+if (um != 200) { ok = 0; }
+
+// ── Bitwise operations on typed values ──
+var bx: u8 = 171;      // 0xAB
+var by: u8 = 205;      // 0xCD
+var bz: u8 = bx & by;
+// 171 & 205 = 137 (0x89)
+if (bz != 137) { ok = 0; }
+
+// ── Shift operations on typed values ──
+var sx: u8 = 128;
+var sy: u8 = 1;
+var sz: u8 = sx >> sy;
+// 128 >> 1 = 64
+if (sz != 64) { ok = 0; }
+
+// ── Negation on small types ──
+var nx: i8 = -(-128);   // -(-128) wraps to -128
+if (nx != -128) { ok = 0; }
+
+var ny: i8 = -(-127);
+if (ny != 127) { ok = 0; }
+
+// ── Comparison with typed values ──
+var ca: u8 = 200;
+var cb: u8 = 100;
+if (ca > cb) { ok = ok; } else { ok = 0; }
+if (ca < cb) { ok = 0; } else { ok = ok; }
+
+return(ok);

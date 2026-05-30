@@ -1,0 +1,8 @@
+// Compile-fail tests: various invalid programs
+// These should all be rejected by the compiler
+
+// Cannot assign to a constant
+const X = 10;
+X = 20;          // error
+
+return(0);

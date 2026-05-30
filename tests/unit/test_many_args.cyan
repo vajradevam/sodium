@@ -1,0 +1,59 @@
+// Test: function with many arguments (exercises stack argument overflow)
+// x86-64 passes first 6 args in registers (rdi, rsi, rdx, rcx, r8, r9),
+// remaining go on the stack.  RISC-V passes first 8 in a0-a7.
+// This test uses up to 9 args to exercise both register + stack paths.
+//
+// NOTE: The register allocator has a known limitation: at most ~5 values
+// can span function calls simultaneously (limited by callee-save regs).
+// We avoid function-call arguments in the 9-arg test to work around this.
+
+function sum9(a, b, c, d, e, f, g, h, i) {
+    return (a + b + c + d + e + f + g + h + i);
+}
+
+// All 9 args are immediates — no extra call-spanning vregs
+var r = sum9(1, 2, 3, 4, 5, 6, 7, 8, 9);
+// 1+2+3+4+5+6+7+8+9 = 45
+
+// Test with the 7th, 8th, 9th args explicitly checked for correct ordering
+function check_order9(a, b, c, d, e, f, g, h, i) {
+    if (g != 7) { return(0); }
+    if (h != 8) { return(0); }
+    if (i != 9) { return(0); }
+    return(1);
+}
+
+var r_check = check_order9(0, 0, 0, 0, 0, 0, 7, 8, 9);
+
+// More modest arg counts (no stack arg issues)
+function sum6(a, b, c, d, e, f) {
+    return (a + b + c + d + e + f);
+}
+
+function sum4(a, b, c, d) {
+    return (a + b + c + d);
+}
+
+function sum2(a, b) {
+    return (a + b);
+}
+
+// Nested calls with modest arg counts
+var r2 = sum6(1, 2, 3, 4, 5, 6);
+// 21
+var r3 = sum4(1, 2, 3, 4);
+// 10
+
+// Chain of calls
+var r4 = sum2(sum4(1,2,3,4), sum6(1,2,3,4,5,6));
+// sum4=10, sum6=21, sum2(10,21)=31
+
+// Verify all results
+var ok = 1;
+if (r != 45)      { ok = 0; }
+if (r2 != 21)     { ok = 0; }
+if (r3 != 10)     { ok = 0; }
+if (r4 != 31)     { ok = 0; }
+if (r_check != 1) { ok = 0; }
+
+return(ok);

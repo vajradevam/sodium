@@ -1,0 +1,24 @@
+// Test: unary bitwise NOT (~)
+// Also test XOR and shifts as standalone expressions
+var a = ~0;
+// a == -1 (all bits set)
+var b = ~(-1);
+// b == 0
+var c = ~65280;  // 0xFF00 = 65280
+// c == 0xFFFFFFFFFF00FF (at 64 bits)
+var d = 165 ^ 90;  // 0xA5 ^ 0x5A = 0xFF
+// d == 255 (A5 xor 5A = FF)
+var e = 1 << 10;
+// e == 1024
+var f = 1024 >> 3;
+// f == 128
+var g = ~(1 << 5);
+// g == all ones except bit 5
+var check = 0;
+
+if (a == -1) { check = check + 10; }
+if (b == 0) { check = check + 10; }
+if (d == 255) { check = check + 20; }
+if (e == 1024) { check = check + 20; }
+if (f == 128) { check = check + 20; }
+return(check);

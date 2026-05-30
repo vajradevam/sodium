@@ -1,0 +1,142 @@
+// Test: deeply nested control flow — exercises block scoping,
+// register pressure, and branch label generation.
+
+var ok = 1;
+
+// ── Deeply nested if-else (6 levels) ──
+var depth = 0;
+if (1 == 1) {
+    if (2 == 2) {
+        if (3 == 3) {
+            if (4 == 4) {
+                if (5 == 5) {
+                    if (6 == 6) {
+                        depth = 6;
+                    }
+                }
+            }
+        }
+    }
+}
+if (depth != 6) { ok = 0; }
+
+// ── Deeply nested loops ──
+var loop_sum = 0;
+var a = 0;
+while (a < 2) {
+    var b = 0;
+    while (b < 2) {
+        var c = 0;
+        while (c < 2) {
+            loop_sum = loop_sum + 1;
+            c = c + 1;
+        }
+        b = b + 1;
+    }
+    a = a + 1;
+}
+if (loop_sum != 8) { ok = 0; }   // 2*2*2 = 8
+
+// ── Mixed: if inside while inside if inside for ──
+var mix = 0;
+for (var i = 0; i < 3; i = i + 1) {
+    if (i > 0) {
+        var j = 0;
+        while (j < 3) {
+            if (j > i) {
+                mix = mix + i * j;
+            }
+            j = j + 1;
+        }
+    }
+}
+// i=1: j=2 → 1*2=2
+// i=2: j=3 → 2*3=6  (but j<3 so j=2: 2*2=4)
+// Actually: i=1: j>1 → j=2 → 1*2=2
+//           i=2: j>2 → no j values (j max is 2) → 0
+// mix = 2
+if (mix != 2) { ok = 0; }
+
+// ── Do-while containing switch ──
+var dsw = 0;
+var dsw_sum = 0;
+do {
+    switch (dsw) {
+        case 0:
+            dsw_sum = dsw_sum + 10;
+        case 1:
+            dsw_sum = dsw_sum + 20;
+        case 2:
+            dsw_sum = dsw_sum + 30;
+    }
+    dsw = dsw + 1;
+} while (dsw < 3);
+// Each iteration: switch always takes the first matching case
+// dsw=0: case 0 blocks (no fall-through without break, but this is Cyan switch without break fallthrough)
+// Actually in Cyan switch, does it fall through or break after each case?
+// Looking at the switch implementation:
+// - gen_expr for each case value, compare
+// - if match, jump to case label
+// - case label emits case body statements, then falls through to next case label
+// - At the end of all cases, jmp to end label
+// So WITHOUT break in case body, execution falls through to the next case!
+// dsw=0: case 0 executes (adds 10), then falls through to case 1 (adds 20), then to case 2 (adds 30) = 60
+// dsw=1: falls to case 1 (adds 20), then case 2 (adds 30) = 50
+// dsw=2: case 2 (adds 30) = 30
+// Total = 60 + 50 + 30 = 140
+if (dsw_sum != 140) { ok = 0; }
+
+// ── For loop: test variable is updated correctly ──
+var after_for = 0;
+for (var fi = 0; fi < 10; fi = fi + 1) {
+    after_for = fi;
+}
+// after_for = 9 (last value before loop ends)
+if (after_for != 9) { ok = 0; }
+
+// ── While with break at very start ──
+var wb = 0;
+while (wb < 10) {
+    if (wb == 0) {
+        wb = 5;     // modify before potential break
+    }
+    if (wb > 5) {
+        break;
+    }
+    wb = wb + 1;
+}
+if (wb != 6) { ok = 0; }       // 5 → 6 → break
+
+// ── Switch with fallthrough ──
+var st = 3;
+var fall_val = 0;
+switch (st) {
+    case 1:
+        fall_val = 10;
+    case 2:
+        fall_val = 20;
+    case 3:
+        fall_val = 30;
+        // falls through to default
+    default:
+        fall_val = fall_val + 5;  // 30 + 5 = 35
+}
+if (fall_val != 35) { ok = 0; }
+
+// ── Nested block scoping with shadowing ──
+var sv = 1;
+{
+    var sv = 2;
+    {
+        var sv = 3;
+        {
+            var sv = 4;
+            if (sv != 4) { ok = 0; }
+        }
+        if (sv != 3) { ok = 0; }
+    }
+    if (sv != 2) { ok = 0; }
+}
+if (sv != 1) { ok = 0; }
+
+return(ok);

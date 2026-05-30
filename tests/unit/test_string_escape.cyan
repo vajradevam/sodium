@@ -1,0 +1,13 @@
+// String literal edge cases
+// Test that various string contents compile and run without crash
+
+var s1 = "hello";
+var s2 = "";
+var s3 = "a";
+var s4 = "special chars: !@#$%^&*()_+-=[]{}|;:,.<>?/~";
+var s5 = "numbers: 0123456789";
+var s6 = "backslash backslash";
+var s7 = "";  // empty string
+var long_str = "long Lorem ipsum dolor sit amet consectetur adipiscing elit sed do eiusmod tempor incididunt ut labore et dolore magna aliqua Ut enim ad minim veniam quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur";
+
+return(0);

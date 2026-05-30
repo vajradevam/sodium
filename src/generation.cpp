@@ -154,8 +154,9 @@ void Generator::store_var_from_vstack(const std::string& name, AssignOp op) {
             m_ir.store(IRValue::vreg(m_ir.lea_label(name)), 0, IRValue::vreg(val));
         } else {
             load_var_to_vstack(name);
-            uint32_t rhs = pop_vreg();
-            uint32_t lhs = pop_vreg();
+            // vstack after load: [..., RHS, LHS] (RHS from gen_expr, LHS from load_var)
+            uint32_t lhs = pop_vreg();  // LHS (old value) is on top
+            uint32_t rhs = pop_vreg();  // RHS (expr value) is below
             uint32_t result = lhs;
             switch (op) {
                 case AssignOp::add_assign:     result = m_ir.add(IRValue::vreg(lhs), IRValue::vreg(rhs)); break;
@@ -1468,9 +1469,12 @@ void Generator::collect_globals(const std::vector<NodeStmt>& stmts)
     m_backend_ptr->extern_sym("_sodium_malloc");
     m_backend_ptr->extern_sym("_sodium_free");
 
-    // Emit _start function to the backend directly (it's the entry point, not a compiled function)
+    // Emit the _start entry point: it just jumps to _start_body.
+    // Global initializers (if any) are emitted as a separate function
+    // that _start_body calls at the beginning.
     m_backend_ptr->global_sym("_start");
     m_backend_ptr->label("_start");
+    m_backend_ptr->jmp("_start_body");
 
     // Global initializers — emit as IR and flush
     if (!m_global_inits.empty()) {
@@ -1491,6 +1495,11 @@ void Generator::collect_globals(const std::vector<NodeStmt>& stmts)
     {
         m_ir.start_function("_start_body");
         m_next_frame_slot = 0;
+
+        // If there are global initializers, call them before main body
+        if (!m_global_inits.empty()) {
+            m_ir.call("_start_globals", {});
+        }
 
         for (const NodeStmt& stmt : m_prog.stmts) {
             gen_stmt(stmt);

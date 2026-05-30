@@ -1,0 +1,155 @@
+// SFL Allocator stress test
+// The new segregated-free-list allocator has 15 size classes
+// covering 16..2048 bytes total (8..2040 payload).
+// This test exercises every size class, deallocation reuse,
+// large allocations (bump path), and OOM handling.
+
+// ── 1. Allocate one block from each size class ──
+var p8   = malloc(8);
+var p16  = malloc(16);
+var p24  = malloc(24);
+var p40  = malloc(40);
+var p56  = malloc(56);
+var p88  = malloc(88);
+var p120 = malloc(120);
+var p184 = malloc(184);
+var p248 = malloc(248);
+var p376 = malloc(376);
+var p504 = malloc(504);
+var p760 = malloc(760);
+
+// Write patterns
+*p8   = 17;
+*p16  = 34;
+*p24  = 51;
+*p40  = 68;
+*p56  = 85;
+*p88  = 102;
+*p120 = 119;
+*p184 = 136;
+*p248 = 153;
+*p376 = 170;
+*p504 = 187;
+*p760 = 204;
+
+// Verify all patterns survived
+var ok = 1;
+if (*p8   != 17)  { ok = 0; }
+if (*p16  != 34)  { ok = 0; }
+if (*p24  != 51)  { ok = 0; }
+if (*p40  != 68)  { ok = 0; }
+if (*p56  != 85)  { ok = 0; }
+if (*p88  != 102) { ok = 0; }
+if (*p120 != 119) { ok = 0; }
+if (*p184 != 136) { ok = 0; }
+if (*p248 != 153) { ok = 0; }
+if (*p376 != 170) { ok = 0; }
+if (*p504 != 187) { ok = 0; }
+if (*p760 != 204) { ok = 0; }
+
+// ── 2. Free and re-allocate (reuse test) ──
+free(p16);
+free(p88);
+free(p376);
+var r1 = malloc(16);
+var r2 = malloc(88);
+var r3 = malloc(376);
+*r1 = 57005;
+*r2 = 48879;
+*r3 = 51966;
+if (*r1 != 57005) { ok = 0; }
+if (*r2 != 48879) { ok = 0; }
+if (*r3 != 51966) { ok = 0; }
+
+// ── 3. Large allocations (bump path, >2048 bytes) ──
+var big1 = malloc(3000);
+var big2 = malloc(10000);
+*big1 = 4660;
+*big2 = 22136;
+if (*big1 != 4660)  { ok = 0; }
+if (*big2 != 22136) { ok = 0; }
+
+// Free large blocks (goes through header check, class=NUM_CLASSES sentinel — should not crash)
+free(big1);
+free(big2);
+
+// ── 4. Free(NULL) must not crash ──
+free(0);
+
+// ── 5. malloc(0) returns null but must not crash ──
+var z = malloc(0);
+
+// ── 6. Many small allocations (exercise bump fallback + free list buildup) ──
+var many[50];
+var i = 0;
+while (i < 50) {
+    many[i] = malloc(8);
+    *many[i] = i * 10;
+    i = i + 1;
+}
+// Verify all 50 blocks
+i = 0;
+while (i < 50) {
+    if (*many[i] != i * 10) { ok = 0; }
+    i = i + 1;
+}
+// Free them all (builds up the free list)
+i = 0;
+while (i < 50) {
+    free(many[i]);
+    i = i + 1;
+}
+
+// ── 7. Re-allocate 50 blocks again — should reuse from free list ──
+i = 0;
+while (i < 50) {
+    many[i] = malloc(8);
+    *many[i] = i * 5;
+    i = i + 1;
+}
+i = 0;
+while (i < 50) {
+    if (*many[i] != i * 5) { ok = 0; }
+    i = i + 1;
+}
+// Free half
+i = 0;
+while (i < 25) {
+    free(many[i]);
+    i = i + 1;
+}
+// Allocate 25 more — should pop from free list
+i = 0;
+while (i < 25) {
+    many[i] = malloc(8);
+    *many[i] = i * 100;
+    i = i + 1;
+}
+i = 0;
+while (i < 25) {
+    if (*many[i] != i * 100) { ok = 0; }
+    i = i + 1;
+}
+
+// ── 8. Non-overlap test: two adjacent allocations must be distinct ──
+var a = malloc(8);
+var b = malloc(8);
+*a = 42;
+*b = 99;
+if (*a != 42) { ok = 0; }
+if (*b != 99) { ok = 0; }
+// Writing to *a must not clobber *b
+*a = 7;
+if (*b != 99) { ok = 0; }
+
+// ── 9. Size class boundary: allocate exact class payload sizes ──
+var c0 = malloc(8);
+*c0 = 255;
+if (*c0 != 255) { ok = 0; }
+
+// ── 10. Tiny request (1 byte) → smallest class (8 bytes usable) ──
+var tiny = malloc(1);
+*tiny = 42;
+if (*tiny != 42) { ok = 0; }
+
+return(ok);

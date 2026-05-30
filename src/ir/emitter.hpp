@@ -295,19 +295,41 @@ public:
                 // overflow args (> n_arg_regs) are pushed on the stack.
                 size_t nargs = insn.operands.size();
                 size_t n_arg_regs = m_tri.arg_regs.size();
-                for (size_t i = 0; i < nargs && i < n_arg_regs; i++) {
-                    std::string arg_reg = m_tri.name_of(m_tri.arg_regs[i]);
-                    m_backend.mov(arg_reg, operand_name(insn, i));
-                }
+
+                // CRITICAL: Save overflow args to the stack FIRST.
+                // The register setup below might clobber registers that
+                // hold values for overflow args (since the register
+                // allocator assigns vregs to physical regs without
+                // considering calling-convention constraints).
+                //
+                // Push right-to-left so the first stack argument ends up
+                // at the lowest address (closest to the return address),
+                // matching the LOAD_PARAM offset formula:
+                //   load_param(idx) = [fp + 16 + (idx - n_arg_regs) * 8]
                 if (nargs > n_arg_regs) {
-                    for (size_t i = n_arg_regs; i < nargs; i++) {
+                    for (size_t i = nargs; i-- > n_arg_regs; ) {
                         m_backend.push(operand_name(insn, i));
                     }
                 }
+
+                // Now set up register arguments IN REVERSE ORDER
+                // (highest-indexed arg first). This avoids clobbering:
+                // a later arg register might be used as temporary storage
+                // for an earlier arg value, and moving higher-indexed
+                // args first ensures those temporaries are consumed before
+                // they get overwritten.
+                int start = static_cast<int>((nargs < n_arg_regs) ? nargs : n_arg_regs);
+                for (int i = start - 1; i >= 0; i--) {
+                    std::string arg_reg = m_tri.name_of(m_tri.arg_regs[i]);
+                    m_backend.mov(arg_reg, operand_name(insn, static_cast<size_t>(i)));
+                }
+
                 m_backend.call(insn.call_target);
+
                 if (nargs > n_arg_regs) {
                     m_backend.adjust_stack(static_cast<int64_t>(nargs - n_arg_regs) * 8);
                 }
+
                 if (insn.dst != IRInstruction::NONE_VREG) {
                     std::string dst_name = preg_name(insn.dst);
                     std::string ret_name = m_tri.name_of(m_tri.ret_reg);

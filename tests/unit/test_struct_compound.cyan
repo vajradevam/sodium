@@ -1,0 +1,78 @@
+// Test: struct field compound assignment
+// struct field access with +=, -=, *=, etc.
+
+struct Point {
+    var x;
+    var y;
+    var z;
+};
+
+var ok = 1;
+var p: Point;
+
+// Initialize fields
+p.x = 10;
+p.y = 20;
+p.z = 30;
+
+// Compound assignments on fields
+p.x += 5;      // 10 + 5 = 15
+p.y -= 8;      // 20 - 8 = 12
+p.z *= 2;      // 30 * 2 = 60
+
+if (p.x != 15) { ok = 0; }
+if (p.y != 12) { ok = 0; }
+if (p.z != 60) { ok = 0; }
+
+// More compound ops
+p.x /= 3;      // 15 / 3 = 5
+p.y %= 5;      // 12 % 5 = 2
+p.z &= 255;    // 60 & 0xFF = 60
+
+if (p.x != 5)  { ok = 0; }
+if (p.y != 2)  { ok = 0; }
+if (p.z != 60) { ok = 0; }
+
+// Bitwise compound on fields
+p.x |= 240;    // 5 | 240 = 245
+p.y ^= 255;    // 2 ^ 255 = 253
+p.z <<= 2;     // 60 << 2 = 240
+
+if (p.x != 245)  { ok = 0; }
+if (p.y != 253)  { ok = 0; }
+if (p.z != 240)  { ok = 0; }
+
+// Reset for complex expression
+p.x = 10;
+p.y = 20;
+p.z = 240;
+
+// Complex: field += field + field
+p.x += p.y + p.z;   // x = 10 + (20 + 240) = 270
+if (p.x != 270) { ok = 0; }
+
+// Address-of a field and modify through pointer
+var px = &p.x;
+*px = 42;
+if (p.x != 42) { ok = 0; }
+
+*px += 100;      // 42 + 100 = 142
+if (p.x != 142) { ok = 0; }
+
+// Multiple struct variables
+var q: Point;
+q.x = 1;
+q.y = 2;
+q.z = 3;
+
+if (q.x != 1) { ok = 0; }
+if (q.y != 2) { ok = 0; }
+if (q.z != 3) { ok = 0; }
+
+// p should be unchanged from our operations
+// (p.x was modified via pointer, p.y and p.z unchanged since reset)
+if (p.x != 142) { ok = 0; }
+if (p.y != 20) { ok = 0; }
+if (p.z != 240) { ok = 0; }
+
+return(ok);

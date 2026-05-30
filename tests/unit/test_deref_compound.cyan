@@ -1,0 +1,70 @@
+// Test: compound assignment through pointer dereference
+// *ptr += expr, *ptr -= expr, *ptr *= expr, etc.
+
+var ok = 1;
+
+// ── Basic deref assign ──
+var x = 10;
+var px = &x;
+*px = 42;
+if (x != 42) { ok = 0; }     // x should be 42 now
+
+// ── *ptr += expr ──
+*px += 8;                     // x = 42 + 8 = 50
+if (x != 50) { ok = 0; }
+
+// ── *ptr -= expr ──
+*px -= 20;                    // x = 50 - 20 = 30
+if (x != 30) { ok = 0; }
+
+// ── *ptr *= expr ──
+*px *= 3;                     // x = 30 * 3 = 90
+if (x != 90) { ok = 0; }
+
+// ── *ptr /= expr ──
+*px /= 4;                     // x = 90 / 4 = 22
+if (x != 22) { ok = 0; }
+
+// ── *ptr %= expr ──
+*px %= 7;                     // x = 22 % 7 = 1
+if (x != 1) { ok = 0; }
+
+// ── Compound with expression on RHS ──
+*px = *(px) + *(px) * 10;     // x = 1 + 1*10 = 11
+if (x != 11) { ok = 0; }
+
+// ── Chain of pointers with compound ──
+var y = 100;
+var py = &y;
+
+*px = 20;
+*py = 30;
+
+// Identity: px points to x, so *px = *px + *py + 10
+*px = *px + *py + 10;         // x = 20 + 30 + 10 = 60
+if (x != 60) { ok = 0; }
+if (y != 30) { ok = 0; }     // y unchanged
+
+// ── Double deref compound ──
+var z = 5;
+var pz = &z;
+var ppz = &pz;
+
+**ppz = 25;                    // z = 25
+if (z != 25) { ok = 0; }
+
+**ppz += 10;                   // z = 25 + 10 = 35
+if (z != 35) { ok = 0; }
+
+**ppz *= 2;                    // z = 35 * 2 = 70
+if (z != 70) { ok = 0; }
+
+// ── Complex: *ptr = func(*ptr) ──
+function double_it(v) {
+    return (v * 2);
+}
+
+*px = double_it(*px);          // x = double_it(60) = 120
+if (x != 120) { ok = 0; }
+
+return(ok);

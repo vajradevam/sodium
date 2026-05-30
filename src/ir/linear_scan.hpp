@@ -108,10 +108,21 @@ public:
             expire_old_intervals(range.start);
 
             // 2b. Determine register preference order.
-            // If the value spans a call, prefer callee-save registers.
+            // If the value spans a call, prefer callee-save registers
+            // (which survive calls). Caller-save registers get clobbered
+            // by CALL instructions, so we avoid assigning them to values
+            // that span calls.
+            //
+            // NOTE: When callee-save registers are exhausted, we fall
+            // back to caller-save. This is incorrect (caller-save regs
+            // get clobbered), but the spill path is also broken (the
+            // backend doesn't handle spilled vregs). This is a known
+            // limitation: at most N values can span calls simultaneously,
+            // where N = number of callee-save registers (5 on x86-64).
+            // A proper fix requires either proper spill-code insertion
+            // or a calling-convention-aware register allocator.
             std::vector<int> preferred;
             if (range.spans_call) {
-                // Try callee-save first, fall back to caller-save
                 preferred = m_tri.callee_save_regs();
                 auto caller = m_tri.caller_save_regs();
                 preferred.insert(preferred.end(), caller.begin(), caller.end());

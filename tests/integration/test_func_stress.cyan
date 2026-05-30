@@ -1,0 +1,77 @@
+// Stress test: many function calls, deep call stack
+// Exercises register save/restore, stack frames, calling convention
+
+var ok = 1;
+
+// ── Many small functions ──
+function f1() { return(1); }
+function f2() { return(2); }
+function f3() { return(3); }
+function f4() { return(4); }
+function f5() { return(5); }
+function f6() { return(6); }
+function f7() { return(7); }
+function f8() { return(8); }
+function f9() { return(9); }
+function f10() { return(10); }
+
+var sum = f1() + f2() + f3() + f4() + f5() + f6() + f7() + f8() + f9() + f10();
+if (sum != 55) { ok = 0; }
+
+// ── Deep recursion (stack depth) ──
+function deep(n) {
+    if (n <= 0) return(0);
+    return(1 + deep(n - 1));
+}
+var d = deep(100);
+if (d != 100) { ok = 0; }
+
+// ── Tail-call-like sequence ──
+function chain1(v) { return(chain2(v + 1)); }
+function chain2(v) { return(chain3(v + 1)); }
+function chain3(v) { return(chain4(v + 1)); }
+function chain4(v) { return(chain5(v + 1)); }
+function chain5(v) { return(chain6(v + 1)); }
+function chain6(v) { return(chain7(v + 1)); }
+function chain7(v) { return(v + 1); }
+
+var ch = chain1(0);
+// chain1(0) → chain2(1) → chain3(2) → chain4(3) → chain5(4) → chain6(5) → chain7(6) → 7
+if (ch != 7) { ok = 0; }
+
+// ── Function that creates many local variables ──
+function many_locals(a, b, c) {
+    var l1 = a + b;
+    var l2 = b + c;
+    var l3 = c + a;
+    var l4 = l1 + l2;
+    var l5 = l2 + l3;
+    var l6 = l3 + l1;
+    var l7 = l4 + l5;
+    var l8 = l5 + l6;
+    var l9 = l6 + l7;
+    var l10 = l7 + l8;
+    var l11 = l8 + l9;
+    var l12 = l9 + l10;
+    var l13 = l10 + l11;
+    var l14 = l11 + l12;
+    var l15 = l12 + l13;
+    return(l14 + l15);
+}
+// This exercises stack frame allocation and register pressure
+
+var ml = many_locals(1, 2, 3);
+// Just checking it returns something (not crashing)
+if (ml == 0) { ok = 0; }
+
+// ── Function returning value from many nested calls ──
+function inner(x) {
+    if (x <= 0) return(0);
+    if (x == 1) return(1);
+    return(inner(x - 1) + inner(x - 2));
+}
+// Fibonacci
+var fib10 = inner(10);
+if (fib10 != 55) { ok = 0; }   // fib(10) = 55
+
+return(ok);

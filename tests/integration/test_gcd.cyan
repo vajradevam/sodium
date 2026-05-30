@@ -1,0 +1,30 @@
+// Euclidean GCD algorithm - tests recursion and modulo
+
+function gcd(a, b) {
+    if (b == 0) return(a);
+    return(gcd(b, a % b));
+}
+
+function lcm(a, b) {
+    return(a * b / gcd(a, b));
+}
+
+var ok = 1;
+
+// Test GCD
+if (gcd(12, 8) != 4)   { ok = 0; }
+if (gcd(100, 35) != 5) { ok = 0; }
+if (gcd(17, 13) != 1)  { ok = 0; }
+if (gcd(0, 5) != 5)    { ok = 0; }
+if (gcd(5, 0) != 5)    { ok = 0; }
+
+// Test LCM
+if (lcm(12, 8) != 24)  { ok = 0; }
+if (lcm(6, 8) != 24)   { ok = 0; }
+if (lcm(7, 13) != 91)  { ok = 0; }
+
+// Larger numbers
+if (gcd(1071, 462) != 21) { ok = 0; }
+if (gcd(123456, 7890) != 6) { ok = 0; }
+
+return(ok);

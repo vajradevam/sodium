@@ -1,0 +1,44 @@
+// Sieve of Eratosthenes - find all primes up to N
+// Uses arrays, loops, if/else, and basic arithmetic
+// This exercises the full pipeline
+
+const N = 100;
+var is_prime[N + 1];
+var count = 0;
+
+// Initialize: mark all as prime (1 = prime, 0 = not prime)
+var i = 2;
+while (i <= N) {
+    is_prime[i] = 1;
+    i = i + 1;
+}
+
+// Sieve
+i = 2;
+while (i * i <= N) {
+    if (is_prime[i] == 1) {
+        var j = i * i;
+        while (j <= N) {
+            is_prime[j] = 0;
+            j = j + i;
+        }
+    }
+    i = i + 1;
+}
+
+// Count primes and compute checksum
+var sum = 0;
+i = 2;
+while (i <= N) {
+    if (is_prime[i] == 1) {
+        count = count + 1;
+        sum = sum + i;
+    }
+    i = i + 1;
+}
+
+// Expected: 25 primes under 100, sum = 1060
+// (2+3+5+7+11+13+17+19+23+29+31+37+41+43+47+53+59+61+67+71+73+79+83+89+97 = 1060)
+if (count != 25) { return(0); }
+if (sum != 1060) { return(0); }
+return(1);

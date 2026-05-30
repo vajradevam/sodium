@@ -1,0 +1,75 @@
+// Test: complex global variable patterns
+// Global arrays, global with compound assignments, etc.
+
+global var g_simple = 42;
+global var g_arr[5];       // global array, BSS zero-initialized
+global var g_big[100];     // large global array
+global var g_uninit;        // BSS, zero
+global var g_expr = (10 + 20) * 2;  // global init with expression
+// Note: only literal int initializers are supported for globals currently
+// Expression initializers are handled in _start_globals
+
+var ok = 1;
+
+// Check global simple value
+if (g_simple != 42) { ok = 0; }
+
+// Check expression-initialized global
+if (g_expr != 60) { ok = 0; }
+
+// Initialize global array elements
+g_arr[0] = 10;
+g_arr[1] = 20;
+g_arr[2] = 30;
+g_arr[3] = 40;
+g_arr[4] = 50;
+
+if (g_arr[0] != 10) { ok = 0; }
+if (g_arr[1] != 20) { ok = 0; }
+if (g_arr[2] != 30) { ok = 0; }
+if (g_arr[3] != 40) { ok = 0; }
+if (g_arr[4] != 50) { ok = 0; }
+
+// Write to and read from large array
+g_big[0] = 123;
+g_big[99] = 456;
+if (g_big[0] != 123)  { ok = 0; }
+if (g_big[99] != 456) { ok = 0; }
+
+// Uninitialized global should be 0
+if (g_uninit != 0) { ok = 0; }
+
+// Compound assignment on global
+g_simple += 8;   // 42 + 8 = 50
+if (g_simple != 50) { ok = 0; }
+
+g_simple *= 2;   // 50 * 2 = 100
+if (g_simple != 100) { ok = 0; }
+
+g_simple /= 3;   // 100 / 3 = 33
+if (g_simple != 33) { ok = 0; }
+
+g_simple -= 5;   // 33 - 5 = 28
+if (g_simple != 28) { ok = 0; }
+
+g_simple %= 9;   // 28 % 9 = 1
+if (g_simple != 1) { ok = 0; }
+
+// Global array element: direct assign
+// (compound on array elements isn't supported by parser)
+g_arr[2] = g_arr[2] + 5;   // 30 + 5 = 35
+if (g_arr[2] != 35) { ok = 0; }
+
+// Global in function
+function get_g_simple() {
+    return(g_simple);
+}
+if (get_g_simple() != 1) { ok = 0; }
+
+function set_g_simple(v) {
+    g_simple = v;
+}
+set_g_simple(999);
+if (g_simple != 999) { ok = 0; }
+
+return(ok);
