@@ -32,13 +32,14 @@ int main(int argc, char* argv[]) {
     bool print_ast_flag = false;
     bool emit_ir_flag = false;
     bool no_alloc_flag = false;
+    bool emit_asm_only = false;     // -S: stop after assembly
     const char* filename = nullptr;
     std::string output_path;         // -o <file>, or derived from input
     std::vector<std::string> include_dirs;
     std::string target = "x86_64";  // default
 
     auto usage = []() {
-        std::cerr << "Usage: sodium [--target <arch>] [--print-ast] [--emit-ir] [--no-alloc] [-o <file>] [-I <dir>] <filename.cyan>" << std::endl;
+        std::cerr << "Usage: sodium [--target <arch>] [--print-ast] [--emit-ir] [--no-alloc] [-o <file>] [-S] [-I <dir>] <filename.cyan>" << std::endl;
     };
 
     for (int i = 1; i < argc; i++) {
@@ -62,6 +63,8 @@ int main(int argc, char* argv[]) {
                 std::cerr << "-o requires an argument" << std::endl;
                 exit(EXIT_FAILURE);
             }
+        } else if (std::strcmp(argv[i], "-S") == 0 || std::strcmp(argv[i], "--emit-asm") == 0) {
+            emit_asm_only = true;
         } else if (std::strcmp(argv[i], "-I") == 0 || std::strcmp(argv[i], "--include-dir") == 0) {
             if (i + 1 < argc) {
                 include_dirs.push_back(argv[++i]);
@@ -92,7 +95,12 @@ int main(int argc, char* argv[]) {
         if (base.size() > 5 && base.substr(base.size() - 5) == ".cyan") {
             base = base.substr(0, base.size() - 5);
         }
-        output_path = base;
+        // When emitting assembly only, default to .asm extension
+        if (emit_asm_only) {
+            output_path = base + ".asm";
+        } else {
+            output_path = base;
+        }
     }
 
     // Helper: get directory part of a path (like dirname(1), but doesn't modify input).
@@ -147,34 +155,45 @@ int main(int argc, char* argv[]) {
         exit(EXIT_FAILURE);
     };
 
-    // Create a temporary directory for intermediate files (.asm, .o)
-    g_tmp_dir = "/tmp/sodium-XXXXXX";
-    if (!mkdtemp(g_tmp_dir.data())) {
-        std::cerr << "error: failed to create temporary directory" << std::endl;
-        exit(EXIT_FAILURE);
-    }
-    std::atexit(cleanup_temp_dir);
-
     // Select backend and target info
     Backend* backend = nullptr;
     TargetRegisterInfo* tri = nullptr;
-    std::string asm_file = g_tmp_dir + "/out.asm";
-    std::string obj_file = g_tmp_dir + "/out.o";
-    std::string exe_file = g_tmp_dir + "/out";
     std::string asm_cmd, link_cmd, rt_dir;
+    std::string asm_file, obj_file, exe_file;
+
+    if (emit_asm_only) {
+        // Write assembly directly to the output path, no intermediates needed
+        asm_file = output_path;
+    } else {
+        // Create a temporary directory for intermediate files (.asm, .o)
+        g_tmp_dir = "/tmp/sodium-XXXXXX";
+        if (!mkdtemp(g_tmp_dir.data())) {
+            std::cerr << "error: failed to create temporary directory" << std::endl;
+            exit(EXIT_FAILURE);
+        }
+        std::atexit(cleanup_temp_dir);
+
+        asm_file = g_tmp_dir + "/out.asm";
+        obj_file = g_tmp_dir + "/out.o";
+        exe_file = g_tmp_dir + "/out";
+    }
 
     if (target == "x86_64") {
         backend = new X8664Backend();
         tri = new TargetRegisterInfo(TargetRegisterInfo::x86_64_systemv());
         rt_dir = resolve_rt_dir();
-        asm_cmd = "nasm -felf64 " + asm_file + " -o " + obj_file;
-        link_cmd = "ld -o " + exe_file + " " + obj_file + " " + rt_dir + "/sodium-rt.a";
+        if (!emit_asm_only) {
+            asm_cmd = "nasm -felf64 " + asm_file + " -o " + obj_file;
+            link_cmd = "ld -o " + exe_file + " " + obj_file + " " + rt_dir + "/sodium-rt.a";
+        }
     } else if (target == "riscv64") {
         backend = new RISCV64Backend();
         tri = new TargetRegisterInfo(TargetRegisterInfo::riscv64_lp64());
         rt_dir = resolve_rt_dir();
-        asm_cmd = "riscv64-elf-as -march=rv64gc -mno-relax -o " + obj_file + " " + asm_file;
-        link_cmd = "riscv64-elf-gcc -nostdlib -static -Wl,--no-relax -o " + exe_file + " " + obj_file + " " + rt_dir + "/sodium-rt.a";
+        if (!emit_asm_only) {
+            asm_cmd = "riscv64-elf-as -march=rv64gc -mno-relax -o " + obj_file + " " + asm_file;
+            link_cmd = "riscv64-elf-gcc -nostdlib -static -Wl,--no-relax -o " + exe_file + " " + obj_file + " " + rt_dir + "/sodium-rt.a";
+        }
     } else {
         std::cerr << "Unsupported target: " << target << " (use x86_64 or riscv64)" << std::endl;
         exit(EXIT_FAILURE);
@@ -225,8 +244,22 @@ int main(int argc, char* argv[]) {
 
     // Write assembly file
     {
+        // For -S mode, ensure parent directory exists
+        if (emit_asm_only) {
+            auto out_dir = get_dir(asm_file);
+            if (out_dir != ".") {
+                system(("mkdir -p " + out_dir).c_str());
+            }
+        }
         std::fstream file(asm_file, std::ios::out);
         file << asm_output;
+    }
+
+    if (emit_asm_only) {
+        // -S: stop after writing assembly — no assemble, link, or copy
+        delete backend;
+        delete tri;
+        return EXIT_SUCCESS;
     }
 
     // Assemble
