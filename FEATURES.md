@@ -55,10 +55,16 @@
 | Compound assignment through pointer (`*ptr += expr`) | ✅ |
 | Double dereference (`**ptr`) | ✅ |
 | Pointer to struct fields | ✅ |
+| Pointer arithmetic (`ptr + n`, `ptr - n`, `&arr[i]`) | ✅ |
 | Pointer to global variables | ✅ |
 | `malloc()` / `free()` builtins (SFL allocator) | ✅ |
 | Empty blocks (`{}`) | ✅ |
 | Unicode escape sequences in strings | ✅ |
+
+### Runtime
+| Feature | Status |
+|---------|--------|
+| Large-block free list (first-fit, no leak on free) | ✅ |
 
 ### Compiler Infrastructure
 | Feature | Status |

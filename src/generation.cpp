@@ -481,6 +481,31 @@ void Generator::gen_expr(const NodeExpr& expr)
                     return;
                 }
                 lsp_exit(addr_of->ampersand.loc, "Undeclared identifier: " + name);
+            } else if (auto* arr_idx = std::get_if<NodeExprIndex*>(&inner->var)) {
+                // &arr[i] — address of array element
+                const auto& name = (*arr_idx)->name.value.value();
+                gen->gen_expr(*(*arr_idx)->index);
+                uint32_t idx = gen->pop_vreg();
+                // Try local scope first
+                for (auto it = gen->m_scopes.rbegin(); it != gen->m_scopes.rend(); ++it) {
+                    if (it->vars.contains(name)) {
+                        const auto& var = it->vars.at(name);
+                        uint32_t base_addr = gen->m_ir.frame_addr(static_cast<int64_t>(var.stack_loc));
+                        uint32_t offset = gen->m_ir.mul(IRValue::vreg(idx), IRValue::imm_i64(8));
+                        uint32_t elem_addr = gen->m_ir.sub(IRValue::vreg(base_addr), IRValue::vreg(offset));
+                        gen->push_vreg(elem_addr);
+                        return;
+                    }
+                }
+                // Try global
+                if (gen->m_global_var_info.contains(name)) {
+                    uint32_t base_addr = gen->m_ir.lea_label(name);
+                    uint32_t offset = gen->m_ir.mul(IRValue::vreg(idx), IRValue::imm_i64(8));
+                    uint32_t elem_addr = gen->m_ir.add(IRValue::vreg(base_addr), IRValue::vreg(offset));
+                    gen->push_vreg(elem_addr);
+                    return;
+                }
+                lsp_exit((*arr_idx)->name.loc, "Undeclared identifier: " + name);
             } else if (auto* field = std::get_if<NodeExprFieldAccess*>(&inner->var)) {
                 // &obj.field
                 const auto& obj_name = (*field)->obj_name.value.value();

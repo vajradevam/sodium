@@ -179,6 +179,17 @@ free(buf);
 var p: Point;
 var px = &p.x;
 *px = 42;
+
+// Pointer arithmetic (byte-level, no implicit scaling)
+var arr[4];
+var p = &arr[0];         // address of array element
+p = p - 8;               // advance to next element (stack grows down)
+var val = *(p + 8);      // dereference pointer + offset
+
+// With malloc'd buffers (ascending addresses)
+var buf = malloc(32);
+*(buf + 0) = 10;
+*(buf + 8) = 20;         // second 8-byte slot
 ```
 
 ### Command-line arguments
@@ -251,7 +262,7 @@ qemu-riscv64 ./program
 ```
 
 All language features work identically on both targets. The full test suite
-(217+ tests) runs on both architectures with 0 failures.
+(219+ tests) runs on both architectures with 0 failures.
 
 ## Building from Source
 
@@ -404,7 +415,7 @@ bash scripts/run_tests.sh
 ```
 
 ```text
-Results: 217 passed, 0 failed
+Results: 219 passed, 0 failed
 ```
 
 Each test file compiles to both backends and the resulting binary's exit

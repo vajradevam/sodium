@@ -1,0 +1,10 @@
+// Test that large-block free list works (>2048 bytes)
+// Allocate, free, reallocate — should reuse the same address
+var buf1 = malloc(3000);
+var a1 = buf1;
+free(buf1);
+var buf2 = malloc(3000);
+var a2 = buf2;
+// Same address means free list reused the block
+if (a1 != a2) { return(1); }
+return(0);

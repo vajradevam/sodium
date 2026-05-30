@@ -22,7 +22,7 @@
 - [ ] `fread` / `fwrite` builtins
 - [ ] `fprintf` / `fscanf` builtins
 - [ ] Text file reading/writing
-- [ ] Large-block free list for >2048 byte allocations
+- [x] Large-block free list for >2048 byte allocations
 - [ ] Growable heap via `mmap` / `brk`
 - [ ] True coalescing to reduce fragmentation
 
@@ -37,7 +37,7 @@
 ## Phase 7: Language Completeness
 
 - [ ] Pointer type annotations (`var p: int*`)
-- [ ] Pointer arithmetic (`ptr + 1`, `ptr - 1`)
+- [x] Pointer arithmetic (`ptr + 1`, `ptr - 1`, `&arr[i]`)
 - [ ] Null pointer safety (check before deref)
 - [ ] Passing structs by value to functions
 - [ ] Struct return values
