@@ -537,6 +537,41 @@ void Generator::gen_expr(const NodeExpr& expr)
                 gen->m_ir.call("_sodium_free", {IRValue::vreg(ptr)});
                 return;
             }
+            if (fname == "argc") {
+                // argc() — return number of command-line arguments
+                if (!expr_call->args.empty()) {
+                    lsp_exit(expr_call->name.loc, "argc() takes no arguments");
+                }
+                uint32_t addr = gen->m_ir.lea_label("__sodium_argc");
+                uint32_t val = gen->m_ir.load(IRValue::vreg(addr), 0);
+                gen->push_vreg(val);
+                return;
+            }
+            if (fname == "argv") {
+                // argv(i) — return pointer to the i-th argument string
+                if (expr_call->args.size() != 1) {
+                    lsp_exit(expr_call->name.loc, "argv() takes exactly one argument (the index)");
+                }
+                gen->gen_expr(*expr_call->args[0]);
+                uint32_t idx = gen->pop_vreg();
+                uint32_t addr = gen->m_ir.lea_label("__sodium_argv");
+                uint32_t argv_ptr = gen->m_ir.load(IRValue::vreg(addr), 0);
+                uint32_t offset = gen->m_ir.mul(IRValue::vreg(idx), IRValue::imm_i64(8));
+                uint32_t entry_addr = gen->m_ir.add(IRValue::vreg(argv_ptr), IRValue::vreg(offset));
+                uint32_t str_ptr = gen->m_ir.load(IRValue::vreg(entry_addr), 0);
+                gen->push_vreg(str_ptr);
+                return;
+            }
+            if (fname == "print_str") {
+                // print_str(s) — print a null-terminated string
+                if (expr_call->args.size() != 1) {
+                    lsp_exit(expr_call->name.loc, "print_str() takes exactly one argument");
+                }
+                gen->gen_expr(*expr_call->args[0]);
+                uint32_t ptr = gen->pop_vreg();
+                gen->m_ir.call("_sodium_print_str", {IRValue::vreg(ptr)});
+                return;
+            }
 
             if (!gen->m_func_names.contains(fname)) {
                 lsp_exit(expr_call->name.loc, "Undefined function: " + fname);
@@ -1481,12 +1516,31 @@ void Generator::collect_globals(const std::vector<NodeStmt>& stmts)
     m_backend_ptr->extern_sym("_sodium_read_int");
     m_backend_ptr->extern_sym("_sodium_malloc");
     m_backend_ptr->extern_sym("_sodium_free");
+    m_backend_ptr->extern_sym("_sodium_print_str");
+    m_backend_ptr->extern_sym("__sodium_argc");
+    m_backend_ptr->extern_sym("__sodium_argv");
 
-    // Emit the _start entry point: it just jumps to _start_body.
-    // Global initializers (if any) are emitted as a separate function
-    // that _start_body calls at the beginning.
+    // Emit the _start entry point.
+    // Before jumping to _start_body, save argc and argv from the
+    // kernel-provided stack/registers into runtime globals so that
+    // the builtins argc() and argv() can access them.
     m_backend_ptr->global_sym("_start");
     m_backend_ptr->label("_start");
+    if (m_backend_ptr->target_name() == "x86_64") {
+        // x86-64: argc at [rsp], argv at [rsp+8]
+        m_backend_ptr->emit_insn("mov", "rax, [rsp]");
+        m_backend_ptr->store(m_backend_ptr->addr_label("__sodium_argc"), "rax");
+        m_backend_ptr->emit_insn("lea", "rax, [rsp+8]");
+        m_backend_ptr->store(m_backend_ptr->addr_label("__sodium_argv"), "rax");
+    } else {
+        // RISC-V: argc at [sp], argv at [sp+8] (stack convention in QEMU/Linux)
+        m_backend_ptr->emit_insn("ld", "t0, 0(sp)");
+        m_backend_ptr->emit_insn("la", "t1, __sodium_argc");
+        m_backend_ptr->emit_insn("sd", "t0, 0(t1)");
+        m_backend_ptr->emit_insn("addi", "t0, sp, 8");
+        m_backend_ptr->emit_insn("la", "t1, __sodium_argv");
+        m_backend_ptr->emit_insn("sd", "t0, 0(t1)");
+    }
     m_backend_ptr->jmp("_start_body");
 
     // Global initializers — emit as IR and flush

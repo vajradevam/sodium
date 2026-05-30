@@ -13,6 +13,7 @@ public:
 
     void set_output(std::ostream& os) override;
     std::ostream& output() override;
+    std::string target_name() const override { return "x86_64"; }
 
     // Stack
     void push(const std::string& reg) override;

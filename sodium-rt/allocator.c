@@ -54,6 +54,10 @@ static void *bump_ptr __attribute__((used)) = (void*)&heap;
 // When a block is free, its first 8 payload bytes store the next pointer.
 static void *free_lists[NUM_CLASSES] __attribute__((used));
 
+// Command-line arguments (populated by _start before calling main).
+long __sodium_argc __attribute__((used)) = 0;
+void *__sodium_argv __attribute__((used)) = 0;
+
 // ── Helpers ─────────────────────────────────────────────────────────────
 
 // Find the smallest class whose total size fits (header + request).

@@ -14,6 +14,7 @@ public:
 
     void set_output(std::ostream& os) override { (void)os; }
     std::ostream& output() override { static std::ostream null(nullptr); return null; }
+    std::string target_name() const override { return "null"; }
 
     void push(const std::string& reg) override { (void)reg; }
     void pop(const std::string& reg) override { (void)reg; }

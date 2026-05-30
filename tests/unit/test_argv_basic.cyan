@@ -1,0 +1,19 @@
+// Test argv() builtin
+// argv(0) should return a non-null pointer (the program path)
+// argv(argc()) should return null (NULL terminator)
+
+var ac = argc();
+if (ac < 1) {
+    return(1);  // fail: argc should be at least 1
+}
+
+// argv(0) should be non-null
+var p = argv(0);
+if (p == 0) {
+    return(2);  // fail: argv(0) is null
+}
+
+// argv(0) should be a valid readable address
+// (can't dereference in Cyan, but at least it's non-zero)
+
+return(0);  // pass

@@ -49,3 +49,27 @@ _sodium_print_int:
     syscall
     add rsp, 32
     ret
+
+; x86-64 runtime: print null-terminated string
+; void _sodium_print_str(const char *str)
+global _sodium_print_str
+
+_sodium_print_str:
+    ; rdi = pointer to null-terminated string
+    push rbx
+    mov rbx, rdi
+    ; strlen(rdi)
+    mov rdi, rbx
+    xor rax, rax
+    mov rcx, -1
+    repne scasb
+    not rcx
+    dec rcx                 ; rcx = strlen (excluding null)
+    ; write(1, rbx, rcx)
+    mov rax, 1              ; syscall: write
+    mov rdi, 1              ; stdout
+    mov rsi, rbx            ; buf
+    mov rdx, rcx            ; len
+    syscall
+    pop rbx
+    ret

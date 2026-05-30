@@ -20,6 +20,9 @@ public:
     /// Get the output stream.
     virtual std::ostream& output() = 0;
 
+    /// Return a short name for this target architecture (e.g., "x86_64", "riscv64").
+    virtual std::string target_name() const = 0;
+
     /// Emit a raw instruction with optional operands (generic fallback).
     virtual void emit_insn(const std::string& insn, const std::string& ops = "") = 0;
 

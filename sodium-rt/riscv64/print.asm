@@ -58,3 +58,24 @@ _sodium_print_int:
     ecall
     
     ret
+
+# RISC-V 64-bit _sodium_print_str
+# Prints a null-terminated string to stdout.
+# a0 = pointer to string
+.globl _sodium_print_str
+_sodium_print_str:
+    mv t0, a0           # save pointer
+    # strlen: scan for null byte
+    mv t1, a0
+1:  lbu t2, 0(t1)
+    beqz t2, 2f
+    addi t1, t1, 1
+    j 1b
+2:  sub t2, t1, t0      # t2 = strlen
+    # write(1, t0, t2)
+    li a7, 64
+    li a0, 1
+    mv a1, t0
+    mv a2, t2
+    ecall
+    ret
