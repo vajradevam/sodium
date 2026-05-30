@@ -99,7 +99,7 @@ struct TargetRegisterInfo {
         info.add(8, "r8",  true, false);    // arg #5
         info.add(9, "r9",  true, false);    // arg #6
         info.add(10, "r10", true, false);
-        info.add(11, "r11", true, false);
+        info.add(11, "r11", true, false, true, false);  // scratch (reserved)
         info.add(12, "r12", false, true);
         info.add(13, "r13", false, true);
         info.add(14, "r14", false, true);
@@ -139,7 +139,7 @@ struct TargetRegisterInfo {
         info.add(3,  "gp",   false, false, true, false);   // global pointer
         info.add(4,  "tp",   false, false, true, false);   // thread pointer
 
-        info.add(5,  "t0", true, false);   // caller-save temp
+        info.add(5,  "t0", true, false, true, false);   // scratch (reserved)
         info.add(6,  "t1", true, false);
         info.add(7,  "t2", true, false);
         info.add(8,  "s0", false, true, true, false);   // frame pointer (reserved, not allocatable)

@@ -113,6 +113,7 @@ private:
 
     /// Scratch register name (t0 by default, configurable)
     std::string m_scratch = "t0";
+    bool m_norelax_emitted = false;
 
     /// Emit a scalar (register, register, immediate) operation: op rd, rs1, rs2
     void emit_rri(const std::string& op, const std::string& rd,

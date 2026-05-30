@@ -4,7 +4,7 @@
 
 AS = riscv64-elf-as
 AR = riscv64-elf-ar
-CFLAGS = -march=rv64gc
+CFLAGS = -march=rv64gc -mno-relax
 
 SRCS = crt0.asm exit.asm malloc.asm print.asm read.asm
 OBJS = $(SRCS:.asm=.o)

@@ -1,6 +1,7 @@
 #include "backend.hpp"
 #include <sstream>
 #include <cstdint>
+#include <cctype>
 
 RISCV64Backend::RISCV64Backend(std::ostream& os)
     : m_output(&os) {}
@@ -16,6 +17,13 @@ std::ostream& RISCV64Backend::output() {
 // ---- helpers ----
 
 void RISCV64Backend::emit_insn(const std::string& insn, const std::string& ops) {
+    // Emit .option norelax once at the start to prevent the assembler
+    // from converting la (PC-relative) to gp-relative addressing.
+    // We don't initialize gp in _start, so gp-relative would crash.
+    if (!m_norelax_emitted) {
+        m_norelax_emitted = true;
+        *m_output << ".option norelax\n";
+    }
     if (ops.empty())
         *m_output << "    " << insn << "\n";
     else
@@ -24,12 +32,23 @@ void RISCV64Backend::emit_insn(const std::string& insn, const std::string& ops) 
 
 void RISCV64Backend::emit_rri(const std::string& op, const std::string& rd,
                                const std::string& rs1, const std::string& rs2) {
-    emit_insn(op, rd + ", " + rs1 + ", " + rs2);
+    // Convert literal "0" to "x0" (RISC-V gas doesn't accept bare 0 as register)
+    std::string r2 = (rs2 == "0") ? "x0" : rs2;
+    std::string r1 = (rs1 == "0") ? "x0" : rs1;
+    emit_insn(op, rd + ", " + r1 + ", " + r2);
 }
 
 void RISCV64Backend::emit_ri(const std::string& op, const std::string& rd,
                               const std::string& rs1, int64_t imm) {
     emit_insn(op, rd + ", " + rs1 + ", " + std::to_string(imm));
+}
+
+/// Check if a string looks like an immediate value (not a register name).
+static bool is_imm_str(const std::string& s) {
+    if (s.empty()) return false;
+    if (s[0] == '-' || s[0] == '+') return s.size() > 1 && std::isdigit(s[1]);
+    if (std::isdigit(s[0])) return true;
+    return false;
 }
 
 // ---- stack ----
@@ -91,7 +110,12 @@ void RISCV64Backend::load(const std::string& reg, const std::string& addr) {
 }
 
 void RISCV64Backend::store(const std::string& addr, const std::string& reg) {
-    emit_insn("sd", reg + ", " + addr);
+    // RISC-V gas doesn't accept bare "0" as a register; use x0
+    if (reg == "0") {
+        emit_insn("sd", "x0, " + addr);
+    } else {
+        emit_insn("sd", reg + ", " + addr);
+    }
 }
 
 void RISCV64Backend::mov(const std::string& dst, const std::string& src) {
@@ -199,17 +223,38 @@ void RISCV64Backend::movsx(const std::string& dst, const std::string& src, size_
 // ---- arithmetic ----
 
 void RISCV64Backend::add(const std::string& dst, const std::string& src) {
-    // dst = dst + src — assumes dst already has value
-    // For RISC-V: add dst, dst, src
-    emit_rri("add", dst, dst, src);
+    // dst = dst + src
+    if (is_imm_str(src)) {
+        emit_ri("addi", dst, dst, std::stoll(src));
+    } else {
+        emit_rri("add", dst, dst, src);
+    }
 }
 
 void RISCV64Backend::sub(const std::string& dst, const std::string& src) {
-    emit_rri("sub", dst, dst, src);
+    // dst = dst - src; RISC-V has no subi, use addi with negated immediate
+    if (is_imm_str(src)) {
+        int64_t val = std::stoll(src);
+        if (val == 0) {
+            // sub with 0 is a no-op for registers; for immediate 0, do nothing
+            // (already handled by is_imm_str)
+            return;
+        }
+        // sub dst, src = addi dst, -src
+        emit_ri("addi", dst, dst, -val);
+    } else {
+        emit_rri("sub", dst, dst, src);
+    }
 }
 
 void RISCV64Backend::mul(const std::string& dst, const std::string& src) {
-    emit_rri("mul", dst, dst, src);
+    // RISC-V mul requires three registers; load immediate into scratch if needed
+    if (is_imm_str(src)) {
+        emit_insn("li", m_scratch + ", " + src);
+        emit_rri("mul", dst, dst, m_scratch);
+    } else {
+        emit_rri("mul", dst, dst, src);
+    }
 }
 
 void RISCV64Backend::signed_div(const std::string& dst, const std::string& dividend,
@@ -235,28 +280,52 @@ void RISCV64Backend::not_(const std::string& reg) {
 }
 
 void RISCV64Backend::xor_(const std::string& dst, const std::string& src) {
-    emit_rri("xor", dst, dst, src);
+    if (is_imm_str(src)) {
+        emit_ri("xori", dst, dst, std::stoll(src));
+    } else {
+        emit_rri("xor", dst, dst, src);
+    }
 }
 
 void RISCV64Backend::and_(const std::string& dst, const std::string& src) {
-    emit_rri("and", dst, dst, src);
+    if (is_imm_str(src)) {
+        emit_ri("andi", dst, dst, std::stoll(src));
+    } else {
+        emit_rri("and", dst, dst, src);
+    }
 }
 
 void RISCV64Backend::or_(const std::string& dst, const std::string& src) {
-    emit_rri("or", dst, dst, src);
+    if (is_imm_str(src)) {
+        emit_ri("ori", dst, dst, std::stoll(src));
+    } else {
+        emit_rri("or", dst, dst, src);
+    }
 }
 
 void RISCV64Backend::shl(const std::string& dst, const std::string& src) {
-    // RISC-V: sll rd, rs1, rs2 — no CL constraint
-    emit_rri("sll", dst, dst, src);
+    // RISC-V: sll rd, rs1, rs2 (register) or slli rd, rs1, shamt (immediate)
+    if (is_imm_str(src)) {
+        emit_ri("slli", dst, dst, std::stoll(src));
+    } else {
+        emit_rri("sll", dst, dst, src);
+    }
 }
 
 void RISCV64Backend::shr(const std::string& dst, const std::string& src) {
-    emit_rri("srl", dst, dst, src);
+    if (is_imm_str(src)) {
+        emit_ri("srli", dst, dst, std::stoll(src));
+    } else {
+        emit_rri("srl", dst, dst, src);
+    }
 }
 
 void RISCV64Backend::ashr(const std::string& dst, const std::string& src) {
-    emit_rri("sra", dst, dst, src);
+    if (is_imm_str(src)) {
+        emit_ri("srai", dst, dst, std::stoll(src));
+    } else {
+        emit_rri("sra", dst, dst, src);
+    }
 }
 
 // ---- comparison ----
