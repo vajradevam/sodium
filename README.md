@@ -181,6 +181,21 @@ var px = &p.x;
 *px = 42;
 ```
 
+### Command-line arguments
+
+```cyan
+print("argc = ");     // string literal → print_str
+print(argc());         // integer
+var i = 0;
+while i < argc() {
+    print(argv(i));    // pointer → prints address (use print_str for the string)
+    i++;
+}
+```
+
+The entry point is top-level statements (not a `main` function). The runtime
+captures `argc` and `argv` from the kernel before any user code runs.
+
 ### Global and static variables
 
 ```cyan
@@ -209,9 +224,13 @@ const PAGE = 0x1000;          // 4096
 ### Input / output
 
 ```cyan
-print(42);               // print integer to stdout
+print(42);               // print integer to stdout    (appends newline)
+print("hello");          // print string to stdout     (appends newline)
 var input = read();       // read decimal integer from stdin
 ```
+
+The `print` statement automatically detects whether the argument is a string
+literal or an integer expression and calls the appropriate runtime function.
 
 ## Both Architectures
 
@@ -232,7 +251,7 @@ qemu-riscv64 ./program
 ```
 
 All language features work identically on both targets. The full test suite
-(211+ tests) runs on both architectures with 0 failures.
+(217+ tests) runs on both architectures with 0 failures.
 
 ## Building from Source
 
@@ -385,7 +404,7 @@ bash scripts/run_tests.sh
 ```
 
 ```text
-Results: 211 passed, 0 failed
+Results: 217 passed, 0 failed
 ```
 
 Each test file compiles to both backends and the resulting binary's exit
@@ -423,6 +442,8 @@ Install with:
 - **LSP server**: fully functional with VS Code extension
 - **Hex literals** (`0x` prefix) and **logical NOT** (`!`) operator
 - **SFL heap allocator** with 15 size classes, O(1) alloc/free
+- **`argc()`/`argv()` builtins** for command-line argument access
+- **`print_str()` builtin** and **unified `print`** that handles both strings and integers
 - **Platform**: Linux (x86-64 native + RISC-V cross-compile via qemu)
 
 ## License

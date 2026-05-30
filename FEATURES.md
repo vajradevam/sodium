@@ -10,6 +10,7 @@
 | Comparison (`<`, `>`, `<=`, `>=`, `==`, `!=`) | ✅ |
 | Logical (`&&`, `\|\|`) | ✅ |
 | Bitwise (`&`, `\|`, `^`, `~`, `<<`, `>>`) | ✅ |
+| Logical NOT (`!`) | ✅ |
 | Compound assignment (`+=`, `-=`, `*=`, `/=`, `%=`, `&=`, `\|=`, `^=`, `<<=`, `>>=`) | ✅ |
 | Increment/decrement (`++x`, `x++`, `--x`, `x--`) | ✅ |
 | Ternary conditional (`cond ? a : b`) | ✅ |
@@ -36,9 +37,14 @@
 | Undefined function call detection (compile-time error) | ✅ |
 | Include mechanism (`#include` + `#pragma once`) | ✅ |
 | `print()` builtin (integer to stdout) | ✅ |
+| `print()` with string literals (unified dispatch) | ✅ |
+| `print_str()` builtin (string to stdout) | ✅ |
 | `read()` builtin (integer from stdin) | ✅ |
+| `argc()` builtin (argument count) | ✅ |
+| `argv()` builtin (argument vector) | ✅ |
 | Top-level statements (outside functions) | ✅ |
 | String literals (`"hello"`) | ✅ |
+| Hex integer literals (`0xFF`) | ✅ |
 | Struct declarations (`struct Name { var field; ... }`) | ✅ |
 | Struct variable declarations (`var p: Point;`) | ✅ |
 | Field access (`p.x`) | ✅ |
@@ -100,8 +106,7 @@
 | Large-block free list | >2048 byte allocations currently leak on free |
 | True coalescing | Reduce fragmentation |
 | Growable heap | Via `mmap` / `brk` |
-| `!` logical NOT operator | Currently unsupported |
-| Hex literal syntax (`0xFF`) | Currently unsupported |
+
 | Pointer type annotations | `var p: int*` |
 | Pointer arithmetic | `ptr + 1` |
 | Passing structs by value to functions | |
