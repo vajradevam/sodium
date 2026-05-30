@@ -1,8 +1,9 @@
-# Cyan Language Compiler
+# Cyan Language Compiler — Sodium
 
-**Sodium** is a compiler for the **Cyan** programming language which is a small, clean,
-compiled language targeting x86-64 Linux. Cyan is designed to be simple enough
-to hold in your head while being expressive enough for real programs.
+**Sodium** is a compiler for the **Cyan** programming language — a small, clean,
+compiled systems language targeting **x86-64 Linux** and **RISC-V 64**. Cyan is
+designed to be simple enough to hold in your head while being expressive enough
+for real programs.
 
 ## Quick Start
 
@@ -12,7 +13,7 @@ git clone https://github.com/vajradevam/sodium.git
 cd sodium
 cmake -B build && cmake --build build
 
-# Compile and run a Cyan program
+# Compile and run a Cyan program (x86-64)
 ./build/sodium my_program.cyan
 ./out
 echo $?   # exit code
@@ -26,10 +27,9 @@ sodium my_program.cyan
 
 ## Language Tour
 
-### The basics
+### Hello world
 
 ```cyan
-// Hello world via exit code
 return(42);
 ```
 
@@ -53,45 +53,68 @@ var name = "Cyan";
 ### Arithmetic and operators
 
 ```cyan
-var sum = x + y;
-var diff = x - y;
-var product = x * y;
-var quotient = x / y;
-var remainder = x % y;
+var sum   = x + y;
+var diff  = x - y;
+var prod  = x * y;
+var quot  = x / y;
+var rem   = x % y;
 
 // Comparison
-var eq = x == y;
+var eq  = x == y;
 var neq = x != y;
-var lt = x < y;
-var gt = x > y;
+var lt  = x < y;
+var gt  = x > y;
 var lte = x <= y;
 var gte = x >= y;
 
 // Logical
-var both = x > 0 && y < 100;
+var both   = x > 0 && y < 100;
 var either = x > 0 || y > 0;
 
 // Bitwise
-var band = x & y;
-var bor = x | y;
-var bxor = x ^ y;
+var band    = x & y;
+var bor     = x | y;
+var bxor    = x ^ y;
 var shifted = x << 2;
-var unary_not = ~x;
+var not     = ~x;
 
 // Compound assignment
-x += 5;
-y *= 2;
-z >>= 1;
+x += 5;   y *= 2;   z >>= 1;
 
-// Increment / decrement
-var a = 0;
-a++;
-++a;
-a--;
---a;
+// Increment / decrement (statement-level)
+a++;   ++a;   a--;   --a;
 
 // Ternary
 var max = x > y ? x : y;
+```
+
+### Control flow
+
+```cyan
+// if / else if / else
+if x > 0 {
+    // ...
+} else if x == 0 {
+    // ...
+} else {
+    // ...
+}
+
+// while
+while i < 10 { i++; }
+
+// do-while
+do { i--; } while i > 0;
+
+// for
+for var i = 0; i < 10; i++ { print(i); }
+
+// switch (fall-through, no implicit break)
+switch x {
+    case 1 { print("one"); }
+    case 2 { print("two"); }
+    default { print("other"); }
+}
 ```
 
 ### Arrays
@@ -110,51 +133,6 @@ var buffer[size];
 buffer[0] = 42;
 ```
 
-### Control flow
-
-```cyan
-// if / else if / else
-if x > 0 {
-    print("positive");
-} else if x == 0 {
-    print("zero");
-} else {
-    print("negative");
-}
-
-// while
-while i < 10 {
-    i++;
-}
-
-// do-while
-do {
-    i--;
-} while i > 0;
-
-// for
-for var i = 0; i < 10; i++ {
-    print(i);
-}
-
-// switch
-switch x {
-    case 1 { print("one"); }
-    case 2 { print("two"); }
-    default { print("other"); }
-}
-```
-
-### Loops: break and continue
-
-```cyan
-for var i = 0; i < 100; i++ {
-    if i == 5 { break; }
-    if i % 2 == 0 { continue; }
-    print(i);
-}
-```
-
 ### Functions
 
 ```cyan
@@ -163,28 +141,53 @@ function add(a, b) {
 }
 
 var result = add(3, 4);
-return(result);
-```
 
-Functions can be recursive:
-
-```cyan
+// Recursion
 function factorial(n) {
-    if n <= 1 {
-        return(1);
-    }
+    if n <= 1 { return(1); }
     return(n * factorial(n - 1));
 }
+```
+
+### Structs
+
+```cyan
+struct Point { var x; var y; var z; };
+
+var p: Point;
+p.x = 10;  p.y = 20;  p.z = 30;
+p.x += 5;                // compound assignment on fields
+var sum = p.x + p.y;     // field reads in expressions
+```
+
+### Pointers and heap allocation
+
+```cyan
+var x = 42;
+var ptr = &x;
+*ptr = 100;              // write through pointer
+*ptr += 50;              // compound assign through pointer
+var y = *ptr;            // read through pointer
+
+// Heap allocation (SFL allocator)
+var buf = malloc(256);
+*buf = 123;
+free(buf);
+
+// Pointer to struct fields
+var p: Point;
+var px = &p.x;
+*px = 42;
 ```
 
 ### Global and static variables
 
 ```cyan
-global x = 42;         // initialized global
-global g_buf[256];     // zero-initialized (.bss)
+global g_count = 0;       // initialized global
+global g_buffer[256];     // zero-initialized (.bss)
 
 function counter() {
-    static calls = 0;  // persists across calls
+    static calls = 0;     // persists across calls
     calls++;
     return(calls);
 }
@@ -193,29 +196,45 @@ function counter() {
 ### Constants (compile-time evaluation)
 
 ```cyan
-const size = 100;
-const max = size * 2 + 1;
-const name = size > 50 ? "big" : "small";
-var arr[size];
+const SIZE = 100;
+const MAX = SIZE * 2 + 1;
+var arr[SIZE];
 ```
 
-### Input
+### Input / output
 
 ```cyan
-var input = read();
+print(42);               // print integer to stdout
+var input = read();       // read decimal integer from stdin
 ```
 
-Reads one decimal integer from stdin. Returns 0 at EOF.
+## Both Architectures
+
+Cyan compiles to **two backends** from the same source:
+
+```bash
+# x86-64 (native)
+./build/sodium program.cyan
+./out
+
+# RISC-V 64 (cross-compile)
+./build/sodium --target riscv64 program.cyan
+qemu-riscv64 ./out
+```
+
+All language features work identically on both targets. The full test suite
+(203+ tests) runs on both architectures with 0 failures.
 
 ## Building from Source
 
 ### Dependencies
 
-- **C++20 compiler** (GCC 11+, Clang 14+, or MSVC 2022+)
+- **C++20 compiler** (GCC 11+, Clang 14+)
 - **CMake** 3.15+
-- **NASM** (Netwide Assembler)
-- **ld** (GNU linker, part of binutils)
-- **Node.js** (for VS Code extension — optional)
+- **NASM** (for x86-64 assembly)
+- **GNU ld** (for x86-64 linking)
+- **riscv64-elf-gcc** (for RISC-V cross-compilation — optional)
+- **qemu-riscv64** (for running RISC-V binaries — optional)
 
 ### Build
 
@@ -223,114 +242,157 @@ Reads one decimal integer from stdin. Returns 0 at EOF.
 cmake -B build && cmake --build build
 ```
 
-Produces two executables in `build/`:
-- **`sodium`** — the Cyan compiler
-- **`cyan-lsp`** — the LSP language server
+Produces:
+- **`build/sodium`** — the Cyan compiler
+- **`build/cyan-lsp`** — the LSP language server
 
-### Build for development
+### Debug build
 
 ```bash
 cmake -B build -DCMAKE_BUILD_TYPE=Debug && cmake --build build
 ```
 
-### Install
+### Runtime library
+
+The runtime (`sodium-rt/`) includes CRT startup, I/O, and the heap allocator:
 
 ```bash
-./install.sh
+# Build runtime for x86-64
+make -C sodium-rt
+
+# Build runtime for RISC-V
+make -C sodium-rt/riscv64
 ```
 
-Installs `sodium` and `cyan-lsp` to `/usr/local/bin`.
+The runtime is linked automatically by the compiler.
 
-## Usage
+## Compilation Pipeline
 
-```text
-sodium [options] <file.cyan>
-
-Options:
-  --print-ast    Print the AST tree before code generation
-  --help         Show this help
-
-Output: out.asm (assembly), out.o (object), out (executable)
+```
+.cyan → Tokenizer → Parser → AST → IR Builder → 
+  Liveness Analysis → Linear Scan Allocator → IR Rewriter → 
+  Backend (x86-64 | RISC-V) → Assembly → Link → ELF
 ```
 
-### Compile-failure tests
+The compiler uses an **SSA-style intermediate representation** with virtual
+registers, liveness analysis, and linear scan register allocation before
+emitting target-specific assembly. This enables clean multi-architecture
+support and lays the groundwork for optimization passes.
 
-The test runner also supports tests that are expected to fail at compile time.
-Add your test file to the `COMPILE_FAIL_TESTS` array in `run_tests.sh`.
+### Runtime library
 
-## LSP Server
+A freestanding C runtime (`sodium-rt/allocator.c`) provides:
 
-The `cyan-lsp` server implements the Language Server Protocol over stdin/stdout.
-It provides:
-
-- **Diagnostics** — compile errors as you type (includes parser + generator errors)
-- **Completions** — keywords and identifiers from the current file
-- **Hover** — token kind and declaration detail
-- **Go-to-definition** — jumps to the declaration of any identifier
-- **Document symbols** — lists all functions, variables, constants, and parameters
-
-### VS Code Extension
-
-The `vscode-extension/` directory contains a VS Code extension that integrates
-the LSP server and provides syntax highlighting. Install it with:
-
-```bash
-./install.sh --vscode
-```
-
-The extension provides:
-- Syntax highlighting (TextMate grammar for `.cyan` files)
-- Cyan Dark theme (teal/cyan accents)
-- LSP integration (errors, completions, hover, go-to-definition, document symbols)
+- **Segregated Free List (SFL) allocator** — 15 size classes (16–2048 bytes),
+  O(1) alloc/free, 2 MB BSS heap, bump-pointer fallback for large blocks
+- CRT startup (`_start`) and exit
+- `print()` / `read()` via raw syscalls
 
 ## Project Structure
 
 ```
 ├── src/
-│   ├── main.cpp           ─ Entry point, CLI parsing
-│   ├── tokenization.hpp/cpp ─ Lexer / tokenizer
-│   ├── parser.hpp/cpp     ─ Recursive-descent parser → AST
-│   ├── generation.hpp/cpp ─ x86-64 code generator (NASM)
-│   ├── arena.hpp/cpp      ─ Arena allocator for AST nodes
-│   ├── ast_printer.hpp/cpp ─ Debug AST dump
-│   ├── json.hpp           ─ Minimal JSON library
-│   ├── lsp.hpp/cpp        ─ LSP server
-│   └── lsp_main.cpp       ─ LSP server entry point
-├── tests/                 ─ 68+ test .cyan files
-├── examples/              ─ Example programs
-├── vscode-extension/      ─ VS Code extension
-├── run_tests.sh           ─ Test runner
-├── install.sh             ─ Install script
-├── CMakeLists.txt
-├── README.md
-├── TODO.md
-├── FEATURES.md
-└── BUGS.md
+│   ├── main.cpp                 Entry point, CLI, linking
+│   ├── tokenization.hpp/cpp     Lexer
+│   ├── parser.hpp/cpp           Recursive-descent parser → AST
+│   ├── generation.hpp/cpp       Code generation (AST → IR → target)
+│   ├── preprocessor.hpp/cpp     #include, #pragma once
+│   ├── ast_printer.hpp/cpp      Debug AST dump
+│   ├── arena.hpp                Bump-pointer arena allocator
+│   ├── json.hpp                 Minimal JSON library
+│   ├── lsp.hpp/cpp              LSP server (diagnostics, completions, hover, goto-def)
+│   ├── lsp_main.cpp             LSP entry point
+│   ├── ir/                      Intermediate representation
+│   │   ├── builder.hpp          IR builder
+│   │   ├── module.hpp           IR module
+│   │   ├── function.hpp         IR functions
+│   │   ├── instruction.hpp      IR instruction format
+│   │   ├── value.hpp            Operand types (vregs, immediates, labels)
+│   │   ├── opcodes.hpp          All IR opcodes
+│   │   ├── liveness.hpp         Liveness analysis
+│   │   ├── linear_scan.hpp      Linear scan register allocation
+│   │   ├── rewriter.hpp         Assign physical registers to IR
+│   │   ├── emitter.hpp          IR → assembly emission
+│   │   ├── dump.hpp/cpp         IR debug dump
+│   │   ├── block.hpp            Basic blocks
+│   │   └── target_regs.hpp      Target register file descriptions
+│   └── backend/
+│       ├── interface.hpp        Abstract backend interface
+│       ├── x86_64/backend.hpp/cpp    x86-64 codegen
+│       ├── riscv64/backend.hpp/cpp   RISC-V 64 codegen
+│       └── null_backend.hpp     No-op backend for testing
+├── sodium-rt/                   Freestanding runtime library
+│   ├── allocator.c              SFL allocator (shared C source)
+│   ├── x86_64/                  x86-64 runtime (NASM assembly)
+│   │   ├── crt0.asm             CRT entry point
+│   │   ├── exit.asm             _sodium_exit
+│   │   ├── print.asm            _sodium_print_int
+│   │   ├── read.asm             _sodium_read_int
+│   │   └── Makefile
+│   └── riscv64/                 RISC-V 64 runtime (GAS assembly)
+│       ├── crt0.asm
+│       ├── exit.asm
+│       ├── print.asm
+│       ├── read.asm
+│       └── Makefile
+├── tests/
+│   ├── unit/                    100+ unit tests (.cyan)
+│   ├── integration/             Integration tests
+│   └── include/                 Include mechanism tests
+├── examples/                    Example programs
+├── vscode-extension/            VS Code extension (syntax + LSP)
+├── run_tests.sh                 Test runner (dual-architecture)
+├── install.sh                   Install script
+└── CMakeLists.txt
 ```
 
-## Compilation Pipeline
+## Testing
 
+The test suite runs on **both architectures**:
+
+```bash
+# Run all tests (x86-64 + RISC-V if qemu is available)
+bash run_tests.sh
 ```
-.cyan file → Tokenizer → Parser → Generator → out.asm → nasm → out.o → ld → out
+
+```text
+Results: 203 passed, 0 failed
 ```
 
-The compiler:
-1. **Tokenizes** the source into a flat vector of tokens
-2. **Parses** tokens into an AST (arena-allocated for performance)
-3. **Generates** x86-64 NASM assembly
-4. **Assembles** with NASM → object file
-5. **Links** with ld → ELF executable
+Each test file compiles to both backends and the resulting binary's exit
+code is checked against an expected value. Compile-failure tests verify
+that invalid programs are correctly rejected.
 
-Stack-based evaluation: `push rax` / `pop rdi` with a tracked stack pointer
-to correctly resolve variable offsets.
+## LSP Server
 
-## Status
+The `cyan-lsp` server implements the Language Server Protocol over stdin/stdout:
 
-- **68 tests passing** (62 runtime, 6 compile-failure)
-- **LSP server**: fully functional
-- **VS Code extension**: syntax highlighting + LSP integration
-- **Platform**: Linux x86-64 only (NASM + ld)
-- **Self-hosting**: not yet (see TODO.md)
+- **Diagnostics** — compile errors as you type
+- **Completions** — keywords and identifiers
+- **Hover** — token kind and declaration details
+- **Go-to-definition** — jumps to declaration
+- **Document symbols** — functions, variables, constants, parameters
+
+### VS Code Extension
+
+The `vscode-extension/` directory provides:
+- Syntax highlighting (TextMate grammar for `.cyan`)
+- Cyan Dark theme (teal/cyan accents)
+- LSP integration (errors, completions, hover, goto-def, document symbols)
+
+Install with:
+```bash
+./install.sh --vscode
+```
+
+## Current Status
+
+- **203+ tests passing** across both x86-64 and RISC-V
+- **Full IR pipeline** with SSA virtual registers and linear scan allocation
+- **Dual backend**: x86-64 (NASM) and RISC-V 64 (GAS)
+- **Complete runtime**: SFL allocator, CRT, I/O
+- **LSP server**: fully functional with VS Code extension
+- **Platform**: Linux (x86-64 native + RISC-V cross-compile via qemu)
 
 ## License
 

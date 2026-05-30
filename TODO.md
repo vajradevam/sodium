@@ -1,67 +1,61 @@
 # Sodium/Cyan — TODO
 
-## Phase 1: Polish for Distribution ✅
+## Immediate
 
-- [x] **README.md** — install instructions, language tour, examples, LSP/VS Code docs
-- [x] **install.sh** — one-command build + install of `sodium` and `cyan-lsp`
-- [x] **Example programs** — showcase `.cyan` files in an `examples/` directory
-- [x] **Update BUGS.md** — reflect current state; note already-fixed items
-- [x] **Update FEATURES.md** — reflect what's actually implemented
-- [x] **For-loop variable scoping** — `for (var i = …)` scopes `i` to the loop only
-- [x] **Global/static array declarations** — `global var arr[size]` syntax
-- [x] **Undefined function check** — clean compile error instead of linker crash
+- [ ] **Spill code in register allocator** — store callee-save values to stack
+      when caller-save registers are exhausted. Currently, values spanning >5
+      calls on x86-64 get silently corrupted.
 
-## Phase 2: Include Mechanism ✅
-
-- [x] `#include` directive — multi-file compilation
-- [x] Include search paths (current dir + `-I` flag)
-- [x] `#pragma once` guard mechanism
-- [x] `#error` directive for missing includes
-- [x] Tests for includes, pragma once, missing includes (65 tests pass)
-- [x] LSP server handles includes (preprocesses documents before tokenization)
-- [x] Proper file:line tracking in included files via `#line` markers
-
-## Phase 3: Structs / Compound Types ✅
-
-- [x] `struct` declaration syntax
-- [x] Field access (`obj.field`)
-- [x] Struct variable declaration (`var p: Point;`)
-- [x] Field assignment and compound assignment (`p.x += 5`)
-- [x] Structs inside functions
-- [x] Multiple struct types in one program
-- [x] Tests (69 tests pass)
-
-## Phase 4: Pointers & Heap Allocation ✅
-
-- [x] Address-of operator (`&`)
-- [x] Dereference operator (`*`)
-- [x] `malloc` / `free` builtins (bump allocator via `brk` syscall, free is no-op)
-- [x] Assignment through pointer (`*ptr = expr`)
-- [x] Compound assignment through pointer (`*ptr += expr`)
-- [x] Pointer to pointer (double deref)
-- [x] Pointer to struct fields (`&p.x`)
-- [x] Pointer to global variables
-- [x] Dereference in expressions and function calls
-- [x] Compile-time error for `&` on non-lvalue expressions
-- [x] Tests (84 tests pass)
-
-## Phase 5: File I/O ☐
+## Phase 5: File I/O & Runtime
 
 - [ ] `fopen` / `fclose` builtins
 - [ ] `fread` / `fwrite` builtins
 - [ ] `fprintf` / `fscanf` builtins
 - [ ] Text file reading/writing
 - [ ] Argument to `_start` (argc, argv)
+- [ ] Large-block free list for >2048 byte allocations
+- [ ] Growable heap via `mmap` / `brk`
+- [ ] True coalescing to reduce fragmentation
 
-## Phase 6: Runtime Library ☐
+## Phase 6: String & Math Library
 
 - [ ] `memcpy`, `memset`, `memcmp`
-- [ ] String operations (`strlen`, `strcmp`, `strcat`)
+- [ ] String operations (`strlen`, `strcmp`, `strcat`, `strcpy`)
 - [ ] `printf`-style formatting
 - [ ] `sprintf` / `snprintf`
 - [ ] Math helpers (`abs`, `min`, `max`, `clamp`)
 
-## Phase 7: Bootstrapping ☐
+## Phase 7: Language Completeness
+
+- [ ] `!` logical NOT operator (parser + codegen)
+- [ ] Hex literal syntax (`0xFF`, `0xAB`)
+- [ ] Pointer type annotations (`var p: int*`)
+- [ ] Pointer arithmetic (`ptr + 1`, `ptr - 1`)
+- [ ] Null pointer safety (check before deref)
+- [ ] Passing structs by value to functions
+- [ ] Struct return values
+- [ ] Arrays of structs
+- [ ] Nested structs
+- [ ] Struct literal initializers (`{ .x = 10 }`)
+- [ ] Multi-dimensional arrays
+- [ ] Enum types
+- [ ] Type aliases (`typedef`)
+
+## Phase 8: Optimization
+
+- [ ] Constant folding in IR
+- [ ] Dead code elimination
+- [ ] Peephole optimization pass
+- [ ] Function inlining
+
+## Phase 9: Tooling
+
+- [ ] Error recovery (report multiple errors per compilation)
+- [ ] Bounds checking (opt-in `--bounds` flag)
+- [ ] Inline assembly syntax
+- [ ] Package manager / standard library registry
+
+## Phase 10: Bootstrapping
 
 - [ ] Tokenizer written in Cyan
 - [ ] Parser written in Cyan
@@ -69,13 +63,43 @@
 - [ ] Self-hosted compiler can compile itself
 - [ ] Drop the C++ bootstrap compiler
 
-## Phase 8: Advanced Features ☐
+## Done ✅
 
-- [ ] Error recovery (report multiple errors)
-- [ ] Basic optimization (constant folding, dead code elimination)
-- [ ] Multi-dimensional arrays
-- [ ] Enum types
-- [ ] Type aliases (`typedef`)
-- [ ] Function pointers
-- [ ] Inline assembly
-- [ ] Bounds checking (opt-in)
+### Phase 1: Polish for Distribution
+- README with install instructions, language tour, examples, LSP/VS Code docs
+- `install.sh` — one-command build + install
+- Example programs in `examples/`
+- BUGS.md, FEATURES.md reflecting current state
+- For-loop variable scoping (`for var i` scoped to loop)
+- Global/static array declarations
+- Undefined function compile-time check
+
+### Phase 2: Include Mechanism
+- `#include` directive with search paths (`-I` flag)
+- `#pragma once` guard mechanism
+- `#error` directive
+- Tests for includes, pragma once, missing includes
+- LSP handles includes (preprocesses documents)
+
+### Phase 3: Structs
+- `struct` declaration and field access
+- Struct variable declaration (`var p: Point;`)
+- Field assignment and compound assignment
+- Multiple struct types
+
+### Phase 4: Pointers & Heap Allocation
+- Address-of (`&`) and dereference (`*`)
+- `malloc` / `free` builtins (SFL allocator)
+- Assignment through pointer (`*ptr = expr`)
+- Compound assignment through pointer (`*ptr += expr`)
+- Pointer to pointer (double deref)
+- Pointer to struct fields and globals
+
+### Phase 4.5: IR & Multi-Architecture
+- SSA-style intermediate representation
+- Liveness analysis + linear scan register allocation
+- x86-64 backend (NASM)
+- RISC-V 64 backend (GAS)
+- Dual-architecture test runner (203+ tests)
+- SFL allocator in shared C runtime
+- BSS memory pool (no syscalls)
