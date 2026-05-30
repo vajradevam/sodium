@@ -153,15 +153,44 @@ void RISCV64Backend::store_32(const std::string& addr, const std::string& src) {
 }
 
 void RISCV64Backend::movzx(const std::string& dst, const std::string& src, size_t src_bits) {
-    (void)src_bits;
-    // RISC-V loads (lbu/lhu/lwu) already zero-extend. For reg-to-reg:
-    // Just a move (already zero-extended by RISC-V convention)
-    emit_insn("mv", dst + ", " + src);
+    // Zero-extend src (which is a smaller register like al/bl/cl) to dst
+    switch (src_bits) {
+        case 8:
+            emit_ri("andi", dst, src, 0xFF);
+            break;
+        case 16:
+            emit_ri("slli", dst, src, 48);
+            emit_ri("srli", dst, dst, 48);
+            break;
+        case 32:
+            // 32-bit ops on RISC-V zero-extend to 64 bits
+            emit_insn("mv", dst + ", " + src);
+            break;
+        default:
+            emit_insn("mv", dst + ", " + src);
+            break;
+    }
 }
 
 void RISCV64Backend::movsx(const std::string& dst, const std::string& src, size_t src_bits) {
-    (void)src_bits;
-    emit_insn("mv", dst + ", " + src);
+    // Sign-extend src (a smaller subregister) to full dst width
+    switch (src_bits) {
+        case 8:
+            emit_ri("slli", dst, src, 56);
+            emit_ri("srai", dst, dst, 56);
+            break;
+        case 16:
+            emit_ri("slli", dst, src, 48);
+            emit_ri("srai", dst, dst, 48);
+            break;
+        case 32:
+            // addiw sign-extends 32-bit result to 64 bits
+            emit_ri("addiw", dst, src, 0);
+            break;
+        default:
+            emit_insn("mv", dst + ", " + src);
+            break;
+    }
 }
 
 // ---- arithmetic ----
@@ -189,8 +218,8 @@ void RISCV64Backend::signed_div(const std::string& dst, const std::string& divid
     if (dividend == dst) {
         emit_rri("div", dst, dst, divisor);
     } else {
-        mov("t0", dividend);
-        emit_rri("div", dst, "t0", divisor);
+        mov(m_scratch, dividend);
+        emit_rri("div", dst, m_scratch, divisor);
     }
 }
 
@@ -200,8 +229,8 @@ void RISCV64Backend::signed_mod(const std::string& dst, const std::string& divid
     if (dividend == dst) {
         emit_rri("rem", dst, dst, divisor);
     } else {
-        mov("t0", dividend);
-        emit_rri("rem", dst, "t0", divisor);
+        mov(m_scratch, dividend);
+        emit_rri("rem", dst, m_scratch, divisor);
     }
 }
 
@@ -241,22 +270,17 @@ void RISCV64Backend::ashr(const std::string& dst, const std::string& src) {
 // ---- comparison ----
 // RISC-V has no flags. cmp stores operands; set_cc emits actual compare.
 
-// We store the last cmp operands for use by set_cc
-static std::string s_cmp_a, s_cmp_b;
-
 void RISCV64Backend::cmp(const std::string& a, const std::string& b) {
-    s_cmp_a = a;
-    s_cmp_b = b;
+    m_cmp_a = a;
+    m_cmp_b = b;
 }
 
 void RISCV64Backend::test(const std::string& reg, const std::string& mask) {
     // test reg, mask sets flags based on reg & mask
-    // On RISC-V: andi t0, reg, mask; then branch if t0 != 0
-    // But we don't emit here — the branch follows immediately
-    // Actually, test is used before jz/jnz: test reg,reg; jnz label
+    // On RISC-V: andi scratch, reg, mask; then branch if scratch != 0
     // Store state for the branch
-    s_cmp_a = reg;
-    s_cmp_b = mask;
+    m_cmp_a = reg;
+    m_cmp_b = mask;
 }
 
 // ---- branches ----
@@ -267,83 +291,66 @@ void RISCV64Backend::jmp(const std::string& label) {
 }
 
 void RISCV64Backend::je(const std::string& label) {
-    // After cmp a, b: beq a, b, label
-    emit_rri("beq", s_cmp_a, s_cmp_b, label);
+    emit_rri("beq", m_cmp_a, m_cmp_b, label);
 }
 
 void RISCV64Backend::jne(const std::string& label) {
-    emit_rri("bne", s_cmp_a, s_cmp_b, label);
+    emit_rri("bne", m_cmp_a, m_cmp_b, label);
 }
 
 void RISCV64Backend::jl(const std::string& label) {
-    // Signed less-than
-    emit_rri("blt", s_cmp_a, s_cmp_b, label);
+    emit_rri("blt", m_cmp_a, m_cmp_b, label);
 }
 
 void RISCV64Backend::jle(const std::string& label) {
-    // a <= b → branch if not (b < a)
-    // Use: bge s_cmp_b, s_cmp_a, label  (wait, that's a >= b)
-    // Better: not (a > b) → branch if a <= b
-    // RISC-V has no ble. Use: bge s_cmp_b, s_cmp_a, label (b >= a → a <= b)
-    emit_rri("bge", s_cmp_b, s_cmp_a, label);
+    // a <= b → !(b < a) → use bge b, a (b >= a → a <= b)
+    emit_rri("bge", m_cmp_b, m_cmp_a, label);
 }
 
 void RISCV64Backend::jg(const std::string& label) {
     // a > b → b < a
-    emit_rri("blt", s_cmp_b, s_cmp_a, label);
+    emit_rri("blt", m_cmp_b, m_cmp_a, label);
 }
 
 void RISCV64Backend::jge(const std::string& label) {
-    // a >= b
-    emit_rri("bge", s_cmp_a, s_cmp_b, label);
+    emit_rri("bge", m_cmp_a, m_cmp_b, label);
 }
 
 void RISCV64Backend::jz(const std::string& label) {
-    // After test reg, mask: reg & mask == 0
-    // If mask is the same as reg (test reg, reg), use beqz
-    if (s_cmp_a == s_cmp_b) {
-        emit_insn("beqz", s_cmp_a + ", " + label);
+    if (m_cmp_a == m_cmp_b) {
+        emit_insn("beqz", m_cmp_a + ", " + label);
     } else {
-        emit_insn("and", "t0, " + s_cmp_a + ", " + s_cmp_b);
-        emit_insn("beqz", "t0, " + label);
+        emit_insn("and", m_scratch + ", " + m_cmp_a + ", " + m_cmp_b);
+        emit_insn("beqz", m_scratch + ", " + label);
     }
 }
 
 void RISCV64Backend::jnz(const std::string& label) {
-    // After test reg, reg: reg != 0
-    if (s_cmp_a == s_cmp_b) {
-        emit_insn("bnez", s_cmp_a + ", " + label);
+    if (m_cmp_a == m_cmp_b) {
+        emit_insn("bnez", m_cmp_a + ", " + label);
     } else {
-        emit_insn("and", "t0, " + s_cmp_a + ", " + s_cmp_b);
-        emit_insn("bnez", "t0, " + label);
+        emit_insn("and", m_scratch + ", " + m_cmp_a + ", " + m_cmp_b);
+        emit_insn("bnez", m_scratch + ", " + label);
     }
 }
 
 void RISCV64Backend::set_cc(const std::string& reg, const std::string& condition) {
-    // condition is "e", "ne", "l", "le", "g", "ge"
-    // On RISC-V, use slt/slti/seqz/snez etc.
     if (condition == "e") {
-        // reg = (a == b) ? 1 : 0
-        // Use: sub t0, a, b; seqz reg, t0
-        emit_rri("sub", "t0", s_cmp_a, s_cmp_b);
-        emit_insn("seqz", reg + ", t0");
+        emit_rri("sub", m_scratch, m_cmp_a, m_cmp_b);
+        emit_insn("seqz", reg + ", " + m_scratch);
     } else if (condition == "ne") {
-        emit_rri("sub", "t0", s_cmp_a, s_cmp_b);
-        emit_insn("snez", reg + ", t0");
+        emit_rri("sub", m_scratch, m_cmp_a, m_cmp_b);
+        emit_insn("snez", reg + ", " + m_scratch);
     } else if (condition == "l") {
-        // a < b (signed)
-        emit_rri("slt", reg, s_cmp_a, s_cmp_b);
+        emit_rri("slt", reg, m_cmp_a, m_cmp_b);
     } else if (condition == "le") {
-        // a <= b → !(b < a)
-        emit_rri("slt", "t0", s_cmp_b, s_cmp_a);
-        emit_ri("xori", reg, "t0", 1);
+        emit_rri("slt", m_scratch, m_cmp_b, m_cmp_a);
+        emit_ri("xori", reg, m_scratch, 1);
     } else if (condition == "g") {
-        // a > b → b < a
-        emit_rri("slt", reg, s_cmp_b, s_cmp_a);
+        emit_rri("slt", reg, m_cmp_b, m_cmp_a);
     } else if (condition == "ge") {
-        // a >= b → !(a < b)
-        emit_rri("slt", "t0", s_cmp_a, s_cmp_b);
-        emit_ri("xori", reg, "t0", 1);
+        emit_rri("slt", m_scratch, m_cmp_a, m_cmp_b);
+        emit_ri("xori", reg, m_scratch, 1);
     }
 }
 
@@ -416,12 +423,12 @@ std::string RISCV64Backend::addr_fp(int offset) const {
 }
 
 std::string RISCV64Backend::addr_indexed(const std::string& base, const std::string& index, int scale) const {
-    // RISC-V doesn't have indexed addressing; compute address manually
-    // For now, just use base (caller should compute index*scale separately)
-    (void)base;
+    // RISC-V doesn't have indexed addressing; return base + index*scale
+    // is not representable as a single string. Fallback: just use base.
+    // Caller should compute the address with separate add/mul instructions.
     (void)index;
     (void)scale;
-    return "0(s0)";  // fallback
+    return "0(" + base + ")";
 }
 
 std::string RISCV64Backend::addr_param(size_t index) const {

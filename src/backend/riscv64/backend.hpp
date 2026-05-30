@@ -105,6 +105,13 @@ public:
 private:
     std::ostream* m_output;
 
+    // Comparison state (stored by cmp/test, consumed by branches and set_cc)
+    std::string m_cmp_a;
+    std::string m_cmp_b;
+
+    /// Scratch register name (t0 by default, configurable)
+    std::string m_scratch = "t0";
+
     /// Emit a scalar (register, register, immediate) operation: op rd, rs1, rs2
     void emit_rri(const std::string& op, const std::string& rd,
                   const std::string& rs1, const std::string& rs2);
