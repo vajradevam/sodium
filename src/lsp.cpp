@@ -2,6 +2,8 @@
 #include "parser.hpp"
 #include "generation.hpp"
 #include "preprocessor.hpp"
+#include "backend/null_backend.hpp"
+#include "ir/target_regs.hpp"
 
 #include <iostream>
 #include <sstream>
@@ -353,7 +355,9 @@ ParseResult parse_document(const std::string& text, const std::string& filename 
 
             // Also run codegen to catch any semantic errors
             try {
-                Generator generator(std::move(prog));
+                NullBackend null_backend;
+                TargetRegisterInfo lsp_tri = TargetRegisterInfo::dummy();
+                Generator generator(std::move(prog), null_backend, lsp_tri);
                 std::string _discard = generator.gen_prog();
                 (void)_discard; // discard output, we only want errors
                 // If we get here, codegen succeeded — store the prog (already moved though)

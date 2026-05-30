@@ -173,4 +173,14 @@ struct TargetRegisterInfo {
 
         return info;
     }
+
+    /// Minimal dummy TargetRegisterInfo for LSP / testing.
+    /// Provides just enough structure for codegen but no real registers.
+    static TargetRegisterInfo dummy() {
+        TargetRegisterInfo info;
+        info.arg_regs = {};
+        info.ret_reg = 0;
+        info.scratch_reg = 0;
+        return info;
+    }
 };
