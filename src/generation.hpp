@@ -127,8 +127,12 @@ private:
         std::string name;
         std::string value;
     };
+    struct BssEntry {
+        std::string name;
+        size_t qwords;
+    };
     std::vector<DataEntry> m_data_entries;
-    std::vector<std::string> m_bss_entries;
+    std::vector<BssEntry> m_bss_entries;
 
     // ---- options ----
     bool m_no_alloc = false;

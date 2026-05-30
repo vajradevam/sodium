@@ -109,7 +109,7 @@ public:
                     else if (from_bits == 16)
                         m_backend.movzx(low32(dst), low16(dst), 16);
                     else if (from_bits == 32)
-                        m_backend.mov(low32(dst), low32(dst));
+                        m_backend.movzx(dst, low32(dst), 32);
                 } else {
                     if (from_bits == 8)
                         m_backend.movsx(dst, low8(dst), 8);

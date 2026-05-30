@@ -86,6 +86,19 @@ UNIT_TESTS["test_ptr_double.cyan"]=14
 UNIT_TESTS["test_ptr_struct.cyan"]=50
 UNIT_TESTS["test_ptr_expr.cyan"]=15
 UNIT_TESTS["test_ptr_func.cyan"]=42
+UNIT_TESTS["test_allocator_stress.cyan"]=1
+UNIT_TESTS["test_bitwise_not.cyan"]=80
+UNIT_TESTS["test_deref_compound.cyan"]=1
+UNIT_TESTS["test_div_mod.cyan"]=1
+UNIT_TESTS["test_empty_blocks.cyan"]=1
+UNIT_TESTS["test_forward_func.cyan"]=1
+UNIT_TESTS["test_global_complex.cyan"]=1
+UNIT_TESTS["test_inc_dec_edge.cyan"]=1
+UNIT_TESTS["test_many_args.cyan"]=1
+UNIT_TESTS["test_nested_control.cyan"]=1
+UNIT_TESTS["test_string_escape.cyan"]=0
+UNIT_TESTS["test_struct_compound.cyan"]=1
+UNIT_TESTS["test_type_conv.cyan"]=1
 
 # Unit tests that should fail to compile
 declare -a COMPILE_FAIL_UNIT
@@ -95,6 +108,8 @@ COMPILE_FAIL_UNIT+=("test_struct_not_struct.cyan")
 COMPILE_FAIL_UNIT+=("test_struct_unknown_type.cyan")
 COMPILE_FAIL_UNIT+=("test_struct_bad_read.cyan")
 COMPILE_FAIL_UNIT+=("test_ptr_bad_addr.cyan")
+COMPILE_FAIL_UNIT+=("test_bad_const_assign.cyan")
+COMPILE_FAIL_UNIT+=("test_bad_ops.cyan")
 
 # Unit tests that check stdout
 declare -A STDOUT_TESTS
@@ -194,6 +209,9 @@ declare -A INTEGRATION_TESTS
 INTEGRATION_TESTS["test_nested_loops.cyan"]=225
 INTEGRATION_TESTS["test_nested_if_while.cyan"]=15
 INTEGRATION_TESTS["test_complex.cyan"]=120
+INTEGRATION_TESTS["test_func_stress.cyan"]=1
+INTEGRATION_TESTS["test_gcd.cyan"]=1
+INTEGRATION_TESTS["test_sieve.cyan"]=1
 
 for test_file in "${!INTEGRATION_TESTS[@]}"; do
     filepath="tests/integration/$test_file"
@@ -269,6 +287,136 @@ for test_file in "test_include_missing.cyan"; do
         PASS=$((PASS + 1))
     fi
 done
+
+# ── RISC-V tests ──────────────────────────────────────────────────
+if command -v qemu-riscv64 &>/dev/null && command -v riscv64-elf-gcc &>/dev/null; then
+    echo ""
+    echo "  --- RISC-V backend ---"
+    echo ""
+
+    # Unit tests (all except stdin/stdout-checks)
+    for test_file in "${!UNIT_TESTS[@]}"; do
+        filepath="tests/unit/$test_file"
+        expected_exit=${UNIT_TESTS[$test_file]}
+
+        if [ ! -f "$filepath" ]; then
+            echo -e "${RED}[SKIP]${NC} RV64 unit/$test_file (not found)"
+            continue
+        fi
+
+        echo -n "Testing RV64 unit/$test_file... "
+
+        if ! $COMPILER --target riscv64 "$filepath" > /tmp/cyan_compile.log 2>&1; then
+            echo -e "${RED}COMPILE FAIL${NC}"
+            cat /tmp/cyan_compile.log
+            FAIL=$((FAIL + 1))
+            continue
+        fi
+
+        qemu-riscv64 ./out > /tmp/cyan_stdout.txt 2>&1; actual_exit=$?
+
+        if [ "$actual_exit" -eq "$expected_exit" ]; then
+            echo -e "${GREEN}PASS${NC} (exit: $actual_exit)"
+            PASS=$((PASS + 1))
+        else
+            echo -e "${RED}FAIL${NC}"
+            echo "  Expected exit: $expected_exit, got: $actual_exit"
+            FAIL=$((FAIL + 1))
+        fi
+    done
+
+    # Unit compile-failure tests
+    for test_file in "${COMPILE_FAIL_UNIT[@]}"; do
+        filepath="tests/unit/$test_file"
+        if [ ! -f "$filepath" ]; then
+            echo -e "${RED}[SKIP]${NC} RV64 unit/$test_file (not found)"
+            continue
+        fi
+        echo -n "Testing RV64 unit/$test_file (expect compile error)... "
+        if $COMPILER --target riscv64 "$filepath" > /tmp/cyan_compile.log 2>&1; then
+            echo -e "${RED}FAIL — compiled successfully (expected error)${NC}"
+            cat /tmp/cyan_compile.log
+            FAIL=$((FAIL + 1))
+        else
+            echo -e "${GREEN}PASS${NC} (correctly rejected)"
+            PASS=$((PASS + 1))
+        fi
+    done
+
+    # Integration tests
+    for test_file in "${!INTEGRATION_TESTS[@]}"; do
+        filepath="tests/integration/$test_file"
+        expected_exit=${INTEGRATION_TESTS[$test_file]}
+
+        if [ ! -f "$filepath" ]; then
+            echo -e "${RED}[SKIP]${NC} RV64 integration/$test_file (not found)"
+            continue
+        fi
+        echo -n "Testing RV64 integration/$test_file... "
+        if ! $COMPILER --target riscv64 "$filepath" > /tmp/cyan_compile.log 2>&1; then
+            echo -e "${RED}COMPILE FAIL${NC}"
+            cat /tmp/cyan_compile.log
+            FAIL=$((FAIL + 1))
+            continue
+        fi
+        qemu-riscv64 ./out > /tmp/cyan_stdout.txt 2>&1; actual_exit=$?
+        if [ "$actual_exit" -eq "$expected_exit" ]; then
+            echo -e "${GREEN}PASS${NC} (exit: $actual_exit)"
+            PASS=$((PASS + 1))
+        else
+            echo -e "${RED}FAIL${NC}"
+            echo "  Expected exit: $expected_exit, got: $actual_exit"
+            FAIL=$((FAIL + 1))
+        fi
+    done
+
+    # Include tests
+    for test_file in "${!INCLUDE_TESTS[@]}"; do
+        filepath="tests/include/$test_file"
+        expected_exit=${INCLUDE_TESTS[$test_file]}
+
+        if [ ! -f "$filepath" ]; then
+            echo -e "${RED}[SKIP]${NC} RV64 include/$test_file (not found)"
+            continue
+        fi
+        echo -n "Testing RV64 include/$test_file... "
+        if ! $COMPILER --target riscv64 "$filepath" -I "tests/include" > /tmp/cyan_compile.log 2>&1; then
+            echo -e "${RED}COMPILE FAIL${NC}"
+            cat /tmp/cyan_compile.log
+            FAIL=$((FAIL + 1))
+            continue
+        fi
+        qemu-riscv64 ./out > /tmp/cyan_stdout.txt 2>&1; actual_exit=$?
+        if [ "$actual_exit" -eq "$expected_exit" ]; then
+            echo -e "${GREEN}PASS${NC} (exit: $actual_exit)"
+            PASS=$((PASS + 1))
+        else
+            echo -e "${RED}FAIL${NC}"
+            echo "  Expected exit: $expected_exit, got: $actual_exit"
+            FAIL=$((FAIL + 1))
+        fi
+    done
+
+    # Include compile-failure test
+    for test_file in "test_include_missing.cyan"; do
+        filepath="tests/include/$test_file"
+        if [ ! -f "$filepath" ]; then
+            continue
+        fi
+        echo -n "Testing RV64 include/$test_file (expect compile error)... "
+        if $COMPILER --target riscv64 "$filepath" -I "tests/include" > /tmp/cyan_compile.log 2>&1; then
+            echo -e "${RED}FAIL — compiled successfully (expected error)${NC}"
+            cat /tmp/cyan_compile.log
+            FAIL=$((FAIL + 1))
+        else
+            echo -e "${GREEN}PASS${NC} (correctly rejected)"
+            PASS=$((PASS + 1))
+        fi
+    done
+else
+    echo ""
+    echo "  --- RISC-V backend: SKIPPED (qemu-riscv64 not found) ---"
+fi
 
 # ── Summary ────────────────────────────────────────────────────────
 echo ""

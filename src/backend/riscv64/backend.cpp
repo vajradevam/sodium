@@ -190,8 +190,9 @@ void RISCV64Backend::movzx(const std::string& dst, const std::string& src, size_
             emit_ri("srli", dst, dst, 48);
             break;
         case 32:
-            // 32-bit ops on RISC-V zero-extend to 64 bits
-            emit_insn("mv", dst + ", " + src);
+            // RISC-V: zero-extend 32-bit to 64 bits via left-right shift
+            emit_ri("slli", dst, src, 32);
+            emit_ri("srli", dst, dst, 32);
             break;
         default:
             emit_insn("mv", dst + ", " + src);
@@ -289,7 +290,15 @@ void RISCV64Backend::xor_(const std::string& dst, const std::string& src) {
 
 void RISCV64Backend::and_(const std::string& dst, const std::string& src) {
     if (is_imm_str(src)) {
-        emit_ri("andi", dst, dst, std::stoll(src));
+        int64_t imm = std::stoll(src);
+        // RISC-V: andi only accepts a 12-bit sign-extended immediate (-2048..2047).
+        // For larger values, load into t0 and use register-register and.
+        if (imm >= -2048 && imm <= 2047) {
+            emit_ri("andi", dst, dst, imm);
+        } else {
+            emit_insn("li", "t0, " + std::to_string(imm));
+            emit_rri("and", dst, dst, "t0");
+        }
     } else {
         emit_rri("and", dst, dst, src);
     }

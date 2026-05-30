@@ -1395,7 +1395,7 @@ void Generator::collect_globals(const std::vector<NodeStmt>& stmts)
             m_globals[name] = true;
             if (arr_size > 0) {
                 m_global_var_info[name] = Var { .stack_loc = 0, .array_size = arr_size };
-                m_bss_entries.push_back(name + ": resq " + std::to_string(arr_size));
+                m_bss_entries.push_back({name, arr_size});
             } else if ((*global)->expr) {
                 if (auto* int_lit = std::get_if<NodeExprIntLit*>(&(*global)->expr->var)) {
                     m_data_entries.push_back({name, (*int_lit)->int_lit.value.value()});
@@ -1404,7 +1404,7 @@ void Generator::collect_globals(const std::vector<NodeStmt>& stmts)
                     m_global_inits.push_back({name, (*global)->expr});
                 }
             } else {
-                m_bss_entries.push_back(name);
+                m_bss_entries.push_back({name, 1});
             }
         } else if (auto* const_stmt = std::get_if<NodeStmtConst*>(&stmt.var)) {
             const auto& name = (*const_stmt)->name.value.value();
@@ -1534,11 +1534,7 @@ void Generator::collect_globals(const std::vector<NodeStmt>& stmts)
     if (!m_bss_entries.empty()) {
         m_backend_ptr->section(".bss");
         for (const auto& entry : m_bss_entries) {
-            if (entry.find(' ') != std::string::npos) {
-                m_backend_ptr->emit_insn("", entry);
-            } else {
-                m_backend_ptr->resq(entry, 1);
-            }
+            m_backend_ptr->resq(entry.name, entry.qwords);
         }
     }
 
