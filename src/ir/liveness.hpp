@@ -69,8 +69,9 @@ inline LiveRanges compute_live_ranges(const IRFunction& func) {
     uint32_t idx = 0;
     for (auto& block : func.blocks) {
         for (auto& insn : block.instructions) {
-            // Track CALL and CALL_REG positions
-            if (insn.op == IROpcode::CALL || insn.op == IROpcode::CALL_REG) {
+            // Track CALL positions (values that span a call need
+            // callee-save registers to avoid being clobbered)
+            if (insn.op == IROpcode::CALL) {
                 call_positions.insert(idx);
             }
 

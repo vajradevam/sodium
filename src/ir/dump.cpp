@@ -56,7 +56,7 @@ const char* ir_opcode_name(IROpcode op) {
         case IROpcode::JMP:         return "jmp";
         case IROpcode::BR:          return "br";
         case IROpcode::CALL:        return "call";
-        case IROpcode::CALL_REG:    return "call_reg";
+        case IROpcode::LOAD_PARAM:  return "load_param";
         case IROpcode::RET:         return "ret";
         case IROpcode::RET_VOID:    return "ret_void";
         case IROpcode::SYSCALL:     return "syscall";
@@ -158,6 +158,10 @@ std::string IRInstruction::to_string() const {
             ss << " " << label_true;
             break;
 
+        case IROpcode::LOAD_PARAM:
+            ss << " " << imm_arg;
+            break;
+
         case IROpcode::PUSH:
         case IROpcode::POP:
             if (!operands.empty()) {
@@ -216,6 +220,7 @@ size_t IRInstruction::operand_count() const {
         case IROpcode::FRAME_ADDR:
         case IROpcode::LEA_LABEL:
         case IROpcode::JMP:
+        case IROpcode::LOAD_PARAM:
             return 0;
         case IROpcode::COPY:
         case IROpcode::PUSH:

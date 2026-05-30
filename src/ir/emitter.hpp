@@ -290,29 +290,9 @@ public:
             }
 
             case IROpcode::CALL: {
-                // Stack-based calling convention: push arguments in reverse
-                // order so arg0 ends up at [rbp+16] in the callee.
-                size_t nargs = insn.operands.size();
-                for (size_t i = 0; i < nargs; i++) {
-                    m_backend.push(operand_name(insn, nargs - 1 - i));
-                }
-                m_backend.call(insn.call_target);
-                if (nargs > 0) {
-                    m_backend.adjust_stack(static_cast<int64_t>(nargs) * 8);
-                }
-                if (insn.dst != IRInstruction::NONE_VREG) {
-                    std::string dst_name = preg_name(insn.dst);
-                    std::string ret_name = m_tri.name_of(m_tri.ret_reg);
-                    if (dst_name != ret_name) {
-                        m_backend.mov(dst_name, ret_name);
-                    }
-                }
-                break;
-            }
-
-            case IROpcode::CALL_REG: {
-                // Register-based calling convention:
-                // args in target's argument registers, rest on stack.
+                // Target-agnostic register-based calling convention:
+                // args go in argument registers (per target ABI);
+                // overflow args (> n_arg_regs) are pushed on the stack.
                 size_t nargs = insn.operands.size();
                 size_t n_arg_regs = m_tri.arg_regs.size();
                 for (size_t i = 0; i < nargs && i < n_arg_regs; i++) {
@@ -334,6 +314,24 @@ public:
                     if (dst_name != ret_name) {
                         m_backend.mov(dst_name, ret_name);
                     }
+                }
+                break;
+            }
+
+            case IROpcode::LOAD_PARAM: {
+                // Load the i-th function parameter from its ABI location:
+                // - If i < n_arg_regs: load from argument register arg_regs[i]
+                // - If i >= n_arg_regs: load from stack [fp + 16 + (i-n_arg_regs)*8]
+                size_t n_arg_regs = m_tri.arg_regs.size();
+                size_t idx = static_cast<size_t>(insn.imm_arg);
+                if (idx < n_arg_regs) {
+                    std::string arg_reg = m_tri.name_of(m_tri.arg_regs[idx]);
+                    m_backend.mov(preg_name(insn.dst), arg_reg);
+                } else {
+                    // Stack slot for overflow param: [fp + 16 + (i-n_arg_regs)*8]
+                    int offset = static_cast<int>(16 + (idx - n_arg_regs) * 8);
+                    m_backend.load(preg_name(insn.dst),
+                                   m_backend.addr_fp(offset));
                 }
                 break;
             }

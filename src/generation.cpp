@@ -103,7 +103,7 @@ void Generator::store_var_from_vstack(const std::string& name, AssignOp op) {
                         case IntType::i16:
                         case IntType::u16: val = m_ir.and_(IRValue::vreg(val), IRValue::imm_i64(0xFFFF)); break;
                         case IntType::i32:
-                        case IntType::u32: val = m_ir.and_(IRValue::vreg(val), IRValue::imm_i64(0xFFFFFFFF)); break;
+                        case IntType::u32: val = m_ir.zext(IRValue::vreg(val), IRWidth::I32); break;
                         default: break;
                     }
                 }
@@ -137,7 +137,7 @@ void Generator::store_var_from_vstack(const std::string& name, AssignOp op) {
                         case IntType::i16:
                         case IntType::u16: result = m_ir.and_(IRValue::vreg(result), IRValue::imm_i64(0xFFFF)); break;
                         case IntType::i32:
-                        case IntType::u32: result = m_ir.and_(IRValue::vreg(result), IRValue::imm_i64(0xFFFFFFFF)); break;
+                        case IntType::u32: result = m_ir.zext(IRValue::vreg(result), IRWidth::I32); break;
                         default: break;
                     }
                 }
@@ -245,11 +245,9 @@ void Generator::gen_func_def(const NodeFuncDef& func)
         scope.vars[param_name] = Var { .stack_loc = slot };
         scope.var_count++;
 
-        // Load parameter from [rbp + 16 + i*8] into frame slot
-        // With frame_addr(slot) = [rbp - (slot+1)*8]:
-        // frame_addr(-3) gives [rbp - (-3+1)*8] = [rbp + 16]
-        uint32_t param_addr = m_ir.frame_addr(static_cast<int64_t>(-3 - static_cast<int64_t>(i)));
-        uint32_t param_val = m_ir.load(IRValue::vreg(param_addr), 0);
+        // Load parameter from ABI-defined location (argument register or stack)
+        // using the target-agnostic LOAD_PARAM opcode.
+        uint32_t param_val = m_ir.load_param(static_cast<int64_t>(i));
         uint32_t slot_addr = m_ir.frame_addr(static_cast<int64_t>(slot));
         m_ir.store(IRValue::vreg(slot_addr), 0, IRValue::vreg(param_val));
     }
@@ -408,7 +406,7 @@ void Generator::gen_expr(const NodeExpr& expr)
 
         void operator()(const NodeExprRead*) const
         {
-            uint32_t v = gen->m_ir.call_reg("_sodium_read_int", {});
+            uint32_t v = gen->m_ir.call("_sodium_read_int", {});
             gen->push_vreg(v);
         }
 
@@ -511,7 +509,7 @@ void Generator::gen_expr(const NodeExpr& expr)
                     gen->gen_expr(**it);
                 }
                 uint32_t size = gen->pop_vreg();
-                uint32_t result = gen->m_ir.call_reg("_sodium_malloc", {IRValue::vreg(size)});
+                uint32_t result = gen->m_ir.call("_sodium_malloc", {IRValue::vreg(size)});
                 gen->push_vreg(result);
                 return;
             }
@@ -520,7 +518,7 @@ void Generator::gen_expr(const NodeExpr& expr)
                     gen->gen_expr(**it);
                 }
                 uint32_t ptr = gen->pop_vreg();
-                gen->m_ir.call_reg("_sodium_free", {IRValue::vreg(ptr)});
+                gen->m_ir.call("_sodium_free", {IRValue::vreg(ptr)});
                 return;
             }
 
@@ -717,7 +715,7 @@ void Generator::gen_stmt(const NodeStmt& stmt)
         {
             gen->gen_expr(*stmt_exit->expr);
             uint32_t code = gen->pop_vreg();
-            gen->m_ir.call_reg("_sodium_exit", {IRValue::vreg(code)});
+            gen->m_ir.call("_sodium_exit", {IRValue::vreg(code)});
             gen->m_emitted_exit = true;
         }
 
@@ -772,7 +770,7 @@ void Generator::gen_stmt(const NodeStmt& stmt)
                         case IntType::i16:
                         case IntType::u16: val = gen->m_ir.and_(IRValue::vreg(val), IRValue::imm_i64(0xFFFF)); break;
                         case IntType::i32:
-                        case IntType::u32: val = gen->m_ir.and_(IRValue::vreg(val), IRValue::imm_i64(0xFFFFFFFF)); break;
+                        case IntType::u32: val = gen->m_ir.zext(IRValue::vreg(val), IRWidth::I32); break;
                         default: break;
                     }
                 }
@@ -988,24 +986,12 @@ void Generator::gen_stmt(const NodeStmt& stmt)
             gen->m_next_frame_slot += size;
             scope.vars[stmt_arr->name.value.value()] = Var { .stack_loc = slot, .array_size = size };
             scope.var_count += size;
-            // Zero-initialize using a loop (IR-based)
-            auto label_loop = gen->new_label();
-            auto label_end = gen->new_label();
-            uint32_t idx = gen->m_ir.load_i64(static_cast<int64_t>(size));
-            gen->m_ir.new_block(label_loop);
-            uint32_t cond = gen->m_ir.cmp_eq(IRValue::vreg(idx), IRValue::imm_i64(0));
-            gen->m_ir.br(IRValue::vreg(cond), label_end, label_loop);
-            // Push 0
-            // dec idx
-            uint32_t idx2 = gen->m_ir.sub(IRValue::vreg(idx), IRValue::imm_i64(1));
-            gen->m_ir.copy(IRValue::vreg(idx2));  // copy back to idx — this is clumsy, let me simplify
-            // Actually for zero-init, just push 'size' zeros:
-            // Each slot: addr = frame_addr(slot - i), store 0
+            // Zero-initialize array elements linearly
+            // Each element is 8 bytes, stored at frame_addr(slot + i)
             for (size_t i = 0; i < size; i++) {
-                uint32_t addr = gen->m_ir.frame_addr(static_cast<int64_t>(slot - i));
+                uint32_t addr = gen->m_ir.frame_addr(static_cast<int64_t>(slot + i));
                 gen->m_ir.store(IRValue::vreg(addr), 0, IRValue::imm_i64(0));
             }
-            gen->m_ir.new_block(label_end);
         }
 
         void operator()(const NodeStmtArrAssign* stmt_arr_assign) const
@@ -1059,7 +1045,7 @@ void Generator::gen_stmt(const NodeStmt& stmt)
                 }
                 gen->gen_expr(*stmt_ret->expr);
                 uint32_t code = gen->pop_vreg();
-                gen->m_ir.call_reg("_sodium_exit", {IRValue::vreg(code)});
+                gen->m_ir.call("_sodium_exit", {IRValue::vreg(code)});
                 gen->m_emitted_exit = true;
             }
         }
@@ -1068,7 +1054,7 @@ void Generator::gen_stmt(const NodeStmt& stmt)
         {
             gen->gen_expr(*stmt_print->expr);
             uint32_t val = gen->pop_vreg();
-            gen->m_ir.call_reg("_sodium_print_int", {IRValue::vreg(val)});
+            gen->m_ir.call("_sodium_print_int", {IRValue::vreg(val)});
         }
 
         void operator()(const NodeStmtBlock* stmt_block) const
@@ -1504,7 +1490,7 @@ void Generator::collect_globals(const std::vector<NodeStmt>& stmts)
         }
 
         if (!m_emitted_exit) {
-            m_ir.call_reg("_sodium_exit", {IRValue::imm_i64(0)});
+            m_ir.call("_sodium_exit", {IRValue::imm_i64(0)});
         }
 
         m_ir.ret_void();

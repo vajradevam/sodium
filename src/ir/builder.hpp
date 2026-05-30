@@ -173,9 +173,9 @@ public:
         return dst;
     }
 
-    uint32_t call_reg(const std::string& func, const std::vector<IRValue>& args) {
+    uint32_t load_param(int64_t param_index) {
         auto dst = new_vreg();
-        emit(IRInstruction::call_reg(dst, func, args));
+        emit(IRInstruction::load_param(dst, param_index));
         return dst;
     }
 
