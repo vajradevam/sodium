@@ -15,13 +15,13 @@ cmake -B build && cmake --build build
 
 # Compile and run a Cyan program (x86-64)
 ./build/sodium my_program.cyan
-./sodium-out/out
+./my_program
 echo $?   # exit code
 ```
 
 **Or install system-wide:**
 ```bash
-./install.sh
+./scripts/install.sh
 sodium my_program.cyan
 ```
 
@@ -34,7 +34,7 @@ return(42);
 ```
 
 ```bash
-sodium hello.cyan && ./sodium-out/out && echo $?
+sodium hello.cyan && ./hello && echo $?
 # outputs: 42
 ```
 
@@ -70,6 +70,7 @@ var gte = x >= y;
 // Logical
 var both   = x > 0 && y < 100;
 var either = x > 0 || y > 0;
+var not    = !x;              // logical NOT (== 0 ? 1 : 0)
 
 // Bitwise
 var band    = x & y;
@@ -199,6 +200,10 @@ function counter() {
 const SIZE = 100;
 const MAX = SIZE * 2 + 1;
 var arr[SIZE];
+
+// Hex literals (0x prefix, any integer size)
+var mask = 0xff;              // 255
+const PAGE = 0x1000;          // 4096
 ```
 
 ### Input / output
@@ -214,16 +219,20 @@ Cyan compiles to **two backends** from the same source:
 
 ```bash
 # x86-64 (native)
+./build/sodium -o myprog program.cyan
+./myprog
+
+# Or use default output name (strip .cyan suffix)
 ./build/sodium program.cyan
-./sodium-out/out
+./program
 
 # RISC-V 64 (cross-compile)
 ./build/sodium --target riscv64 program.cyan
-qemu-riscv64 ./sodium-out/out
+qemu-riscv64 ./program
 ```
 
 All language features work identically on both targets. The full test suite
-(203+ tests) runs on both architectures with 0 failures.
+(211+ tests) runs on both architectures with 0 failures.
 
 ## Building from Source
 
@@ -279,6 +288,26 @@ registers, liveness analysis, and linear scan register allocation before
 emitting target-specific assembly. This enables clean multi-architecture
 support and lays the groundwork for optimization passes.
 
+### Compiler flags
+
+```
+-o <file>              Specify output binary path (default: strip .cyan suffix)
+-S                     Emit assembly only, stop (POSIX convention)
+--target <arch>        Target architecture: x86_64 (default) or riscv64
+--print-ast            Dump the AST and exit
+--emit-ir              Print IR during code generation
+--no-alloc             Bypass register allocator (all values on stack)
+-I <dir>               Add include directory
+```
+
+Examples:
+```bash
+sodium -o myprog foo.cyan    # output binary is 'myprog'
+sodium -S foo.cyan            # produce foo.asm, stop (no binary)
+sodium -S -o /tmp/bar.asm foo.cyan  # custom asm output path
+sodium foo.cyan               # default: strip .cyan
+```
+
 ### Runtime library
 
 A freestanding C runtime (`sodium-rt/allocator.c`) provides:
@@ -292,7 +321,7 @@ A freestanding C runtime (`sodium-rt/allocator.c`) provides:
 
 ```
 ├── src/
-│   ├── main.cpp                 Entry point, CLI, linking
+│   ├── main.cpp                 Entry point, CLI (`-o`, `-S`, `--target`), linking
 │   ├── tokenization.hpp/cpp     Lexer
 │   ├── parser.hpp/cpp           Recursive-descent parser → AST
 │   ├── generation.hpp/cpp       Code generation (AST → IR → target)
@@ -341,8 +370,8 @@ A freestanding C runtime (`sodium-rt/allocator.c`) provides:
 │   └── include/                 Include mechanism tests
 ├── examples/                    Example programs
 ├── vscode-extension/            VS Code extension (syntax + LSP)
-├── run_tests.sh                 Test runner (dual-architecture)
-├── install.sh                   Install script
+├── scripts/run_tests.sh         Test runner (dual-architecture)
+├── scripts/install.sh           Install script
 └── CMakeLists.txt
 ```
 
@@ -352,11 +381,11 @@ The test suite runs on **both architectures**:
 
 ```bash
 # Run all tests (x86-64 + RISC-V if qemu is available)
-bash run_tests.sh
+bash scripts/run_tests.sh
 ```
 
 ```text
-Results: 203 passed, 0 failed
+Results: 211 passed, 0 failed
 ```
 
 Each test file compiles to both backends and the resulting binary's exit
@@ -382,16 +411,18 @@ The `vscode-extension/` directory provides:
 
 Install with:
 ```bash
-./install.sh --vscode
+./scripts/install.sh --vscode
 ```
 
 ## Current Status
 
-- **203+ tests passing** across both x86-64 and RISC-V
+- **211+ tests passing** across both x86-64 and RISC-V
 - **Full IR pipeline** with SSA virtual registers and linear scan allocation
 - **Dual backend**: x86-64 (NASM) and RISC-V 64 (GAS)
 - **Complete runtime**: SFL allocator, CRT, I/O
 - **LSP server**: fully functional with VS Code extension
+- **Hex literals** (`0x` prefix) and **logical NOT** (`!`) operator
+- **SFL heap allocator** with 15 size classes, O(1) alloc/free
 - **Platform**: Linux (x86-64 native + RISC-V cross-compile via qemu)
 
 ## License
