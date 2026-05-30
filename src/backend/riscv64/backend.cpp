@@ -120,7 +120,11 @@ void RISCV64Backend::store(const std::string& addr, const std::string& reg) {
 
 void RISCV64Backend::mov(const std::string& dst, const std::string& src) {
     if (dst != src) {
-        emit_insn("mv", dst + ", " + src);  // pseudo: addi dst, src, 0
+        if (is_imm_str(src)) {
+            emit_insn("li", dst + ", " + src);
+        } else {
+            emit_insn("mv", dst + ", " + src);  // pseudo: addi dst, src, 0
+        }
     }
 }
 
