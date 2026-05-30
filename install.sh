@@ -35,6 +35,21 @@ cmake -B build -DCMAKE_BUILD_TYPE=Release 2>&1 | sed 's/^/  /'
 cmake --build build 2>&1 | sed 's/^/  /'
 ok "Build complete"
 
+# ── Build runtime libraries ────────────────────────────────────────
+info "Building runtime libraries..."
+if command -v nasm >/dev/null 2>&1; then
+    make -C "$SODIUM_DIR/sodium-rt" 2>&1 | sed 's/^/  /'
+    ok "x86-64 runtime built"
+else
+    echo "  nasm not found — x86-64 runtime not built"
+fi
+if command -v riscv64-elf-gcc >/dev/null 2>&1; then
+    make -C "$SODIUM_DIR/sodium-rt/riscv64" 2>&1 | sed 's/^/  /'
+    ok "RISC-V runtime built"
+else
+    echo "  riscv64-elf-gcc not found — RISC-V runtime not built"
+fi
+
 # ── Install ─────────────────────────────────────────────────────────
 info "Installing to $INSTALL_DIR..."
 mkdir -p "$INSTALL_DIR"
