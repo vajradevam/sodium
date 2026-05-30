@@ -1,6 +1,7 @@
 #include "backend.hpp"
 #include <sstream>
 #include <unordered_map>
+#include <cctype>
 
 // Map 64-bit register name to 32-bit subregister
 static std::string low32(const std::string& r) {
@@ -83,7 +84,14 @@ void X8664Backend::load(const std::string& reg, const std::string& addr) {
 }
 
 void X8664Backend::store(const std::string& addr, const std::string& reg) {
-    emit_insn("mov", addr + ", " + reg);
+    // If reg is a numeric immediate, add qword size specifier to avoid
+    // NASM defaulting to byte (which truncates larger values).
+    bool is_imm = !reg.empty() && (reg[0] == '-' || std::isdigit(reg[0]));
+    if (is_imm) {
+        emit_insn("mov", "qword " + addr + ", " + reg);
+    } else {
+        emit_insn("mov", addr + ", " + reg);
+    }
 }
 
 void X8664Backend::mov(const std::string& dst, const std::string& src) {
