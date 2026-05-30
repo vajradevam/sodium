@@ -169,11 +169,12 @@ void X8664Backend::mul(const std::string& dst, const std::string& src) {
 void X8664Backend::signed_div(const std::string& dst, const std::string& dividend,
                                const std::string& divisor) {
     // x86-64: idiv requires dividend in rdx:rax, divisor in r/m
-    // We use rdi for divisor (safe scratch), rax for dividend, cqo for sign-extend
-    mov("rdi", divisor);
+    // We use r11 (designated scratch register) for divisor,
+    // rax for dividend, cqo for sign-extend.
+    mov("r11", divisor);
     mov("rax", dividend);
     emit_cqo();
-    emit_insn("idiv", "rdi");
+    emit_insn("idiv", "r11");
     if (dst != "rax") {
         mov(dst, "rax");
     }
@@ -182,10 +183,10 @@ void X8664Backend::signed_div(const std::string& dst, const std::string& dividen
 void X8664Backend::signed_mod(const std::string& dst, const std::string& dividend,
                                const std::string& divisor) {
     // x86-64: remainder ends up in rdx after idiv
-    mov("rdi", divisor);
+    mov("r11", divisor);
     mov("rax", dividend);
     emit_cqo();
-    emit_insn("idiv", "rdi");
+    emit_insn("idiv", "r11");
     if (dst != "rdx") {
         mov(dst, "rdx");
     }
