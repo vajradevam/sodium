@@ -1,0 +1,52 @@
+// Spill code test: exercise the register allocator's spill path.
+//
+// On x86-64 there are 5 callee-save registers (rbx, r12-r15).
+// Values that span calls and exceed the callee-save pool must be
+// spilled to the stack. This test creates 8 values that are live
+// across multiple calls to force spilling, then sums them to
+// verify correctness.
+
+function dummy(n) {
+    return (n);
+}
+
+function test_spill() {
+    // Compute 8 values that will all be live across the calls below.
+    // This exceeds the 5 callee-save regs on x86-64, forcing spilling.
+    var a = 1;
+    var b = 2;
+    var c = 3;
+    var d = 4;
+    var e = 5;
+    var f = 6;
+    var g = 7;
+    var h = 8;
+
+    // Interleave calls to force register pressure.
+    // Every value must survive across these calls.
+    a = dummy(a);
+    b = dummy(b);
+    c = dummy(c);
+    d = dummy(d);
+    e = dummy(e);
+    f = dummy(f);
+    g = dummy(g);
+    h = dummy(h);
+
+    a = dummy(a);
+    b = dummy(b);
+    c = dummy(c);
+    d = dummy(d);
+    e = dummy(e);
+    f = dummy(f);
+    g = dummy(g);
+    h = dummy(h);
+
+    // Sum all values to verify correctness.
+    var sum = a + b + c + d + e + f + g + h;
+    return (sum);
+}
+
+var result = test_spill();
+print(result);
+return (result);

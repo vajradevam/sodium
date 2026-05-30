@@ -114,13 +114,10 @@ public:
             // that span calls.
             //
             // NOTE: When callee-save registers are exhausted, we fall
-            // back to caller-save. This is incorrect (caller-save regs
-            // get clobbered), but the spill path is also broken (the
-            // backend doesn't handle spilled vregs). This is a known
-            // limitation: at most N values can span calls simultaneously,
-            // where N = number of callee-save registers (5 on x86-64).
-            // A proper fix requires either proper spill-code insertion
-            // or a calling-convention-aware register allocator.
+            // back to caller-save registers. The IRRewriter now handles
+            // spilled vregs by inserting fp-relative LOAD/STORE instructions,
+            // so values that exceed the callee-save pool are correctly
+            // saved to the stack across calls.
             std::vector<int> preferred;
             if (range.spans_call) {
                 preferred = m_tri.callee_save_regs();

@@ -1,10 +1,10 @@
 # Sodium/Cyan — TODO
 
-## Immediate
+## Done ✅
 
-- [ ] **Spill code in register allocator** — store callee-save values to stack
-      when caller-save registers are exhausted. Currently, values spanning >5
-      calls on x86-64 get silently corrupted.
+- [x] **Spill code in register allocator** — store callee-save values to stack
+      when caller-save registers are exhausted. Previously, values spanning >5
+      calls on x86-64 got silently corrupted. Now uses fp-relative LOAD/STORE.
 
 ## Phase 5: File I/O & Runtime
 

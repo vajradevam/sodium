@@ -27,6 +27,7 @@ UNIT_TESTS["test_while.cyan"]=5
 UNIT_TESTS["test_logical.cyan"]=7
 UNIT_TESTS["test_for.cyan"]=45
 UNIT_TESTS["test_scoping.cyan"]=15
+UNIT_TESTS["test_spill.cyan"]=36
 UNIT_TESTS["test_func_basic.cyan"]=10
 UNIT_TESTS["test_func_multi.cyan"]=20
 UNIT_TESTS["test_func_rec.cyan"]=176

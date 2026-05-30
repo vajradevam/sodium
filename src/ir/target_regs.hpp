@@ -23,6 +23,7 @@ struct TargetRegisterInfo {
 
     int ret_reg = 0;             ///< return value register (typically rax)
     int scratch_reg = 0;         ///< scratch register for spills
+    int fp_reg = 0;              ///< frame pointer register
 
     /// Add a register.
     void add(int num, const std::string& name,
@@ -107,6 +108,7 @@ struct TargetRegisterInfo {
 
         info.arg_regs = {5, 4, 3, 2, 8, 9};  // rdi, rsi, rdx, rcx, r8, r9
         info.ret_reg = 0;   // rax
+        info.fp_reg = 6;     // rbp
         info.scratch_reg = 0;  // rax (also used for return, so be careful)
         // Use r11 as dedicated scratch for spills (caller-save, not an arg)
         info.scratch_reg = 11;  // r11
@@ -169,6 +171,7 @@ struct TargetRegisterInfo {
 
         info.arg_regs = {10, 11, 12, 13, 14, 15, 16, 17};  // a0-a7
         info.ret_reg = 10;   // a0
+        info.fp_reg = 8;     // s0
         info.scratch_reg = 5;  // t0
 
         return info;
