@@ -212,16 +212,70 @@ void X8664Backend::or_(const std::string& dst, const std::string& src) {
     emit_insn("or", dst + ", " + src);
 }
 
+// Map 64-bit register name to 8-bit subregister
+static std::string low8(const std::string& r) {
+    static const std::unordered_map<std::string, std::string> m = {
+        {"rax", "al"}, {"rbx", "bl"}, {"rcx", "cl"}, {"rdx", "dl"},
+        {"rsi", "sil"}, {"rdi", "dil"}, {"rbp", "bpl"}, {"rsp", "spl"},
+        {"r8", "r8b"}, {"r9", "r9b"}, {"r10", "r10b"}, {"r11", "r11b"},
+        {"r12", "r12b"}, {"r13", "r13b"}, {"r14", "r14b"}, {"r15", "r15b"},
+    };
+    auto it = m.find(r);
+    return it != m.end() ? it->second : r;
+}
+
+// Helper: true if string looks like a register name (starts with letter)
+static bool is_register_name(const std::string& s) {
+    return !s.empty() && std::isalpha(static_cast<unsigned char>(s[0]));
+}
+
 void X8664Backend::shl(const std::string& dst, const std::string& src) {
-    emit_insn("shl", dst + ", " + src);
+    // x86-64 requires shift count in CL for register-counted shifts
+    if (is_register_name(src) && src != "cl") {
+        if (dst == "rcx") {
+            mov("r11", dst);
+            mov("cl", low8(src));
+            emit_insn("shl", "r11, cl");
+            mov("rcx", "r11");
+        } else {
+            mov("cl", low8(src));
+            emit_insn("shl", dst + ", cl");
+        }
+    } else {
+        emit_insn("shl", dst + ", " + src);
+    }
 }
 
 void X8664Backend::shr(const std::string& dst, const std::string& src) {
-    emit_insn("shr", dst + ", " + src);
+    if (is_register_name(src) && src != "cl") {
+        if (dst == "rcx") {
+            mov("r11", dst);
+            mov("cl", low8(src));
+            emit_insn("shr", "r11, cl");
+            mov("rcx", "r11");
+        } else {
+            mov("cl", low8(src));
+            emit_insn("shr", dst + ", cl");
+        }
+    } else {
+        emit_insn("shr", dst + ", " + src);
+    }
 }
 
 void X8664Backend::ashr(const std::string& dst, const std::string& src) {
-    emit_insn("sar", dst + ", " + src);
+    if (is_register_name(src) && src != "cl") {
+        if (dst == "rcx") {
+            mov("r11", dst);
+            mov("cl", low8(src));
+            emit_insn("sar", "r11, cl");
+            mov("rcx", "r11");
+        } else {
+            mov("cl", low8(src));
+            emit_insn("sar", dst + ", cl");
+        }
+    } else {
+        emit_insn("sar", dst + ", " + src);
+    }
 }
 
 // ---- comparison ----

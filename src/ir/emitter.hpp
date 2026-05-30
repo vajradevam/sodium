@@ -9,6 +9,7 @@
 #include <cassert>
 #include <string>
 #include <sstream>
+#include <unordered_map>
 
 /// Emits IR instructions (post-allocation, with physical register numbers)
 /// to a Backend for final assembly output.
@@ -104,18 +105,18 @@ public:
                 m_backend.mov(dst, src);
                 if (insn.op == IROpcode::ZEXT) {
                     if (from_bits == 8)
-                        m_backend.movzx("eax", "al", 8);
+                        m_backend.movzx(low32(dst), low8(dst), 8);
                     else if (from_bits == 16)
-                        m_backend.movzx("eax", "ax", 16);
+                        m_backend.movzx(low32(dst), low16(dst), 16);
                     else if (from_bits == 32)
-                        m_backend.mov("eax", "eax");
+                        m_backend.mov(low32(dst), low32(dst));
                 } else {
                     if (from_bits == 8)
-                        m_backend.movsx(dst, "al", 8);
+                        m_backend.movsx(dst, low8(dst), 8);
                     else if (from_bits == 16)
-                        m_backend.movsx(dst, "ax", 16);
+                        m_backend.movsx(dst, low16(dst), 16);
                     else if (from_bits == 32)
-                        m_backend.movsx(dst, "eax", 32);
+                        m_backend.movsx(dst, low32(dst), 32);
                 }
                 break;
             }
@@ -171,59 +172,35 @@ public:
                 break;
 
             case IROpcode::SHL: {
-                std::string dst = preg_name(insn.dst);
-                if (insn.operands[1].is_imm()) {
-                    m_backend.mov(dst, operand_name(insn, 0));
-                    m_backend.shl(dst, std::to_string(insn.operands[1].imm));
-                } else {
-                    // x86-64 requires shift count in CL (rcx).
-                    // If dst == rcx, use r11 as scratch to avoid clobber.
-                    if (dst == "rcx") {
-                        m_backend.mov("r11", operand_name(insn, 0));
-                        m_backend.mov("rcx", operand_name(insn, 1));
-                        m_backend.shl("r11", "cl");
-                        m_backend.mov("rcx", "r11");
-                    } else {
-                        m_backend.mov(dst, operand_name(insn, 0));
-                        m_backend.mov("rcx", operand_name(insn, 1));
-                        m_backend.shl(dst, "cl");
-                    }
-                }
+                auto dst = preg_name(insn.dst);
+                auto src = operand_name(insn, 0);
+                auto count = insn.operands[1].is_imm()
+                    ? std::to_string(insn.operands[1].imm)
+                    : operand_name(insn, 1);
+                m_backend.mov(dst, src);
+                m_backend.shl(dst, count);
                 break;
             }
 
             case IROpcode::SHR: {
-                std::string dst = preg_name(insn.dst);
-                if (insn.operands[1].is_imm()) {
-                    m_backend.mov(dst, operand_name(insn, 0));
-                    m_backend.shr(dst, std::to_string(insn.operands[1].imm));
-                } else {
-                    if (dst == "rcx") {
-                        m_backend.mov("r11", operand_name(insn, 0));
-                        m_backend.mov("rcx", operand_name(insn, 1));
-                        m_backend.shr("r11", "cl");
-                        m_backend.mov("rcx", "r11");
-                    } else {
-                        m_backend.mov(dst, operand_name(insn, 0));
-                        m_backend.mov("rcx", operand_name(insn, 1));
-                        m_backend.shr(dst, "cl");
-                    }
-                }
+                auto dst = preg_name(insn.dst);
+                auto src = operand_name(insn, 0);
+                auto count = insn.operands[1].is_imm()
+                    ? std::to_string(insn.operands[1].imm)
+                    : operand_name(insn, 1);
+                m_backend.mov(dst, src);
+                m_backend.shr(dst, count);
                 break;
             }
 
             case IROpcode::ASHR: {
-                std::string dst = preg_name(insn.dst);
-                if (dst == "rcx") {
-                    m_backend.mov("r11", operand_name(insn, 0));
-                    m_backend.mov("rcx", operand_name(insn, 1));
-                    m_backend.ashr("r11", "cl");
-                    m_backend.mov("rcx", "r11");
-                } else {
-                    m_backend.mov(dst, operand_name(insn, 0));
-                    m_backend.mov("rcx", operand_name(insn, 1));
-                    m_backend.ashr(dst, "cl");
-                }
+                auto dst = preg_name(insn.dst);
+                auto src = operand_name(insn, 0);
+                auto count = insn.operands[1].is_imm()
+                    ? std::to_string(insn.operands[1].imm)
+                    : operand_name(insn, 1);
+                m_backend.mov(dst, src);
+                m_backend.ashr(dst, count);
                 break;
             }
 
@@ -395,6 +372,37 @@ public:
     }
 
 private:
+    static std::string low32(const std::string& r) {
+        static const std::unordered_map<std::string, std::string> m = {
+            {"rax", "eax"}, {"rbx", "ebx"}, {"rcx", "ecx"}, {"rdx", "edx"},
+            {"rsi", "esi"}, {"rdi", "edi"}, {"rbp", "ebp"}, {"rsp", "esp"},
+            {"r8", "r8d"}, {"r9", "r9d"}, {"r10", "r10d"}, {"r11", "r11d"},
+            {"r12", "r12d"}, {"r13", "r13d"}, {"r14", "r14d"}, {"r15", "r15d"},
+        };
+        auto it = m.find(r);
+        return it != m.end() ? it->second : r;
+    }
+    static std::string low16(const std::string& r) {
+        static const std::unordered_map<std::string, std::string> m = {
+            {"rax", "ax"}, {"rbx", "bx"}, {"rcx", "cx"}, {"rdx", "dx"},
+            {"rsi", "si"}, {"rdi", "di"}, {"rbp", "bp"}, {"rsp", "sp"},
+            {"r8", "r8w"}, {"r9", "r9w"}, {"r10", "r10w"}, {"r11", "r11w"},
+            {"r12", "r12w"}, {"r13", "r13w"}, {"r14", "r14w"}, {"r15", "r15w"},
+        };
+        auto it = m.find(r);
+        return it != m.end() ? it->second : r;
+    }
+    static std::string low8(const std::string& r) {
+        static const std::unordered_map<std::string, std::string> m = {
+            {"rax", "al"}, {"rbx", "bl"}, {"rcx", "cl"}, {"rdx", "dl"},
+            {"rsi", "sil"}, {"rdi", "dil"}, {"rbp", "bpl"}, {"rsp", "spl"},
+            {"r8", "r8b"}, {"r9", "r9b"}, {"r10", "r10b"}, {"r11", "r11b"},
+            {"r12", "r12b"}, {"r13", "r13b"}, {"r14", "r14b"}, {"r15", "r15b"},
+        };
+        auto it = m.find(r);
+        return it != m.end() ? it->second : r;
+    }
+
     Backend& m_backend;
     const TargetRegisterInfo& m_tri;
     const RegisterAllocation& m_alloc;
@@ -434,7 +442,7 @@ private:
         auto b = operand_name(insn, 1);
         m_backend.mov(dst, a);
         m_backend.cmp(dst, b);
-        m_backend.set_cc("al", cc);
-        m_backend.movzx(dst, "al", 8);
+        m_backend.set_cc(low8(dst), cc);
+        m_backend.movzx(dst, low8(dst), 8);
     }
 };
