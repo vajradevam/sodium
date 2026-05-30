@@ -47,7 +47,8 @@ void RISCV64Backend::pop(const std::string& reg) {
 
 void RISCV64Backend::adjust_stack(int64_t bytes) {
     if (bytes == 0) return;
-    emit_insn("addi", "sp, sp, " + std::to_string(-bytes));
+    // Convention: positive = add to sp (shrink), negative = sub from sp (grow)
+    emit_insn("addi", "sp, sp, " + std::to_string(bytes));
 }
 
 // ---- function frame ----

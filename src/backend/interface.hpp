@@ -33,7 +33,8 @@ public:
     /// Pop register value from stack.
     virtual void pop(const std::string& reg) = 0;
 
-    /// Adjust stack pointer by `bytes` (positive = grow, negative = shrink).
+    /// Adjust stack pointer by `bytes` (positive = add to sp / shrink,
+    /// negative = sub from sp / grow).
     virtual void adjust_stack(int64_t bytes) = 0;
 
     // ----------------------------------------------------------------
