@@ -134,14 +134,16 @@ for test_file in "${!UNIT_TESTS[@]}"; do
 
     echo -n "Testing unit/$test_file... "
 
-    if ! $COMPILER "$filepath" > /tmp/cyan_compile.log 2>&1; then
+    out_name="/tmp/cyan_test_$(basename "$test_file" .cyan)"
+
+    if ! $COMPILER -o "$out_name" "$filepath" > /tmp/cyan_compile.log 2>&1; then
         echo -e "${RED}COMPILE FAIL${NC}"
         cat /tmp/cyan_compile.log
         FAIL=$((FAIL + 1))
         continue
     fi
 
-    ./sodium-out/out > /tmp/cyan_stdout.txt 2>&1; actual_exit=$?
+    "$out_name" > /tmp/cyan_stdout.txt 2>&1; actual_exit=$?
 
     exit_ok=0
     [ "$actual_exit" -eq "$expected_exit" ] && exit_ok=1
@@ -170,7 +172,7 @@ for test_file in "${COMPILE_FAIL_UNIT[@]}"; do
         continue
     fi
     echo -n "Testing unit/$test_file (expect compile error)... "
-    if $COMPILER "$filepath" > /tmp/cyan_compile.log 2>&1; then
+    if $COMPILER -o /dev/null "$filepath" > /tmp/cyan_compile.log 2>&1; then
         echo -e "${RED}FAIL — compiled successfully (expected error)${NC}"
         cat /tmp/cyan_compile.log
         FAIL=$((FAIL + 1))
@@ -191,13 +193,14 @@ for stdin_entry in "${!STDIN_TESTS[@]}"; do
         continue
     fi
     echo -n "Testing unit/$test_file (stdin: $stdin_value)... "
-    if ! $COMPILER "$filepath" > /tmp/cyan_compile.log 2>&1; then
+    out_name="/tmp/cyan_test_$(basename "$test_file" .cyan)"
+    if ! $COMPILER -o "$out_name" "$filepath" > /tmp/cyan_compile.log 2>&1; then
         echo -e "${RED}COMPILE FAIL${NC}"
         cat /tmp/cyan_compile.log
         FAIL=$((FAIL + 1))
         continue
     fi
-    echo "$stdin_value" | ./sodium-out/out > /tmp/cyan_stdout.txt 2>&1; actual_exit=$?
+    echo "$stdin_value" | "$out_name" > /tmp/cyan_stdout.txt 2>&1; actual_exit=$?
     if [ "$actual_exit" -eq "$expected_exit" ]; then
         echo -e "${GREEN}PASS${NC} (exit: $actual_exit)"
         PASS=$((PASS + 1))
@@ -226,13 +229,14 @@ for test_file in "${!INTEGRATION_TESTS[@]}"; do
         continue
     fi
     echo -n "Testing integration/$test_file... "
-    if ! $COMPILER "$filepath" > /tmp/cyan_compile.log 2>&1; then
+    out_name="/tmp/cyan_test_$(basename "$test_file" .cyan)"
+    if ! $COMPILER -o "$out_name" "$filepath" > /tmp/cyan_compile.log 2>&1; then
         echo -e "${RED}COMPILE FAIL${NC}"
         cat /tmp/cyan_compile.log
         FAIL=$((FAIL + 1))
         continue
     fi
-    ./sodium-out/out > /tmp/cyan_stdout.txt 2>&1; actual_exit=$?
+    "$out_name" > /tmp/cyan_stdout.txt 2>&1; actual_exit=$?
     if [ "$actual_exit" -eq "$expected_exit" ]; then
         echo -e "${GREEN}PASS${NC} (exit: $actual_exit)"
         PASS=$((PASS + 1))
@@ -257,13 +261,14 @@ for test_file in "${!INCLUDE_TESTS[@]}"; do
         continue
     fi
     echo -n "Testing include/$test_file... "
-    if ! $COMPILER "$filepath" -I "tests/include" > /tmp/cyan_compile.log 2>&1; then
+    out_name="/tmp/cyan_test_$(basename "$test_file" .cyan)"
+    if ! $COMPILER -o "$out_name" "$filepath" -I "tests/include" > /tmp/cyan_compile.log 2>&1; then
         echo -e "${RED}COMPILE FAIL${NC}"
         cat /tmp/cyan_compile.log
         FAIL=$((FAIL + 1))
         continue
     fi
-    ./sodium-out/out > /tmp/cyan_stdout.txt 2>&1; actual_exit=$?
+    "$out_name" > /tmp/cyan_stdout.txt 2>&1; actual_exit=$?
     if [ "$actual_exit" -eq "$expected_exit" ]; then
         echo -e "${GREEN}PASS${NC} (exit: $actual_exit)"
         PASS=$((PASS + 1))
@@ -282,7 +287,7 @@ for test_file in "test_include_missing.cyan"; do
         continue
     fi
     echo -n "Testing include/$test_file (expect compile error)... "
-    if $COMPILER "$filepath" -I "tests/include" > /tmp/cyan_compile.log 2>&1; then
+    if $COMPILER -o /dev/null "$filepath" -I "tests/include" > /tmp/cyan_compile.log 2>&1; then
         echo -e "${RED}FAIL — compiled successfully (expected error)${NC}"
         cat /tmp/cyan_compile.log
         FAIL=$((FAIL + 1))
@@ -310,14 +315,16 @@ if command -v qemu-riscv64 &>/dev/null && command -v riscv64-elf-gcc &>/dev/null
 
         echo -n "Testing RV64 unit/$test_file... "
 
-        if ! $COMPILER --target riscv64 "$filepath" > /tmp/cyan_compile.log 2>&1; then
+        out_name="/tmp/cyan_rv64_$(basename "$test_file" .cyan)"
+
+        if ! $COMPILER --target riscv64 -o "$out_name" "$filepath" > /tmp/cyan_compile.log 2>&1; then
             echo -e "${RED}COMPILE FAIL${NC}"
             cat /tmp/cyan_compile.log
             FAIL=$((FAIL + 1))
             continue
         fi
 
-        qemu-riscv64 ./sodium-out/out > /tmp/cyan_stdout.txt 2>&1; actual_exit=$?
+        qemu-riscv64 "$out_name" > /tmp/cyan_stdout.txt 2>&1; actual_exit=$?
 
         if [ "$actual_exit" -eq "$expected_exit" ]; then
             echo -e "${GREEN}PASS${NC} (exit: $actual_exit)"
@@ -337,7 +344,7 @@ if command -v qemu-riscv64 &>/dev/null && command -v riscv64-elf-gcc &>/dev/null
             continue
         fi
         echo -n "Testing RV64 unit/$test_file (expect compile error)... "
-        if $COMPILER --target riscv64 "$filepath" > /tmp/cyan_compile.log 2>&1; then
+        if $COMPILER --target riscv64 -o /dev/null "$filepath" > /tmp/cyan_compile.log 2>&1; then
             echo -e "${RED}FAIL — compiled successfully (expected error)${NC}"
             cat /tmp/cyan_compile.log
             FAIL=$((FAIL + 1))
@@ -357,13 +364,14 @@ if command -v qemu-riscv64 &>/dev/null && command -v riscv64-elf-gcc &>/dev/null
             continue
         fi
         echo -n "Testing RV64 integration/$test_file... "
-        if ! $COMPILER --target riscv64 "$filepath" > /tmp/cyan_compile.log 2>&1; then
+        out_name="/tmp/cyan_rv64_$(basename "$test_file" .cyan)"
+        if ! $COMPILER --target riscv64 -o "$out_name" "$filepath" > /tmp/cyan_compile.log 2>&1; then
             echo -e "${RED}COMPILE FAIL${NC}"
             cat /tmp/cyan_compile.log
             FAIL=$((FAIL + 1))
             continue
         fi
-        qemu-riscv64 ./sodium-out/out > /tmp/cyan_stdout.txt 2>&1; actual_exit=$?
+        qemu-riscv64 "$out_name" > /tmp/cyan_stdout.txt 2>&1; actual_exit=$?
         if [ "$actual_exit" -eq "$expected_exit" ]; then
             echo -e "${GREEN}PASS${NC} (exit: $actual_exit)"
             PASS=$((PASS + 1))
@@ -384,13 +392,14 @@ if command -v qemu-riscv64 &>/dev/null && command -v riscv64-elf-gcc &>/dev/null
             continue
         fi
         echo -n "Testing RV64 include/$test_file... "
-        if ! $COMPILER --target riscv64 "$filepath" -I "tests/include" > /tmp/cyan_compile.log 2>&1; then
+        out_name="/tmp/cyan_rv64_$(basename "$test_file" .cyan)"
+        if ! $COMPILER --target riscv64 -o "$out_name" "$filepath" -I "tests/include" > /tmp/cyan_compile.log 2>&1; then
             echo -e "${RED}COMPILE FAIL${NC}"
             cat /tmp/cyan_compile.log
             FAIL=$((FAIL + 1))
             continue
         fi
-        qemu-riscv64 ./sodium-out/out > /tmp/cyan_stdout.txt 2>&1; actual_exit=$?
+        qemu-riscv64 "$out_name" > /tmp/cyan_stdout.txt 2>&1; actual_exit=$?
         if [ "$actual_exit" -eq "$expected_exit" ]; then
             echo -e "${GREEN}PASS${NC} (exit: $actual_exit)"
             PASS=$((PASS + 1))
@@ -408,7 +417,7 @@ if command -v qemu-riscv64 &>/dev/null && command -v riscv64-elf-gcc &>/dev/null
             continue
         fi
         echo -n "Testing RV64 include/$test_file (expect compile error)... "
-        if $COMPILER --target riscv64 "$filepath" -I "tests/include" > /tmp/cyan_compile.log 2>&1; then
+        if $COMPILER --target riscv64 -o /dev/null "$filepath" -I "tests/include" > /tmp/cyan_compile.log 2>&1; then
             echo -e "${RED}FAIL — compiled successfully (expected error)${NC}"
             cat /tmp/cyan_compile.log
             FAIL=$((FAIL + 1))

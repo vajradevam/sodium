@@ -17,14 +17,29 @@
 #include "backend/x86_64/backend.hpp"
 #include "backend/riscv64/backend.hpp"
 
+// Temp directory to clean up on exit (set after mkdtemp succeeds)
+static std::string g_tmp_dir;
+
+static void cleanup_temp_dir() {
+    if (!g_tmp_dir.empty()) {
+        system(("rm -rf " + g_tmp_dir).c_str());
+        g_tmp_dir.clear();
+    }
+}
+
 int main(int argc, char* argv[]) {
 
     bool print_ast_flag = false;
     bool emit_ir_flag = false;
     bool no_alloc_flag = false;
     const char* filename = nullptr;
+    std::string output_path;         // -o <file>, or derived from input
     std::vector<std::string> include_dirs;
     std::string target = "x86_64";  // default
+
+    auto usage = []() {
+        std::cerr << "Usage: sodium [--target <arch>] [--print-ast] [--emit-ir] [--no-alloc] [-o <file>] [-I <dir>] <filename.cyan>" << std::endl;
+    };
 
     for (int i = 1; i < argc; i++) {
         if (std::strcmp(argv[i], "--print-ast") == 0) {
@@ -40,24 +55,44 @@ int main(int argc, char* argv[]) {
                 std::cerr << "--target requires an argument (x86_64 or riscv64)" << std::endl;
                 exit(EXIT_FAILURE);
             }
+        } else if (std::strcmp(argv[i], "-o") == 0 || std::strcmp(argv[i], "--output") == 0) {
+            if (i + 1 < argc) {
+                output_path = argv[++i];
+            } else {
+                std::cerr << "-o requires an argument" << std::endl;
+                exit(EXIT_FAILURE);
+            }
         } else if (std::strcmp(argv[i], "-I") == 0 || std::strcmp(argv[i], "--include-dir") == 0) {
             if (i + 1 < argc) {
                 include_dirs.push_back(argv[++i]);
             } else {
-                std::cerr << "Usage: sodium [--target <arch>] [--print-ast] [--emit-ir] [--no-alloc] [-I <dir>] <filename.cyan>" << std::endl;
+                usage();
                 exit(EXIT_FAILURE);
             }
         } else if (filename == nullptr) {
             filename = argv[i];
         } else {
-            std::cerr << "Usage: sodium [--target <arch>] [--print-ast] [--emit-ir] [--no-alloc] [-I <dir>] <filename.cyan>" << std::endl;
+            usage();
             exit(EXIT_FAILURE);
         }
     }
 
     if (filename == nullptr) {
-        std::cerr << "Usage: sodium [--target <arch>] [--print-ast] [--emit-ir] [--no-alloc] [-I <dir>] <filename.cyan>" << std::endl;
+        usage();
         exit(EXIT_FAILURE);
+    }
+
+    // Derive default output path from input filename
+    if (output_path.empty()) {
+        std::string fn = filename;
+        // Strip directory prefix
+        auto slash = fn.find_last_of('/');
+        std::string base = (slash == std::string::npos) ? fn : fn.substr(slash + 1);
+        // Strip .cyan extension
+        if (base.size() > 5 && base.substr(base.size() - 5) == ".cyan") {
+            base = base.substr(0, base.size() - 5);
+        }
+        output_path = base;
     }
 
     // Helper: get directory part of a path (like dirname(1), but doesn't modify input).
@@ -112,17 +147,20 @@ int main(int argc, char* argv[]) {
         exit(EXIT_FAILURE);
     };
 
-    // Output directory
-    std::string out_dir = "sodium-out";
-    // Create output directory (ignore error if exists)
-    system(("mkdir -p " + out_dir).c_str());
+    // Create a temporary directory for intermediate files (.asm, .o)
+    g_tmp_dir = "/tmp/sodium-XXXXXX";
+    if (!mkdtemp(g_tmp_dir.data())) {
+        std::cerr << "error: failed to create temporary directory" << std::endl;
+        exit(EXIT_FAILURE);
+    }
+    std::atexit(cleanup_temp_dir);
 
     // Select backend and target info
     Backend* backend = nullptr;
     TargetRegisterInfo* tri = nullptr;
-    std::string asm_file = out_dir + "/out.asm";
-    std::string obj_file = out_dir + "/out.o";
-    std::string exe_file = out_dir + "/out";
+    std::string asm_file = g_tmp_dir + "/out.asm";
+    std::string obj_file = g_tmp_dir + "/out.o";
+    std::string exe_file = g_tmp_dir + "/out";
     std::string asm_cmd, link_cmd, rt_dir;
 
     if (target == "x86_64") {
@@ -205,6 +243,20 @@ int main(int argc, char* argv[]) {
         int ret = system(link_cmd.c_str());
         if (ret != 0) {
             std::cerr << "linking failed (exit code " << ret << ")" << std::endl;
+            exit(EXIT_FAILURE);
+        }
+    }
+
+    // Copy the final binary to the output path
+    {
+        // Ensure parent directory exists
+        auto out_dir = get_dir(output_path);
+        if (out_dir != ".") {
+            system(("mkdir -p " + out_dir).c_str());
+        }
+        int ret = system(("cp " + exe_file + " " + output_path).c_str());
+        if (ret != 0) {
+            std::cerr << "error: failed to write output binary to " << output_path << std::endl;
             exit(EXIT_FAILURE);
         }
     }
