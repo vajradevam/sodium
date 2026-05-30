@@ -129,8 +129,8 @@ int main(int argc, char* argv[]) {
         backend = new RISCV64Backend();
         tri = new TargetRegisterInfo(TargetRegisterInfo::riscv64_lp64());
         rt_dir = resolve_rt_dir();
-        asm_cmd = "riscv64-elf-as -march=rv64gc -o " + obj_file + " " + asm_file;
-        link_cmd = "riscv64-elf-gcc -nostdlib -static -o out " + obj_file + " " + rt_dir + "/sodium-rt.a";
+        asm_cmd = "riscv64-elf-as -march=rv64gc -mno-relax -o " + obj_file + " " + asm_file;
+        link_cmd = "riscv64-elf-gcc -nostdlib -static -Wl,--no-relax -o out " + obj_file + " " + rt_dir + "/sodium-rt.a";
     } else {
         std::cerr << "Unsupported target: " << target << " (use x86_64 or riscv64)" << std::endl;
         exit(EXIT_FAILURE);
