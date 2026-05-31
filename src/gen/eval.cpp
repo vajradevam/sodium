@@ -594,12 +594,22 @@ void Generator::collect_call_types()
                 void operator()(const BinExprDiv* b) {
                     auto lhs = gen->eval_const_expr(b->lhs);
                     auto rhs = gen->eval_const_expr(b->rhs);
-                    if (lhs && rhs && rhs.value() != 0) result = lhs.value() / rhs.value();
+                    if (lhs && rhs) {
+                        if (rhs.value() == 0) {
+                            lsp_exit({}, "Division by zero in constant expression");
+                        }
+                        result = lhs.value() / rhs.value();
+                    }
                 }
                 void operator()(const BinExprMod* b) {
                     auto lhs = gen->eval_const_expr(b->lhs);
                     auto rhs = gen->eval_const_expr(b->rhs);
-                    if (lhs && rhs && rhs.value() != 0) result = lhs.value() % rhs.value();
+                    if (lhs && rhs) {
+                        if (rhs.value() == 0) {
+                            lsp_exit({}, "Division by zero in constant expression");
+                        }
+                        result = lhs.value() % rhs.value();
+                    }
                 }
                 void operator()(const BinExprLT* b) {
                     auto lhs = gen->eval_const_expr(b->lhs);

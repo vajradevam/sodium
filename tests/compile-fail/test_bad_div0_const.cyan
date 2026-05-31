@@ -1,0 +1,9 @@
+// Test: compile-time division by zero should produce an error
+// Note: constexpr division by zero is caught at compile time.
+// Expected: compile error "Division by zero in constant expression"
+
+function main() {
+    var arr[10 / 0];  // Division by zero in constant expression
+    print("FAIL: should not reach here");
+    return(0);
+}

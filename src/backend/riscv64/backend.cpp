@@ -376,12 +376,24 @@ void RISCV64Backend::signed_div(const std::string& dst, const std::string& divid
     // RISC-V div is a true three-operand instruction: div rd, rs1, rs2
     // Both source registers are read before the destination is written,
     // so rd may equal rs1 or rs2. No scratch register needed.
+    // Runtime zero-division check: exit(1) if divisor == 0
+    std::string ok = ".Ldiv_ok_" + std::to_string(m_div_label_counter++);
+    emit_insn("bnez", divisor + ", " + ok);
+    emit_insn("li", "a0, 1");
+    emit_insn("call", "_sodium_exit");
+    label(ok);
     emit_rri("div", dst, dividend, divisor);
 }
 
 void RISCV64Backend::signed_mod(const std::string& dst, const std::string& dividend,
                                  const std::string& divisor) {
     // RISC-V rem is also three-operand: rem rd, rs1, rs2
+    // Runtime zero-division check: exit(1) if divisor == 0
+    std::string ok = ".Ldiv_ok_" + std::to_string(m_div_label_counter++);
+    emit_insn("bnez", divisor + ", " + ok);
+    emit_insn("li", "a0, 1");
+    emit_insn("call", "_sodium_exit");
+    label(ok);
     emit_rri("rem", dst, dividend, divisor);
 }
 

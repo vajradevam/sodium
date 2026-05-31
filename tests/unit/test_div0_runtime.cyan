@@ -1,0 +1,9 @@
+// Test: runtime division by zero should exit with code 1 (not SIGFPE)
+
+function main() {
+    var x = 42;
+    var y = 0;
+    var z = x / y;  // Should trigger runtime zero-check → exit(1)
+    // If we reach here, the test failed
+    return(0);
+}

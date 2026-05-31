@@ -107,6 +107,7 @@ public:
 
 private:
     std::ostream* m_output;
+    uint64_t m_div_label_counter = 0;
 
     // Comparison state (stored by cmp/test, consumed by branches and set_cc)
     std::string m_cmp_a;

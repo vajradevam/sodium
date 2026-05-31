@@ -213,6 +213,13 @@ void X8664Backend::signed_div(const std::string& dst, const std::string& dividen
     // We use r11 (designated scratch register) for divisor,
     // rax for dividend, cqo for sign-extend.
     mov("r11", divisor);
+    // Runtime zero-division check: exit(1) if divisor == 0
+    std::string ok = ".Ldiv_ok_" + std::to_string(m_div_label_counter++);
+    emit_insn("cmp", "r11, 0");
+    emit_insn("jne", ok);
+    emit_insn("mov", "rdi, 1");
+    emit_insn("call", "_sodium_exit");
+    label(ok);
     mov("rax", dividend);
     emit_cqo();
     emit_insn("idiv", "r11");
@@ -225,6 +232,13 @@ void X8664Backend::signed_mod(const std::string& dst, const std::string& dividen
                                const std::string& divisor) {
     // x86-64: remainder ends up in rdx after idiv
     mov("r11", divisor);
+    // Runtime zero-division check: exit(1) if divisor == 0
+    std::string ok = ".Ldiv_ok_" + std::to_string(m_div_label_counter++);
+    emit_insn("cmp", "r11, 0");
+    emit_insn("jne", ok);
+    emit_insn("mov", "rdi, 1");
+    emit_insn("call", "_sodium_exit");
+    label(ok);
     mov("rax", dividend);
     emit_cqo();
     emit_insn("idiv", "r11");
