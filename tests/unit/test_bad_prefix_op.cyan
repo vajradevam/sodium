@@ -1,0 +1,4 @@
+// Compile-fail: missing operand after prefix operator
+// Expected: Expected expression after operator
+var x = -;
+return(0);

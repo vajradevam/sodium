@@ -1,0 +1,3 @@
+// Compile-fail: unterminated string literal
+// Expected: Unterminated string literal
+var x = "hello;

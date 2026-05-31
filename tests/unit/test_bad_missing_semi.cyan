@@ -1,0 +1,3 @@
+// Compile-fail: missing semicolon
+// Expected: Expected `;`
+var x = 10 return(0);

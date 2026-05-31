@@ -1,0 +1,3 @@
+// Compile-fail: #error directive
+// Expected: (user-defined error message)
+#error "this is a deliberate compile error"

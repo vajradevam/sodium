@@ -1,0 +1,4 @@
+// Compile-fail: unknown type in variable declaration
+// Expected: Expected type after ':'
+var x: FooBar;
+return(0);

@@ -1,0 +1,4 @@
+// Compile-fail: expected field name after '.'
+// Expected: Expected field name after '.'
+var x = obj.;
+return(0);

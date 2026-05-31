@@ -1,0 +1,5 @@
+// Compile-fail: variable redeclaration
+// Expected: Identifier already used in this scope
+var x = 1;
+var x = 2;
+return(0);

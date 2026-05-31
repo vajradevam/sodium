@@ -1,0 +1,3 @@
+// Compile-fail: return without value at top level
+// Expected: return with no value at top level
+return;

@@ -1,0 +1,4 @@
+// Compile-fail: argv() with wrong number of arguments
+// Expected: argv() takes exactly one argument
+argv(1, 2);
+return(0);

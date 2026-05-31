@@ -1,0 +1,5 @@
+// Compile-fail: const with non-constant initializer
+// Should fail: const initializer is not a compile-time constant expression
+var y = 10;
+const X = y;
+return(0);

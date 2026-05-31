@@ -1,0 +1,4 @@
+// Compile-fail: print without '('
+// Expected: Expected '(' after print
+print x;
+return(0);

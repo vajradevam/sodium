@@ -1,0 +1,4 @@
+// Compile-fail: if without '('
+// Expected: Expected '(' after if
+if x > 0 { }
+return(0);

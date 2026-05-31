@@ -1,0 +1,4 @@
+// Compile-fail: for with invalid update expression
+// Expected: Invalid for update (must be assignment)
+for (var i = 0; i < 10; i) { }
+return(0);

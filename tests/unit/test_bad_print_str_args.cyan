@@ -1,0 +1,4 @@
+// Compile-fail: print_str() with wrong number of arguments
+// Expected: print_str() takes exactly one argument
+print_str();
+return(0);

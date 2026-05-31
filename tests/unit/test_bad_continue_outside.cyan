@@ -1,0 +1,4 @@
+// Compile-fail: continue outside loop
+// Expected: continue outside loop
+continue;
+return(0);

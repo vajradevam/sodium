@@ -1,0 +1,4 @@
+// Compile-fail: static without 'var'
+// Expected: Expected 'var' after 'static'
+static x = 10;
+return(0);

@@ -1,0 +1,4 @@
+// Compile-fail: while without '('
+// Expected: Expected '(' after while
+while x > 0 { }
+return(0);

@@ -1,0 +1,4 @@
+// Compile-fail: global without 'var'
+// Expected: Expected 'var' after 'global'
+global x = 10;
+return(0);

@@ -1,0 +1,4 @@
+// Compile-fail: do without while
+// Expected: Expected 'while' after do body
+do { }
+return(0);
