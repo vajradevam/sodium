@@ -58,6 +58,7 @@ UNIT_TESTS["test_bitwise.cyan"]=26
 UNIT_TESTS["test_bitwise2.cyan"]=6
 UNIT_TESTS["test_ternary.cyan"]=30
 UNIT_TESTS["test_ternary2.cyan"]=50
+UNIT_TESTS["test_print_all.cyan"]=0
 UNIT_TESTS["test_mod_assign.cyan"]=1
 UNIT_TESTS["test_bitwise_assign.cyan"]=30
 UNIT_TESTS["test_do_while.cyan"]=10

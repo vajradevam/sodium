@@ -1,0 +1,109 @@
+// Comprehensive test for unified print with C-style format strings
+// Run this and visually verify the output.
+
+// ── 1. print("plain string") ─────────────────────────────────────────────
+print("=== 1. plain string ===");
+print("hello world");
+
+// ── 2. print(42) — backward compat integer ──────────────────────────────
+print("=== 2. backward compat integer ===");
+print(42);
+print(-42);
+
+// ── 3. print() — just newline ──────────────────────────────────────────
+print("=== 3. empty print() ===");
+print();
+print("above was empty line");
+
+// ── 4. print("%d", x) — single integer ─────────────────────────────────
+print("=== 4. %%d format ===");
+print("%d", 42);
+print("%d", -42);
+
+// ── 5. print("%s", strlit) — string literal ────────────────────────────
+print("=== 5. %%s with string literal ===");
+print("%s", "hi");
+print("prefix %s suffix", "hello");
+
+// ── 6. Multiple args ────────────────────────────────────────────────────
+print("=== 6. multiple arguments ===");
+print("%d %d %d", 10, 20, 30);
+print("a=%d b=%d c=%d", 1, 2, 3);
+
+// ── 7. Expression in arg ────────────────────────────────────────────────
+print("=== 7. expressions ===");
+print("sum=%d", 10 + 20);
+print("mul=%d", 6 * 7);
+print("neg=%d", -100);
+
+// ── 8. %% — literal percent ─────────────────────────────────────────────
+print("=== 8. literal percent ===");
+print("100%%");
+print("%d%%", 50);
+print("%d%% of %d", 75, 200);
+
+// ── 9. Variables as args ────────────────────────────────────────────────
+print("=== 9. variables ===");
+var x = 100;
+var y = 200;
+print("x=%d y=%d", x, y);
+print("x+y=%d", x + y);
+
+// ── 10. Mixed text and format ───────────────────────────────────────────
+print("=== 10. mixed ===");
+print("The answer is %d", 42);
+print("%d + %d = %d", 2, 3, 2 + 3);
+
+// ── 11. Backward compat: print variable (non-string) ───────────────────
+print("=== 11. backward compat variable ===");
+var val = 77;
+print(val);
+
+// ── 12. Function call in arg ───────────────────────────────────────────
+print("=== 12. function calls ===");
+function double(n) { return n * 2; }
+print("double(21)=%d", double(21));
+
+// ── 13. Long format string ─────────────────────────────────────────────
+print("=== 13. long format ===");
+print("nums: %d %d %d %d %d %d %d %d", 1, 2, 3, 4, 5, 6, 7, 8);
+
+// ── 14. Format with no placeholders (just text) ────────────────────────
+print("=== 14. no placeholders ===");
+print("just text no placeholders");
+
+// ── 15. Consecutive %% ─────────────────────────────────────────────────
+print("=== 15. consecutive percent ===");
+print("%%%%");
+print("%d%%%d%%", 50, 75);
+
+// ── 16. Zero value ─────────────────────────────────────────────────────
+print("=== 16. zero ===");
+print("%d", 0);
+
+// ── 17. Edge cases ─────────────────────────────────────────────────────
+print("=== 17. edge cases ===");
+print("%d", -1);
+print("%d", -999);
+print("%d", 2147483647);
+print("%d", -2147483647);
+
+// ── 18. Mixed %%d and %%s ───────────────────────────────────────────────
+print("=== 18. mixed %%d and %%s ===");
+print("Hello %s, you are %d years old", "Alice", 30);
+
+// ── 19. Multiple %%s ────────────────────────────────────────────────────
+print("=== 19. multiple %%s ===");
+print("%s %s %s", "a", "b", "c");
+
+// ── 20. No newline test (just content) ─────────────────────────────────
+print("=== 20. no extra newlines ===");
+print("first");
+print("second");
+print("third");
+
+// ── 21. All done ───────────────────────────────────────────────────────
+print("=== 21. done ===");
+print("All print tests completed!");
+
+return 0;
