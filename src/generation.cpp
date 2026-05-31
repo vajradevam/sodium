@@ -514,8 +514,9 @@ void Generator::gen_expr(const NodeExpr& expr)
                         const auto& var = it->vars.at(name);
                         uint32_t addr = gen->m_ir.frame_addr(static_cast<int64_t>(var.stack_loc));
                         gen->push_vreg(addr);
-                        // Record pointer type
-                        Type* pointee = gen->alloc_type(var.type);
+                        // Stack slots are always 8 bytes regardless of declared type.
+                        // So &x always gives Ptr(i64) — honest about the real layout.
+                        Type* pointee = gen->alloc_type(Type::make_int(IntType::i64));
                         gen->m_tstack.back() = Type::make_ptr(pointee);
                         return;
                     }
@@ -794,12 +795,13 @@ void Generator::gen_expr(const NodeExpr& expr)
                         size_t elem_size = type_size(*type_a.pointee);
                         uint32_t diff = gen->m_ir.sub(IRValue::vreg(a), IRValue::vreg(b));
                         if (elem_size > 1) {
-                            // Shift right by log2(elem_size) for power-of-2 division
-                            // (all element sizes are powers of 2: 1, 2, 4, 8)
+                            // Arithmetic shift right by log2(elem_size).
+                            // Must use ASHR (not SHR) because the byte difference
+                            // can be negative (stack grows down).
                             int shift = 0;
                             size_t s = elem_size;
                             while (s > 1) { s >>= 1; shift++; }
-                            uint32_t v = gen->m_ir.shr(IRValue::vreg(diff),
+                            uint32_t v = gen->m_ir.ashr(IRValue::vreg(diff),
                                 IRValue::imm_i64(static_cast<int64_t>(shift)));
                             gen->push_vreg(v);
                         } else {
