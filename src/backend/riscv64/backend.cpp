@@ -67,7 +67,15 @@ void RISCV64Backend::pop(const std::string& reg) {
 void RISCV64Backend::adjust_stack(int64_t bytes) {
     if (bytes == 0) return;
     // Convention: positive = add to sp (shrink), negative = sub from sp (grow)
-    emit_insn("addi", "sp, sp, " + std::to_string(bytes));
+    // addi only supports 12-bit signed immediates (-2048..2047).
+    // For larger values, load into a register and use add/sub.
+    if (bytes >= -2048 && bytes <= 2047) {
+        emit_insn("addi", "sp, sp, " + std::to_string(bytes));
+    } else {
+        // Use a temporary register (t0) for the offset
+        emit_insn("li", "t0, " + std::to_string(bytes));
+        emit_insn("add", "sp, sp, t0");
+    }
 }
 
 // ---- function frame ----
@@ -139,7 +147,17 @@ void RISCV64Backend::lea(const std::string& reg, const std::string& addr) {
         if (offset_str.empty() || offset_str == "0") {
             emit_insn("mv", reg + ", " + base);
         } else {
-            emit_rri("addi", reg, base, offset_str);
+            // addi only supports 12-bit signed immediates (-2048..2047)
+            int64_t offset = std::stoll(offset_str);
+            if (offset >= -2048 && offset <= 2047) {
+                emit_insn("addi", reg + ", " + base + ", " + offset_str);
+            } else {
+                // Large offset: load into the destination register
+                // and add base to it. This avoids clobbering any other
+                // register (unlike using a hardcoded temp like t1).
+                emit_insn("li", reg + ", " + offset_str);
+                emit_insn("add", reg + ", " + base + ", " + reg);
+            }
         }
     } else {
         // Label address: use la pseudo-instruction
