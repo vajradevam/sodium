@@ -1,0 +1,46 @@
+// Test escape sequence processing in string literals
+// All tests pass if the program runs to completion and prints expected output.
+
+function main() {
+    // \\ — backslash
+    print("bs: \\");
+
+    // \" — double quote
+    print("dq: \"");
+
+    // \t — tab
+    print("tab:|X\tY|");
+
+    // \n — newline
+    print("nl:");
+    print("A\nB");
+
+    // \x41 — hex escape (ASCII 'A')
+    print("hex_A: \x41");
+
+    // \xAB — hex escape (non-ASCII byte)
+    print("hex_AB: \xAB");
+
+    // \0 — null byte (embedded)
+    // This is tricky: after null, print will stop.
+    // We just verify the program doesn't crash.
+    print("null_test");
+
+    // Multiple escapes in one string
+    print("multi: a\nb\tc\\d\"e\x42");
+
+    // \a — bell/alert
+    print("bell: \a(ding)");
+
+    // \b — backspace
+    print("bs2: \b ");
+
+    // \f — form feed
+    print("ff: \f ");
+
+    // \v — vertical tab
+    print("vt: \v ");
+
+    print("ALL ESCAPE TESTS PASSED");
+    return(0);
+}

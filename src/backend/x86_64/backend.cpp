@@ -427,7 +427,11 @@ void X8664Backend::dq(const std::string& name, const std::string& value) {
 }
 
 void X8664Backend::db_str(const std::string& label, const std::string& str) {
-    *m_output << label << ": db \"" << str << "\", 0\n";
+    *m_output << label << ": db";
+    for (size_t i = 0; i < str.size(); i++) {
+        *m_output << " 0x" << std::hex << (unsigned)(unsigned char)str[i] << std::dec << ",";
+    }
+    *m_output << " 0\n";
 }
 
 void X8664Backend::resq(const std::string& name, size_t count) {

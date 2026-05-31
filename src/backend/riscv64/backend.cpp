@@ -601,7 +601,11 @@ void RISCV64Backend::dq(const std::string& name, const std::string& value) {
 }
 
 void RISCV64Backend::db_str(const std::string& label, const std::string& str) {
-    *m_output << label << ": .string \"" << str << "\"\n";
+    *m_output << label << ": .byte";
+    for (size_t i = 0; i < str.size(); i++) {
+        *m_output << " 0x" << std::hex << (unsigned)(unsigned char)str[i] << std::dec << ",";
+    }
+    *m_output << " 0\n";
 }
 
 void RISCV64Backend::resq(const std::string& name, size_t count) {

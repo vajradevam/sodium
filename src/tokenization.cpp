@@ -303,15 +303,51 @@ std::vector<Token> Tokenizer::tokenize() {
             consume(); // "
             buf.clear();
             while (peek().has_value() && peek().value() != '"') {
-                buf.push_back(consume());
+                char c = consume();
+                if (c == '\\' && peek().has_value()) {
+                    char esc = consume();
+                    switch (esc) {
+                        case 'n':  buf.push_back('\n'); break;
+                        case 't':  buf.push_back('\t'); break;
+                        case 'r':  buf.push_back('\r'); break;
+                        case '\\': buf.push_back('\\'); break;
+                        case '"':  buf.push_back('"');  break;
+                        case '0':  buf.push_back('\0'); break;
+                        case 'a':  buf.push_back('\a'); break;
+                        case 'b':  buf.push_back('\b'); break;
+                        case 'f':  buf.push_back('\f'); break;
+                        case 'v':  buf.push_back('\v'); break;
+                        case 'x': {
+                            // \\xNN — 1 or 2 hex digits
+                            uint8_t val = 0;
+                            int digits = 0;
+                            while (digits < 2 && peek().has_value() &&
+                                   std::isxdigit(static_cast<unsigned char>(peek().value()))) {
+                                char h = consume();
+                                val *= 16;
+                                if (h >= '0' && h <= '9')      val += (uint8_t)(h - '0');
+                                else if (h >= 'a' && h <= 'f') val += (uint8_t)(10 + h - 'a');
+                                else if (h >= 'A' && h <= 'F') val += (uint8_t)(10 + h - 'A');
+                                digits++;
+                            }
+                            if (digits == 0) {
+                                lsp_exit(current_loc(),
+                                    "Invalid hex escape '\\x' with no hex digits in string literal");
+                            }
+                            buf.push_back(static_cast<char>(val));
+                            break;
+                        }
+                        default: {
+                            lsp_exit(current_loc(),
+                                "Unknown escape sequence: \\" + std::string(1, esc));
+                        }
+                    }
+                } else {
+                    buf.push_back(c);
+                }
             }
             if (!peek().has_value()) {
-                if (g_lsp_mode) {
-                    g_lsp_errors.push_back({loc, "Unterminated string literal"});
-                    throw LSPAbort();
-                }
-                std::cerr << format_err(loc, "Unterminated string literal") << std::endl;
-                exit(EXIT_FAILURE);
+                lsp_exit(loc, "Unterminated string literal");
             }
             consume(); // "
             tokens.push_back({ .type = TokenType::string_lit, .value = buf, .loc = loc });
