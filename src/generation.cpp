@@ -74,7 +74,7 @@ void Generator::load_var_to_vstack(const std::string& name) {
                 uint32_t addr = m_ir.frame_addr(static_cast<int64_t>(var.stack_loc));
                 uint32_t val = m_ir.load(IRValue::vreg(addr), 0);
                 push_vreg(val);
-                m_tstack.back() = Type::make_int(IntType::i64); // array element type is i64
+                m_tstack.back() = Type::make_int(IntType::i64);
                 return;
             } else if (var.type.kind == Type::Ptr || var.type.int_type == IntType::i64 || var.type.int_type == IntType::u64) {
                 uint32_t addr = m_ir.frame_addr(static_cast<int64_t>(var.stack_loc));
@@ -84,16 +84,23 @@ void Generator::load_var_to_vstack(const std::string& name) {
                 return;
             } else {
                 uint32_t addr = m_ir.frame_addr(static_cast<int64_t>(var.stack_loc));
-                uint32_t val = m_ir.load(IRValue::vreg(addr), 0);
-                // Extend the loaded value
-                switch (var.type.int_type) {
-                    case IntType::i8:  val = m_ir.sext(IRValue::vreg(val), IRWidth::I8); break;
-                    case IntType::i16: val = m_ir.sext(IRValue::vreg(val), IRWidth::I16); break;
-                    case IntType::i32: val = m_ir.sext(IRValue::vreg(val), IRWidth::I32); break;
-                    case IntType::u8:  val = m_ir.zext(IRValue::vreg(val), IRWidth::I8); break;
-                    case IntType::u16: val = m_ir.zext(IRValue::vreg(val), IRWidth::I16); break;
-                    case IntType::u32: val = m_ir.zext(IRValue::vreg(val), IRWidth::I32); break;
-                    default: break;
+                // Use a correctly-sized load to avoid reading adjacent variables
+                uint32_t val;
+                size_t sz = type_size(var.type);
+                bool is_signed = (var.type.int_type == IntType::i8 ||
+                                  var.type.int_type == IntType::i16 ||
+                                  var.type.int_type == IntType::i32);
+                if (sz <= 1) {
+                    val = is_signed ? m_ir.load_s8(IRValue::vreg(addr), 0)
+                                    : m_ir.load_u8(IRValue::vreg(addr), 0);
+                } else if (sz <= 2) {
+                    val = is_signed ? m_ir.load_s16(IRValue::vreg(addr), 0)
+                                    : m_ir.load_u16(IRValue::vreg(addr), 0);
+                } else if (sz <= 4) {
+                    val = is_signed ? m_ir.load_s32(IRValue::vreg(addr), 0)
+                                    : m_ir.load_u32(IRValue::vreg(addr), 0);
+                } else {
+                    val = m_ir.load(IRValue::vreg(addr), 0);
                 }
                 push_vreg(val);
                 m_tstack.back() = var.type;
@@ -132,6 +139,18 @@ void Generator::store_var_from_vstack(const std::string& name, AssignOp op) {
             bool is_64bit_int = (var.type.kind == Type::Int &&
                                  (var.type.int_type == IntType::i64 || var.type.int_type == IntType::u64));
 
+            auto typed_store = [&](uint32_t addr, uint32_t val) {
+                if (is_ptr_type || is_64bit_int) {
+                    m_ir.store(IRValue::vreg(addr), 0, IRValue::vreg(val));
+                } else {
+                    size_t sz = type_size(var.type);
+                    if (sz <= 1)      m_ir.store_8(IRValue::vreg(addr), 0, IRValue::vreg(val));
+                    else if (sz <= 2) m_ir.store_16(IRValue::vreg(addr), 0, IRValue::vreg(val));
+                    else if (sz <= 4) m_ir.store_32(IRValue::vreg(addr), 0, IRValue::vreg(val));
+                    else              m_ir.store(IRValue::vreg(addr), 0, IRValue::vreg(val));
+                }
+            };
+
             if (op == AssignOp::assign) {
                 uint32_t val = pop_vreg();
                 if (!is_ptr_type && !is_64bit_int) {
@@ -147,7 +166,7 @@ void Generator::store_var_from_vstack(const std::string& name, AssignOp op) {
                     }
                 }
                 uint32_t addr = m_ir.frame_addr(static_cast<int64_t>(var.stack_loc));
-                m_ir.store(IRValue::vreg(addr), 0, IRValue::vreg(val));
+                typed_store(addr, val);
             } else {
                 // Compound assignment: read old, apply op, write back
                 load_var_to_vstack(name);
@@ -181,7 +200,7 @@ void Generator::store_var_from_vstack(const std::string& name, AssignOp op) {
                     }
                 }
                 uint32_t addr = m_ir.frame_addr(static_cast<int64_t>(var.stack_loc));
-                m_ir.store(IRValue::vreg(addr), 0, IRValue::vreg(result));
+                typed_store(addr, result);
             }
             return;
         }
@@ -229,7 +248,9 @@ void Generator::flush_function() {
     if (!func) return;
 
     // Set stack slot count
-    func->stack_slots = m_next_frame_slot;
+    // Round frame size up to 16 bytes for ABI stack alignment
+    // (x86-64 and RISC-V both require 16-byte alignment at call sites)
+    func->stack_slots = (m_next_frame_offset + 15) & ~static_cast<uint32_t>(15);
 
     // Run the pipeline: liveness → allocator → rewriter → emitter
     // We save the function name and blocks before destroying via end_function
@@ -259,7 +280,7 @@ void Generator::flush_function() {
     // Reset IR state for next function
     m_ir.end_function();  // destroys the function
     m_vstack.clear();
-    m_next_frame_slot = 0;
+    m_next_frame_offset = 0;
     m_frame_slots = 0;
 }
 
@@ -273,7 +294,7 @@ void Generator::gen_func_def(const NodeFuncDef& func)
 
     // Start a new IR function
     m_ir.start_function(func.name.value.value());
-    m_next_frame_slot = 0;
+    m_next_frame_offset = 0;
 
     m_backend_ptr->extern_sym(func.name.value.value());
     // The entry block is already created by start_function();
@@ -288,14 +309,15 @@ void Generator::gen_func_def(const NodeFuncDef& func)
         std::string param_name = func.params[i].value.value();
         auto& scope = m_scopes.back();
 
-        uint32_t slot = m_next_frame_slot++;
-        scope.vars[param_name] = Var { .stack_loc = slot };
+        uint32_t offset = m_next_frame_offset;
+        m_next_frame_offset += 8;
+        scope.vars[param_name] = Var { .stack_loc = offset, .type = Type::make_int(IntType::i64) };
         scope.var_count++;
 
         // Load parameter from ABI-defined location (argument register or stack)
         // using the target-agnostic LOAD_PARAM opcode.
         uint32_t param_val = m_ir.load_param(static_cast<int64_t>(i));
-        uint32_t slot_addr = m_ir.frame_addr(static_cast<int64_t>(slot));
+        uint32_t slot_addr = m_ir.frame_addr(static_cast<int64_t>(offset));
         m_ir.store(IRValue::vreg(slot_addr), 0, IRValue::vreg(param_val));
     }
 
@@ -328,11 +350,14 @@ void Generator::enter_scope()
 void Generator::exit_scope()
 {
     auto& scope = m_scopes.back();
-    m_stack_size -= scope.var_count;
-    if (scope.var_count > 0) {
-        // No need to adjust runtime stack — frame slots are managed by the allocator
-    }
+    // var_count counts the number of *variables*, not bytes.
+    // Stack size is tracked separately in m_stack_size (bytes).
     m_scopes.pop_back();
+}
+
+// Align value up to the given alignment (must be power of 2).
+static inline size_t align_up(size_t val, size_t align) {
+    return (val + align - 1) & ~(align - 1);
 }
 
 void Generator::declare_var(const std::string& name, Type type, SourceLoc loc) {
@@ -340,10 +365,13 @@ void Generator::declare_var(const std::string& name, Type type, SourceLoc loc) {
     if (scope.vars.contains(name)) {
         lsp_exit(loc, "Identifier already used in this scope: " + name);
     }
-    uint32_t slot = m_next_frame_slot++;
-    scope.vars[name] = Var { .stack_loc = slot, .type = type };
+    size_t size = type_size(type);
+    size_t align = size < 8 ? size : 8;  // natural alignment, capped at 8
+    uint32_t offset = static_cast<uint32_t>(align_up(m_next_frame_offset, align));
+    m_next_frame_offset = offset + static_cast<uint32_t>(size);
+    scope.vars[name] = Var { .stack_loc = offset, .type = type };
     scope.var_count++;
-    m_stack_size++;
+    m_stack_size += size;
 }
 
 Var Generator::lookup_var(const std::string& name, SourceLoc loc) {
@@ -514,9 +542,8 @@ void Generator::gen_expr(const NodeExpr& expr)
                         const auto& var = it->vars.at(name);
                         uint32_t addr = gen->m_ir.frame_addr(static_cast<int64_t>(var.stack_loc));
                         gen->push_vreg(addr);
-                        // Stack slots are always 8 bytes regardless of declared type.
-                        // So &x always gives Ptr(i64) — honest about the real layout.
-                        Type* pointee = gen->alloc_type(Type::make_int(IntType::i64));
+                        // Stack slots are now packed by type size, so &x gives Ptr(typeof(x)).
+                        Type* pointee = gen->alloc_type(var.type);
                         gen->m_tstack.back() = Type::make_ptr(pointee);
                         return;
                     }
@@ -975,13 +1002,14 @@ void Generator::gen_stmt(const NodeStmt& stmt)
                     lsp_exit(stmt_let->ident.loc, "Unknown struct type: " + stmt_let->struct_type_name);
                 }
                 auto& scope = gen->m_scopes.back();
-                uint32_t slot = gen->m_next_frame_slot;
-                gen->m_next_frame_slot += struct_info.value().size;
+                uint32_t struct_bytes = static_cast<uint32_t>(struct_info.value().size * 8);
+                uint32_t slot = gen->m_next_frame_offset;
+                gen->m_next_frame_offset += struct_bytes;
                 scope.vars[stmt_let->ident.value.value()] = Var { .stack_loc = slot, .array_size = struct_info.value().size, .struct_type = stmt_let->struct_type_name };
                 scope.var_count += struct_info.value().size;
-                // Zero-initialize all fields
+                // Zero-initialize all fields (each 8 bytes)
                 for (size_t i = 0; i < struct_info.value().size; i++) {
-                    uint32_t addr = gen->m_ir.frame_addr(static_cast<int64_t>(slot + i));
+                    uint32_t addr = gen->m_ir.frame_addr(static_cast<int64_t>(slot + i * 8));
                     gen->m_ir.store(IRValue::vreg(addr), 0, IRValue::imm_i64(0));
                 }
                 return;
@@ -989,18 +1017,19 @@ void Generator::gen_stmt(const NodeStmt& stmt)
 
             if (auto arr_lit = std::get_if<NodeExprArrLit*>(&stmt_let->expr->var)) {
                 auto& scope = gen->m_scopes.back();
-                uint32_t slot = gen->m_next_frame_slot;
-                gen->m_next_frame_slot += (*arr_lit)->elements.size();
+                uint32_t arr_bytes = static_cast<uint32_t>((*arr_lit)->elements.size() * 8);
+                uint32_t slot = gen->m_next_frame_offset;
+                gen->m_next_frame_offset += arr_bytes;
                 scope.vars[stmt_let->ident.value.value()] = Var { .stack_loc = slot, .array_size = (*arr_lit)->elements.size(), .type = var_type };
                 scope.var_count += (*arr_lit)->elements.size();
                 // Evaluate array literal elements
                 gen->gen_expr(*stmt_let->expr);
                 // Elements are on vstack in forward order (e0, e1, ..., eN-1)
-                // Pop in reverse (eN-1 first), store to slot + (N-1-i)
+                // Pop in reverse (eN-1 first), store to slot + (N-1-i)*8
                 for (size_t i = 0; i < (*arr_lit)->elements.size(); i++) {
                     uint32_t val = gen->pop_vreg();
                     size_t idx = (*arr_lit)->elements.size() - 1 - i;
-                    uint32_t addr = gen->m_ir.frame_addr(static_cast<int64_t>(slot + idx));
+                    uint32_t addr = gen->m_ir.frame_addr(static_cast<int64_t>(slot + idx * 8));
                     gen->m_ir.store(IRValue::vreg(addr), 0, IRValue::vreg(val));
                 }
             } else {
@@ -1034,7 +1063,16 @@ void Generator::gen_stmt(const NodeStmt& stmt)
                     auto& scope = gen->m_scopes.back();
                     const auto& var = scope.vars.at(stmt_let->ident.value.value());
                     uint32_t addr = gen->m_ir.frame_addr(static_cast<int64_t>(var.stack_loc));
-                    gen->m_ir.store(IRValue::vreg(addr), 0, IRValue::vreg(val));
+                    // Use typed store matching the variable's type width
+                    if (var.type.kind == Type::Int && var.type.int_type != IntType::i64 && var.type.int_type != IntType::u64) {
+                        size_t sz = type_size(var.type);
+                        if (sz <= 1)      gen->m_ir.store_8(IRValue::vreg(addr), 0, IRValue::vreg(val));
+                        else if (sz <= 2) gen->m_ir.store_16(IRValue::vreg(addr), 0, IRValue::vreg(val));
+                        else if (sz <= 4) gen->m_ir.store_32(IRValue::vreg(addr), 0, IRValue::vreg(val));
+                        else              gen->m_ir.store(IRValue::vreg(addr), 0, IRValue::vreg(val));
+                    } else {
+                        gen->m_ir.store(IRValue::vreg(addr), 0, IRValue::vreg(val));
+                    }
                 }
             }
         }
@@ -1074,7 +1112,7 @@ void Generator::gen_stmt(const NodeStmt& stmt)
                             for (size_t i = 0; i < var.array_size; i++) {
                                 uint32_t val = gen->pop_vreg();
                                 size_t idx = var.array_size - 1 - i;
-                                uint32_t addr = gen->m_ir.frame_addr(static_cast<int64_t>(var.stack_loc + idx));
+                                uint32_t addr = gen->m_ir.frame_addr(static_cast<int64_t>(var.stack_loc + idx * 8));
                                 gen->m_ir.store(IRValue::vreg(addr), 0, IRValue::vreg(val));
                             }
                             return;
@@ -1239,14 +1277,15 @@ void Generator::gen_stmt(const NodeStmt& stmt)
             }
             size_t size = static_cast<size_t>(const_size.value());
             auto& scope = gen->m_scopes.back();
-            uint32_t slot = gen->m_next_frame_slot;
-            gen->m_next_frame_slot += size;
+            uint32_t slot = gen->m_next_frame_offset;
+            uint32_t arr_bytes = static_cast<uint32_t>(size * 8);
+            gen->m_next_frame_offset += arr_bytes;
             scope.vars[stmt_arr->name.value.value()] = Var { .stack_loc = slot, .array_size = size };
             scope.var_count += size;
             // Zero-initialize array elements linearly
-            // Each element is 8 bytes, stored at frame_addr(slot + i)
+            // Each element is 8 bytes, stored at frame_addr(slot + i*8)
             for (size_t i = 0; i < size; i++) {
-                uint32_t addr = gen->m_ir.frame_addr(static_cast<int64_t>(slot + i));
+                uint32_t addr = gen->m_ir.frame_addr(static_cast<int64_t>(slot + i * 8));
                 gen->m_ir.store(IRValue::vreg(addr), 0, IRValue::imm_i64(0));
             }
         }
@@ -1760,7 +1799,7 @@ void Generator::collect_globals(const std::vector<NodeStmt>& stmts)
     // Global initializers — emit as IR and flush
     if (!m_global_inits.empty()) {
         m_ir.start_function("_start_globals");
-        m_next_frame_slot = 0;
+        m_next_frame_offset = 0;
 
         for (const auto& init : m_global_inits) {
             gen_expr(*init.expr);
@@ -1775,7 +1814,7 @@ void Generator::collect_globals(const std::vector<NodeStmt>& stmts)
     // Top-level statements
     {
         m_ir.start_function("_start_body");
-        m_next_frame_slot = 0;
+        m_next_frame_offset = 0;
 
         // If there are global initializers, call them before main body
         if (!m_global_inits.empty()) {

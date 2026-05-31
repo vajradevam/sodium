@@ -92,6 +92,15 @@ struct IRInstruction {
     static IRInstruction store(IRValue base, int64_t offset, IRValue src) {
         return { IROpcode::STORE, NONE_VREG, IRWidth::I64, {base, src}, "", "", "", offset };
     }
+    static IRInstruction store_8(IRValue base, int64_t offset, IRValue src) {
+        return { IROpcode::STORE_8, NONE_VREG, IRWidth::I64, {base, src}, "", "", "", offset };
+    }
+    static IRInstruction store_16(IRValue base, int64_t offset, IRValue src) {
+        return { IROpcode::STORE_16, NONE_VREG, IRWidth::I64, {base, src}, "", "", "", offset };
+    }
+    static IRInstruction store_32(IRValue base, int64_t offset, IRValue src) {
+        return { IROpcode::STORE_32, NONE_VREG, IRWidth::I64, {base, src}, "", "", "", offset };
+    }
 
     static IRInstruction lea(uint32_t dst, IRValue base, int64_t offset) {
         return { IROpcode::LEA, dst, IRWidth::I64, {base}, "", "", "", offset };

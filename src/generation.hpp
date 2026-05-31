@@ -152,7 +152,7 @@ private:
     std::vector<uint32_t> m_vstack;
     std::vector<Type> m_tstack;     ///< Type stack, parallel to m_vstack
     uint32_t m_frame_slots = 0;     ///< Number of frame slots allocated in current function
-    uint32_t m_next_frame_slot = 0; ///< Next free frame slot index
+    uint32_t m_next_frame_offset = 0; ///< Next free byte offset in the stack frame
 
     // Type pool: persistent storage for Type::pointee pointers
     std::list<Type> m_type_pool;

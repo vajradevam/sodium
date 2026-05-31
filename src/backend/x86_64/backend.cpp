@@ -3,6 +3,11 @@
 #include <unordered_map>
 #include <cctype>
 
+// Forward declarations for subregister helpers
+static std::string low8(const std::string& r);
+static std::string low16(const std::string& r);
+static std::string low32(const std::string& r);
+
 // Map 64-bit register name to 32-bit subregister
 static std::string low32(const std::string& r) {
     static const std::unordered_map<std::string, std::string> m = {
@@ -15,15 +20,16 @@ static std::string low32(const std::string& r) {
     return it != m.end() ? it->second : r;
 }
 
-X8664Backend::X8664Backend(std::ostream& os)
-    : m_output(&os) {}
-
-void X8664Backend::set_output(std::ostream& os) {
-    m_output = &os;
-}
-
-std::ostream& X8664Backend::output() {
-    return *m_output;
+// Map 64-bit register name to 16-bit subregister
+static std::string low16(const std::string& r) {
+    static const std::unordered_map<std::string, std::string> m = {
+        {"rax", "ax"}, {"rbx", "bx"}, {"rcx", "cx"}, {"rdx", "dx"},
+        {"rsi", "si"}, {"rdi", "di"}, {"rbp", "bp"}, {"rsp", "sp"},
+        {"r8", "r8w"}, {"r9", "r9w"}, {"r10", "r10w"}, {"r11", "r11w"},
+        {"r12", "r12w"}, {"r13", "r13w"}, {"r14", "r14w"}, {"r15", "r15w"},
+    };
+    auto it = m.find(r);
+    return it != m.end() ? it->second : r;
 }
 
 // ---- helpers ----
@@ -105,6 +111,7 @@ void X8664Backend::lea(const std::string& reg, const std::string& addr) {
 // ---- width-specific loads ----
 
 void X8664Backend::load_s8(const std::string& dst, const std::string& addr) {
+    // 1-byte, no direction issue — read from the byte's actual address
     emit_insn("movsx", dst + ", byte " + addr);
 }
 
@@ -113,33 +120,67 @@ void X8664Backend::load_u8(const std::string& dst, const std::string& addr) {
 }
 
 void X8664Backend::load_s16(const std::string& dst, const std::string& addr) {
-    emit_insn("movsx", dst + ", word " + addr);
+    // Bytes stored at addr-1 (MSB) and addr (LSB). Load at addr-1 with movzx
+    // (zero-extend to avoid sign-extending the byte-swapped intermediate), rol 8
+    // to correct byte order, then movsx to sign-extend from 16 bits.
+    std::string inner = addr.substr(1, addr.size() - 2);
+    emit_insn("movzx", dst + ", word [" + inner + " - 1]");
+    std::string tmp = low16(dst);
+    emit_insn("rol", tmp + ", 8");  // fix byte order
+    emit_insn("movsx", dst + ", " + tmp);  // sign-extend from 16 bits
 }
 
 void X8664Backend::load_u16(const std::string& dst, const std::string& addr) {
-    emit_insn("movzx", dst + ", word " + addr);
+    std::string inner = addr.substr(1, addr.size() - 2);
+    emit_insn("movzx", dst + ", word [" + inner + " - 1]");
+    std::string tmp = low16(dst);
+    emit_insn("rol", tmp + ", 8");
+    // Upper bits already zero from movzx
 }
 
 void X8664Backend::load_s32(const std::string& dst, const std::string& addr) {
-    emit_insn("movsx", dst + ", dword " + addr);
+    // Load at addr-3, zero-extend, bswap, then sign-extend from 32 bits
+    std::string inner = addr.substr(1, addr.size() - 2);
+    emit_insn("mov", low32(dst) + ", dword [" + inner + " - 3]");
+    std::string tmp32 = low32(dst);
+    emit_insn("bswap", tmp32);
+    emit_insn("movsx", dst + ", " + tmp32);  // sign-extend from 32 bits
 }
 
 void X8664Backend::load_u32(const std::string& dst, const std::string& addr) {
-    emit_insn("mov", low32(dst) + ", dword " + addr);
+    std::string inner = addr.substr(1, addr.size() - 2);
+    emit_insn("mov", low32(dst) + ", dword [" + inner + " - 3]");
+    std::string tmp32 = low32(dst);
+    emit_insn("bswap", tmp32);
+    // Upper bits already zero from mov to low32
 }
 
 // ---- width-specific stores ----
 
 void X8664Backend::store_8(const std::string& addr, const std::string& src) {
-    emit_insn("mov", "byte " + addr + ", " + src);
+    // 1-byte store — no direction issue
+    emit_insn("mov", "byte " + addr + ", " + low8(src));
 }
 
 void X8664Backend::store_16(const std::string& addr, const std::string& src) {
-    emit_insn("mov", "word " + addr + ", " + src);
+    // Stack grows DOWN (offset O → fp-O-8, offset O+1 → fp-O-9).
+    // x86 `mov word [A]` stores byte 0 at [A], byte 1 at [A+1].
+    // We need byte 0 at offset O (fp-O-8) and byte 1 at offset O+1 (fp-O-9).
+    // Since fp-O-9 = fp-O-8 - 1, store at addr-1 with byte-swapped value.
+    std::string tmp = low16(src);
+    emit_insn("rol", tmp + ", 8");            // swap bytes
+    std::string inner = addr.substr(1, addr.size() - 2);  // "rbp - 10"
+    emit_insn("mov", std::string("word [") + inner + " - 1], " + tmp);
+    emit_insn("rol", tmp + ", 8");            // swap back (restore)
 }
 
 void X8664Backend::store_32(const std::string& addr, const std::string& src) {
-    emit_insn("mov", "dword " + addr + ", " + src);
+    // Store at addr-3 with byte-reversed value via bswap
+    std::string tmp32 = low32(src);
+    emit_insn("bswap", tmp32);
+    std::string inner = addr.substr(1, addr.size() - 2);
+    emit_insn("mov", std::string("dword [") + inner + " - 3], " + tmp32);
+    emit_insn("bswap", tmp32);
 }
 
 void X8664Backend::movzx(const std::string& dst, const std::string& src, size_t src_bits) {
@@ -223,6 +264,18 @@ static std::string low8(const std::string& r) {
     auto it = m.find(r);
     return it != m.end() ? it->second : r;
 }
+
+X8664Backend::X8664Backend(std::ostream& os)
+    : m_output(&os) {}
+
+void X8664Backend::set_output(std::ostream& os) {
+    m_output = &os;
+}
+
+std::ostream& X8664Backend::output() {
+    return *m_output;
+}
+
 
 // Helper: true if string looks like a register name (starts with letter)
 static bool is_register_name(const std::string& s) {

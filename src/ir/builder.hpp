@@ -91,9 +91,12 @@ public:
         return dst;
     }
 
-    uint32_t frame_addr(int64_t slot) {
+    uint32_t frame_addr(int64_t byte_offset) {
         auto dst = new_vreg();
-        emit(IRInstruction::frame_addr(dst, slot));
+        // The emitter computes fp + imm_arg. We pass -(byte_offset + 8)
+        // so the result is fp - byte_offset - 8.
+        // First byte (offset 0) → fp - 8.
+        emit(IRInstruction::frame_addr(dst, -(byte_offset + 8)));
         return dst;
     }
 
@@ -188,6 +191,15 @@ public:
 
     void store(IRValue base, int64_t offset, IRValue src) {
         emit(IRInstruction::store(base, offset, src));
+    }
+    void store_8(IRValue base, int64_t offset, IRValue src) {
+        emit(IRInstruction::store_8(base, offset, src));
+    }
+    void store_16(IRValue base, int64_t offset, IRValue src) {
+        emit(IRInstruction::store_16(base, offset, src));
+    }
+    void store_32(IRValue base, int64_t offset, IRValue src) {
+        emit(IRInstruction::store_32(base, offset, src));
     }
 
     void jmp(const std::string& target) {

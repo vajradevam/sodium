@@ -32,7 +32,7 @@ public:
 
         // Allocate stack space for frame slots
         if (func.stack_slots > 0) {
-            m_backend.adjust_stack(-static_cast<int64_t>(func.stack_slots) * 8);
+            m_backend.adjust_stack(-static_cast<int64_t>(func.stack_slots));
         }
 
         // Emit each block with mangled labels
@@ -82,9 +82,10 @@ public:
                 break;
 
             case IROpcode::FRAME_ADDR:
-                // Frame slot at [fp - (slot+1)*8]
+                // Frame slot at [fp + imm_arg] where imm_arg = -(byte_offset + 8)
+                // (byte offset 0 → fp - 8, byte offset 8 → fp - 16, etc.)
                 m_backend.lea(preg_name(insn.dst),
-                              m_backend.addr_fp(-static_cast<int>((insn.imm_arg + 1) * 8)));
+                              m_backend.addr_fp(static_cast<int>(insn.imm_arg)));
                 break;
 
             case IROpcode::NEG:
