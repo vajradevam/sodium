@@ -1,30 +1,44 @@
-; x86-64 runtime: print signed 64-bit integer followed by newline
-; void _sodium_print_int(int64_t value)
-global _sodium_print_int
+; x86-64 runtime print helpers
+; All functions use only caller-saved registers.
 
+; ── _sodium_print_int: print integer + newline (legacy compat) ─────────────
+global _sodium_print_int
 _sodium_print_int:
-    ; rdi = value to print
+    call _sodium_print_raw_int
+    ; fall through to print newline
+    sub rsp, 16
+    mov byte [rsp], 10
+    mov rax, 1
+    mov rdi, 1
+    mov rsi, rsp
+    mov rdx, 1
+    syscall
+    add rsp, 16
+    ret
+
+; ── _sodium_print_raw_int: print integer, NO newline ──────────────────────
+global _sodium_print_raw_int
+_sodium_print_raw_int:
     mov rax, rdi
     sub rsp, 32
     mov rdi, rsp
     add rdi, 31
-    mov byte [rdi], 10       ; trailing newline
 
     test rax, rax
-    jnz .Lnon_zero
+    jnz .non_zero
     dec rdi
     mov byte [rdi], '0'
-    jmp .Ldone
+    jmp .done_raw
 
-.Lnon_zero:
+.non_zero:
     mov r8, 0
     cmp rax, 0
-    jge .Lneg_ok
+    jge .neg_ok
     mov r8, 1               ; negative flag
     neg rax
-.Lneg_ok:
+.neg_ok:
 
-.Lloop:
+.loop:
     dec rdi
     mov rcx, 10
     xor rdx, rdx
@@ -32,30 +46,41 @@ _sodium_print_int:
     add dl, '0'
     mov [rdi], dl
     test rax, rax
-    jnz .Lloop
+    jnz .loop
 
     cmp r8, 1
-    jne .Ldone
+    jne .done_raw
     dec rdi
     mov byte [rdi], '-'
 
-.Ldone:
+.done_raw:
     mov rsi, rdi            ; buf = rdi
-    mov rdx, rsp
-    add rdx, 32
-    sub rdx, rsi            ; len = rsp+32 - buf
+    lea rdx, [rsp + 31]     ; end of usable buffer (no newline byte)
+    sub rdx, rsi            ; len = end - buf  (end excludes garbage at rsp+31)
     mov rax, 1              ; syscall: write
     mov rdi, 1              ; fd = stdout
     syscall
     add rsp, 32
     ret
 
-; x86-64 runtime: print null-terminated string
-; void _sodium_print_str(const char *str)
+; ── _sodium_print_str: print null-terminated string + newline (legacy) ────
 global _sodium_print_str
-
 _sodium_print_str:
-    ; rdi = pointer to null-terminated string
+    call _sodium_print_raw_str
+    ; fall through to print newline
+    sub rsp, 16
+    mov byte [rsp], 10
+    mov rax, 1
+    mov rdi, 1
+    mov rsi, rsp
+    mov rdx, 1
+    syscall
+    add rsp, 16
+    ret
+
+; ── _sodium_print_raw_str: print null-terminated string, NO newline ───────
+global _sodium_print_raw_str
+_sodium_print_raw_str:
     push rbx
     mov rbx, rdi
     ; strlen(rdi)
@@ -66,13 +91,18 @@ _sodium_print_str:
     not rcx
     dec rcx                 ; rcx = strlen (excluding null)
     ; write(1, rbx, rcx)
-    mov rax, 1              ; syscall: write
-    mov rdi, 1              ; stdout
-    mov rsi, rbx            ; buf
-    mov rdx, rcx            ; len
+    mov rax, 1
+    mov rdi, 1
+    mov rsi, rbx
+    mov rdx, rcx
     syscall
-    ; write trailing newline
-    sub rsp, 16             ; reserve temp space (red zone may not be enough)
+    pop rbx
+    ret
+
+; ── _sodium_print_nl: print just a newline ────────────────────────────────
+global _sodium_print_nl
+_sodium_print_nl:
+    sub rsp, 16
     mov byte [rsp], 10      ; newline
     mov rax, 1
     mov rdi, 1
@@ -80,5 +110,4 @@ _sodium_print_str:
     mov rdx, 1
     syscall
     add rsp, 16
-    pop rbx
     ret

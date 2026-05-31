@@ -142,8 +142,8 @@ void print_ast_stmt(const NodeStmt& stmt, int indent) {
             }
         },
         [indent](const NodeStmtPrint* e) {
-            std::cout << std::string(indent, ' ') << "Print\n";
-            print_ast_expr(e->expr, indent + 2);
+            std::cout << std::string(indent, ' ') << "Print (" << e->specs.size() << " specs, " << e->args.size() << " args)\n";
+            for (auto* arg : e->args) print_ast_expr(arg, indent + 2);
         },
         [indent](const NodeStmtBlock* e) {
             std::cout << std::string(indent, ' ') << "Block\n";

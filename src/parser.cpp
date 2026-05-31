@@ -785,28 +785,115 @@ std::optional<NodeStmt> Parser::parse_switch_stmt()
         return NodeStmt { .var = stmt_switch };
 }
 
+// Parse a format string literal and return the list of FormatSpecs.
+// Scans for %d, %s, %% patterns. Everything else is Text fragments.
+static std::vector<FormatSpec> parse_format_string(const std::string& fmt)
+{
+    std::vector<FormatSpec> specs;
+    std::string cur_text;
+    size_t i = 0;
+    while (i < fmt.size()) {
+        if (fmt[i] == '%' && i + 1 < fmt.size()) {
+            // Flush accumulated text
+            if (!cur_text.empty()) {
+                specs.push_back({FormatSpec::Text, cur_text});
+                cur_text.clear();
+            }
+            char spec = fmt[i + 1];
+            switch (spec) {
+                case 'd':
+                    specs.push_back({FormatSpec::Int, ""});
+                    i += 2;
+                    break;
+                case 's':
+                    specs.push_back({FormatSpec::String, ""});
+                    i += 2;
+                    break;
+                case '%':
+                    specs.push_back({FormatSpec::LiteralPercent, ""});
+                    i += 2;
+                    break;
+                default:
+                    // Unknown spec — treat as literal text
+                    cur_text += '%';
+                    cur_text += spec;
+                    i += 2;
+                    break;
+            }
+        } else {
+            cur_text += fmt[i];
+            i++;
+        }
+    }
+    // Flush remaining text
+    if (!cur_text.empty()) {
+        specs.push_back({FormatSpec::Text, cur_text});
+    }
+    return specs;
+}
+
 std::optional<NodeStmt> Parser::parse_print_stmt()
-    {
-        consume(); // print
-        if (!peek().has_value() || peek().value().type != TokenType::open_paren) {
-            error("Expected '(' after print");
-        }
-        consume(); // (
-        auto expr = parse_expr();
-        if (!expr) {
-            error("Expected expression in print");
-        }
-        if (!peek().has_value() || peek().value().type != TokenType::close_paren) {
-            error("Expected ')' after print expression");
-        }
+{
+    consume(); // print
+    if (!peek().has_value() || peek().value().type != TokenType::open_paren) {
+        error("Expected '(' after print");
+    }
+    consume(); // (
+
+    std::vector<NodeExpr*> args;
+    std::vector<FormatSpec> specs;
+
+    // Check for empty print() — just a newline
+    if (peek().has_value() && peek().value().type == TokenType::close_paren) {
         consume(); // )
         if (!peek().has_value() || peek().value().type != TokenType::semi) {
             error("Expected ';' after print");
         }
         consume(); // ;
         auto stmt_print = m_allocator.alloc<NodeStmtPrint>();
-        stmt_print->expr = expr.value();
+        stmt_print->specs = {};
+        stmt_print->args = {};
         return NodeStmt { .var = stmt_print };
+    }
+
+    auto first_expr = parse_expr();
+    if (!first_expr) {
+        error("Expected expression in print");
+    }
+
+    // Check if first argument is a string literal (potential format string)
+    if (auto* str_lit = std::get_if<NodeExprStringLit*>(&first_expr.value()->var)) {
+        // Parse the format string
+        specs = parse_format_string((*str_lit)->value.value.value());
+
+        // Parse additional comma-separated arguments
+        while (peek().has_value() && peek().value().type == TokenType::comma) {
+            consume(); // ','
+            auto arg = parse_expr();
+            if (!arg) {
+                error("Expected expression after ','");
+            }
+            args.push_back(arg.value());
+        }
+    } else {
+        // Old-style: print(expr) — single expression, print as integer
+        specs.push_back({FormatSpec::Int, ""});
+        args.push_back(first_expr.value());
+    }
+
+    if (!peek().has_value() || peek().value().type != TokenType::close_paren) {
+        error("Expected ')'");
+    }
+    consume(); // )
+    if (!peek().has_value() || peek().value().type != TokenType::semi) {
+        error("Expected ';' after print");
+    }
+    consume(); // ;
+
+    auto stmt_print = m_allocator.alloc<NodeStmtPrint>();
+    stmt_print->specs = std::move(specs);
+    stmt_print->args = std::move(args);
+    return NodeStmt { .var = stmt_print };
 }
 
 std::optional<NodeStmt> Parser::parse_for_stmt()

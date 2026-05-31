@@ -364,17 +364,6 @@ void Generator::gen_expr(const NodeExpr& expr)
                 gen->m_tstack.back() = Type::make_ptr(pointee);
                 return;
             }
-            if (fname == "print_str") {
-                // print_str(s) — print a null-terminated string
-                if (expr_call->args.size() != 1) {
-                    lsp_exit(expr_call->name.loc, "print_str() takes exactly one argument");
-                }
-                gen->gen_expr(*expr_call->args[0]);
-                uint32_t ptr = gen->pop_vreg();
-                gen->m_ir.call("_sodium_print_str", {IRValue::vreg(ptr)});
-                return;
-            }
-
             if (!gen->m_func_names.contains(fname)) {
                 lsp_exit(expr_call->name.loc, "Undefined function: " + fname);
             }

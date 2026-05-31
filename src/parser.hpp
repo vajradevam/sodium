@@ -209,7 +209,16 @@ struct NodeStmtBlock {
     NodeBlock* block;
 };
 
-struct NodeStmtPrint { NodeExpr* expr; };
+struct FormatSpec {
+    enum Type : uint8_t { Text, Int, String, LiteralPercent };
+    Type type;
+    std::string text;  // for Text fragments
+};
+
+struct NodeStmtPrint {
+    std::vector<FormatSpec> specs;
+    std::vector<NodeExpr*> args;
+};
 
 enum class AssignOp {
     assign,

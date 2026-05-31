@@ -361,15 +361,47 @@ void Generator::gen_stmt(const NodeStmt& stmt)
 
         void operator()(const NodeStmtPrint* stmt_print) const
         {
-            if (std::holds_alternative<NodeExprStringLit*>(stmt_print->expr->var)) {
-                gen->gen_expr(*stmt_print->expr);
-                uint32_t addr = gen->pop_vreg();
-                gen->m_ir.call("_sodium_print_str", {IRValue::vreg(addr)});
-            } else {
-                gen->gen_expr(*stmt_print->expr);
-                uint32_t val = gen->pop_vreg();
-                gen->m_ir.call("_sodium_print_int", {IRValue::vreg(val)});
+            if (stmt_print->specs.empty() && stmt_print->args.empty()) {
+                // print() — just newline
+                gen->m_ir.call("_sodium_print_nl", {});
+                return;
             }
+
+            size_t arg_idx = 0;
+            for (auto& spec : stmt_print->specs) {
+                switch (spec.type) {
+                    case FormatSpec::Text: {
+                        // Emit a string literal for this text fragment
+                        auto label = gen->new_string_label();
+                        gen->m_strings.push_back({label, spec.text});
+                        uint32_t addr = gen->m_ir.lea_label(label);
+                        gen->m_ir.call("_sodium_print_raw_str", {IRValue::vreg(addr)});
+                        break;
+                    }
+                    case FormatSpec::Int: {
+                        gen->gen_expr(*stmt_print->args[arg_idx++]);
+                        uint32_t val = gen->pop_vreg();
+                        gen->m_ir.call("_sodium_print_raw_int", {IRValue::vreg(val)});
+                        break;
+                    }
+                    case FormatSpec::String: {
+                        gen->gen_expr(*stmt_print->args[arg_idx++]);
+                        uint32_t ptr = gen->pop_vreg();
+                        gen->m_ir.call("_sodium_print_raw_str", {IRValue::vreg(ptr)});
+                        break;
+                    }
+                    case FormatSpec::LiteralPercent: {
+                        // Emit a single '%'
+                        auto label = gen->new_string_label();
+                        gen->m_strings.push_back({label, "%"});
+                        uint32_t addr = gen->m_ir.lea_label(label);
+                        gen->m_ir.call("_sodium_print_raw_str", {IRValue::vreg(addr)});
+                        break;
+                    }
+                }
+            }
+            // Trailing newline
+            gen->m_ir.call("_sodium_print_nl", {});
         }
 
         void operator()(const NodeStmtBlock* stmt_block) const

@@ -188,6 +188,9 @@ void Generator::collect_globals(const std::vector<NodeStmt>& stmts)
 
     m_backend_ptr->extern_sym("_sodium_exit");
     m_backend_ptr->extern_sym("_sodium_print_int");
+    m_backend_ptr->extern_sym("_sodium_print_raw_int");
+    m_backend_ptr->extern_sym("_sodium_print_raw_str");
+    m_backend_ptr->extern_sym("_sodium_print_nl");
     m_backend_ptr->extern_sym("_sodium_read_int");
     m_backend_ptr->extern_sym("_sodium_read_str");
     m_backend_ptr->extern_sym("_sodium_malloc");
