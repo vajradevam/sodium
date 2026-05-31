@@ -1,4 +1,7 @@
 // Compile-fail: case without value
 // Expected: Expected value after 'case'
-switch (1) { case: { } }
-return(0);
+
+function main() {
+    switch (1) { case: { } }
+    return(0);
+}

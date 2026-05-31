@@ -1,4 +1,7 @@
 // Compile-fail: missing operand after prefix operator
 // Expected: Expected expression after operator
-var x = -;
-return(0);
+
+function main() {
+    var x = -;
+    return(0);
+}

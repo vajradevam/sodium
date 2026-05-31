@@ -1,7 +1,10 @@
 // This is a comment
-var a = 5;
-var b = 3;
-/* block comment
-   here */
-var c = (a + b) * 2;
-return (c);
+
+function main() {
+    var a = 5;
+    var b = 3;
+    /* block comment
+       here */
+    var c = (a + b) * 2;
+    return (c);
+}

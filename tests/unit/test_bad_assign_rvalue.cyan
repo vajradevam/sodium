@@ -1,4 +1,7 @@
 // Compile-fail: assigning to rvalue
 // Expected: Invalid statement (or similar)
-(1+2) = 5;
-return(0);
+
+function main() {
+    (1+2) = 5;
+    return(0);
+}

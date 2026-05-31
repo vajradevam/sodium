@@ -5,5 +5,8 @@ function fact(n) {
         return (n * fact(n - 1));
     }
 }
-var result = fact(7);
-return (result);
+
+function main() {
+    var result = fact(7);
+    return (result);
+}

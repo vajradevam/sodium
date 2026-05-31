@@ -1,2 +1,5 @@
-var p: NonExistent;
-return(0);
+
+function main() {
+    var p: NonExistent;
+    return(0);
+}

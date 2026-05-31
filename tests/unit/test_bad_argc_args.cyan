@@ -1,4 +1,7 @@
 // Compile-fail: argc() with arguments
 // Expected: argc() takes no arguments
-argc(1);
-return(0);
+
+function main() {
+    argc(1);
+    return(0);
+}

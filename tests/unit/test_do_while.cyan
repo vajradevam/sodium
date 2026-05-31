@@ -1,7 +1,10 @@
-var i = 0;
-var sum = 0;
-do {
-    sum = sum + i;
-    i = i + 1;
-} while (i < 5);
-return (sum);
+
+function main() {
+    var i = 0;
+    var sum = 0;
+    do {
+        sum = sum + i;
+        i = i + 1;
+    } while (i < 5);
+    return (sum);
+}

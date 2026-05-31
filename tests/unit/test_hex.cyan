@@ -48,6 +48,9 @@ function test_hex() {
     return (ok);
 }
 
-var result = test_hex();
-print(result);
-return (result);
+
+function main() {
+    var result = test_hex();
+    print(result);
+    return (result);
+}

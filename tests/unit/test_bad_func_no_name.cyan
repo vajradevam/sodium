@@ -1,4 +1,7 @@
 // Compile-fail: function declaration without name
 // Expected: Expected function name
 function () { }
-return(0);
+
+function main() {
+    return(0);
+}

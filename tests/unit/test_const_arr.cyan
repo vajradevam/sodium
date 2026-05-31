@@ -1,10 +1,13 @@
 const SIZE = 10;
-var arr[SIZE];
-var sum = 0;
-var i = 0;
-while (i < SIZE) {
-    arr[i] = i + 1;
-    sum = sum + arr[i];
-    i = i + 1;
+
+function main() {
+    var arr[SIZE];
+    var sum = 0;
+    var i = 0;
+    while (i < SIZE) {
+        arr[i] = i + 1;
+        sum = sum + arr[i];
+        i = i + 1;
+    }
+    return(sum);  // 1+2+...+10 = 55
 }
-return(sum);  // 1+2+...+10 = 55

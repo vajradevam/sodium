@@ -1,2 +1,5 @@
 // Should fail: 0x requires at least one hex digit
-var a = 0x;
+
+function main() {
+    var a = 0x;
+}

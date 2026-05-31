@@ -1,5 +1,8 @@
 // Compile-fail: writing field on non-struct
 // Expected: Not a struct variable
-var x = 42;
-x.foo = 10;
-return(0);
+
+function main() {
+    var x = 42;
+    x.foo = 10;
+    return(0);
+}

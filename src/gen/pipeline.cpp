@@ -85,6 +85,12 @@ void Generator::gen_func_def(const NodeFuncDef& func)
         gen_stmt(s);
     }
 
+    // If main() has no explicit return, default to exit(0)
+    if (func.name.value.value() == "main") {
+        uint32_t zero = m_ir.load_i64(0);
+        m_ir.ret(IRValue::vreg(zero));
+    }
+
     // Add epilogue label and return
     m_ir.new_block(m_func_epilogue_label);
     m_ir.ret_void();
@@ -199,10 +205,38 @@ void Generator::collect_globals(const std::vector<NodeStmt>& stmts)
     m_backend_ptr->extern_sym("__sodium_argc");
     m_backend_ptr->extern_sym("__sodium_argv");
 
+    // Find and validate the main function
+    NodeFuncDef* main_func = nullptr;
+    for (const auto& func : m_prog.funcs) {
+        if (func->name.value.value() == "main") {
+            main_func = func;
+            break;
+        }
+    }
+    if (!main_func) {
+        lsp_exit({}, "No main function found. Define 'function main() { ... }' as the entry point.");
+    }
+    if (!main_func->params.empty()) {
+        lsp_exit(main_func->name.loc, "main function must not take parameters");
+    }
+
+    // Global initializers — emit as IR and flush FIRST
+    // (before _start, so the order in the output is correct)
+    if (!m_global_inits.empty()) {
+        m_ir.start_function("_start_globals");
+        m_next_frame_offset = 0;
+
+        for (const auto& init : m_global_inits) {
+            gen_expr(*init.expr);
+            uint32_t val = pop_vreg();
+            m_ir.store(IRValue::vreg(m_ir.lea_label(init.name)), 0, IRValue::vreg(val));
+        }
+
+        m_ir.ret_void();
+        flush_function();
+    }
+
     // Emit the _start entry point.
-    // Before jumping to _start_body, save argc and argv from the
-    // kernel-provided stack/registers into runtime globals so that
-    // the builtins argc() and argv() can access them.
     m_backend_ptr->global_sym("_start");
     m_backend_ptr->label("_start");
     if (m_backend_ptr->target_name() == "x86_64") {
@@ -220,46 +254,24 @@ void Generator::collect_globals(const std::vector<NodeStmt>& stmts)
         m_backend_ptr->emit_insn("la", "t1, __sodium_argv");
         m_backend_ptr->emit_insn("sd", "t0, 0(t1)");
     }
-    m_backend_ptr->jmp("_start_body");
 
-    // Global initializers — emit as IR and flush
+    // Call global initializers before main
     if (!m_global_inits.empty()) {
-        m_ir.start_function("_start_globals");
-        m_next_frame_offset = 0;
-
-        for (const auto& init : m_global_inits) {
-            gen_expr(*init.expr);
-            uint32_t val = pop_vreg();
-            m_ir.store(IRValue::vreg(m_ir.lea_label(init.name)), 0, IRValue::vreg(val));
-        }
-
-        m_ir.ret_void();
-        flush_function();
+        m_backend_ptr->call("_start_globals");
     }
 
-    // Top-level statements
-    {
-        m_ir.start_function("_start_body");
-        m_next_frame_offset = 0;
-
-        // If there are global initializers, call them before main body
-        if (!m_global_inits.empty()) {
-            m_ir.call("_start_globals", {});
-        }
-
-        for (const NodeStmt& stmt : m_prog.stmts) {
-            gen_stmt(stmt);
-        }
-
-        if (!m_emitted_exit) {
-            m_ir.call("_sodium_exit", {IRValue::imm_i64(0)});
-        }
-
-        m_ir.ret_void();
-        flush_function();
+    // Call main, then exit with its return value
+    m_backend_ptr->call("main");
+    if (m_backend_ptr->target_name() == "x86_64") {
+        // x86-64: main's return value is in rax; exit arg goes in rdi
+        m_backend_ptr->emit_insn("mov", "rdi, rax");
+    } else {
+        // RISC-V: main's return value is in a0, which is also exit's arg
+        // No move needed
     }
+    m_backend_ptr->call("_sodium_exit");
 
-    // Then emit user functions
+    // Then emit user functions (including main)
     for (const auto& func : m_prog.funcs) {
         gen_func_def(*func);
     }

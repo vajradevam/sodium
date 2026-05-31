@@ -1,4 +1,7 @@
 // Compile-fail: continue outside loop
 // Expected: continue outside loop
-continue;
-return(0);
+
+function main() {
+    continue;
+    return(0);
+}

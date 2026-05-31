@@ -1,2 +1,5 @@
 #include "nonexistent.cyan"
-return(0);
+
+function main() {
+    return(0);
+}

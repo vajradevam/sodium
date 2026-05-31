@@ -1,4 +1,7 @@
 // Compile-fail: calling undefined function
 // Expected: Undefined function
-foo(10);
-return(0);
+
+function main() {
+    foo(10);
+    return(0);
+}

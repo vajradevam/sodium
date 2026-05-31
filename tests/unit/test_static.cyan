@@ -4,7 +4,10 @@ function counter() {
     return(x);
 }
 
-var a = counter();
-var b = counter();
-var c = counter();
-return(a * 100 + b * 10 + c);
+
+function main() {
+    var a = counter();
+    var b = counter();
+    var c = counter();
+    return(a * 100 + b * 10 + c);
+}

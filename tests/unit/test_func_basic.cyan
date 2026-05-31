@@ -1,5 +1,8 @@
 function double(n) {
     return (n * 2);
 }
-var result = double(5);
-return (result);
+
+function main() {
+    var result = double(5);
+    return (result);
+}

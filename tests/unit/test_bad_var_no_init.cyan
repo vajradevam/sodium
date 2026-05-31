@@ -1,4 +1,7 @@
 // Compile-fail: var without initializer and no type
 // Expected: Invalid statement
-var x;
-return(0);
+
+function main() {
+    var x;
+    return(0);
+}

@@ -1,4 +1,7 @@
 // Compile-fail: empty brackets in index expression
 // Expected: Expected index expression
-var a = b[];
-return(0);
+
+function main() {
+    var a = b[];
+    return(0);
+}

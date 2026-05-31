@@ -1,4 +1,7 @@
 // Compile-fail: break outside loop
 // Expected: break outside loop or switch
-break;
-return(0);
+
+function main() {
+    break;
+    return(0);
+}

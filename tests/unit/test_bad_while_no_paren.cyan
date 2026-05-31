@@ -1,4 +1,7 @@
 // Compile-fail: while without '('
 // Expected: Expected '(' after while
-while x > 0 { }
-return(0);
+
+function main() {
+    while x > 0 { }
+    return(0);
+}

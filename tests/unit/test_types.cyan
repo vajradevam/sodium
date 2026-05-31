@@ -1,4 +1,7 @@
-var x: i32 = 100;
-var y: i32 = 200;
-x = x + y;
-return(x);
+
+function main() {
+    var x: i32 = 100;
+    var y: i32 = 200;
+    x = x + y;
+    return(x);
+}

@@ -1,4 +1,7 @@
 // Compile-fail: cannot assign to a constant
 const X = 10;
-X = 20;
-return(0);
+
+function main() {
+    X = 20;
+    return(0);
+}

@@ -1,5 +1,8 @@
-print(0);
-print(42);
-print(-7);
-print(12345);
-return (0);
+
+function main() {
+    print(0);
+    print(42);
+    print(-7);
+    print(12345);
+    return (0);
+}

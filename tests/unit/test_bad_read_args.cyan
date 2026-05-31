@@ -1,4 +1,7 @@
 // Compile-fail: read() with arguments
 // Expected: read() takes no arguments
-read(42);
-return(0);
+
+function main() {
+    read(42);
+    return(0);
+}

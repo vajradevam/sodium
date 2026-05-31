@@ -59,6 +59,9 @@ function test_not() {
     return (ok);
 }
 
-var result = test_not();
-print(result);
-return (result);
+
+function main() {
+    var result = test_not();
+    print(result);
+    return (result);
+}

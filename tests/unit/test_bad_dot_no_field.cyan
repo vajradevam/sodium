@@ -1,4 +1,7 @@
 // Compile-fail: expected field name after '.'
 // Expected: Expected field name after '.'
-var x = obj.;
-return(0);
+
+function main() {
+    var x = obj.;
+    return(0);
+}

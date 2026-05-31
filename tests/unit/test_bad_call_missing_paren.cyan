@@ -1,4 +1,7 @@
 // Compile-fail: missing closing parenthesis in function call
 // Expected: Expected ')' after function arguments
-foo(42;
-return(0);
+
+function main() {
+    foo(42;
+    return(0);
+}

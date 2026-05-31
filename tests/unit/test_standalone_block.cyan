@@ -1,10 +1,13 @@
-var x = 1;
-{
-    var y = 2;
-    x = x + y;
+
+function main() {
+    var x = 1;
+    {
+        var y = 2;
+        x = x + y;
+    }
+    {
+        var y = 3;
+        x = x + y;
+    }
+    return (x);
 }
-{
-    var y = 3;
-    x = x + y;
-}
-return (x);

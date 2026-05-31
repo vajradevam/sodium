@@ -4,5 +4,8 @@ function add(a, b) {
 function sub(a, b) {
     return (a - b);
 }
-var result = add(10, 5) + sub(10, 5);
-return (result);
+
+function main() {
+    var result = add(10, 5) + sub(10, 5);
+    return (result);
+}

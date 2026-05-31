@@ -22,15 +22,18 @@ function typed_static() {
     return(z);
 }
 
-var a = f1();
-var b = f2();
-var cc = f1();
-var d = f2();
-var e = f1();
-var f = f2();
-var g = counter();
-var h = counter();
-var i = typed_static();
-var j = typed_static();
 // a=2, b=3, cc=4, d=6, e=6, f=9, g=1, h=2, i=11, j=12
-return(a + b + cc + d + e + f + g + h + i + j);
+
+function main() {
+    var a = f1();
+    var b = f2();
+    var cc = f1();
+    var d = f2();
+    var e = f1();
+    var f = f2();
+    var g = counter();
+    var h = counter();
+    var i = typed_static();
+    var j = typed_static();
+    return(a + b + cc + d + e + f + g + h + i + j);
+}

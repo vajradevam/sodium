@@ -1,4 +1,7 @@
 // Compile-fail: function without '(' after name
 // Expected: Expected '(' after function name
 function foo { }
-return(0);
+
+function main() {
+    return(0);
+}

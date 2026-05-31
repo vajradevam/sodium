@@ -1,4 +1,7 @@
 // Compile-fail: do without while
 // Expected: Expected 'while' after do body
-do { }
-return(0);
+
+function main() {
+    do { }
+    return(0);
+}

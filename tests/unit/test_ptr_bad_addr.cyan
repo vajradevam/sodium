@@ -1,4 +1,7 @@
 // Compile-fail: taking address of non-lvalue
-var x = 42;
-var ptr = &(x + 1);
-return(0);
+
+function main() {
+    var x = 42;
+    var ptr = &(x + 1);
+    return(0);
+}

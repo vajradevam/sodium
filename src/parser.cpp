@@ -1723,6 +1723,21 @@ std::optional<NodeProg> Parser::parse_prog() {
                 m_struct_types[struct_def->name.value.value()] = info;
                 prog.structs.push_back(struct_def);
             } else if (auto stmt = parse_stmt()) {
+                // Only allow global var, const, and empty ; at top level
+                const auto& var = stmt.value().var;
+                bool allowed = false;
+                if (std::holds_alternative<NodeStmtGlobal*>(var)) {
+                    allowed = true; // global var or static var
+                } else if (std::holds_alternative<NodeStmtConst*>(var)) {
+                    allowed = true; // const declaration
+                } else if (auto* expr_stmt = std::get_if<NodeStmtExpr*>(&var)) {
+                    if ((*expr_stmt)->expr == nullptr) {
+                        allowed = true; // empty statement (just ';')
+                    }
+                }
+                if (!allowed) {
+                    error("Top-level statements are not allowed. Use function main() as the entry point.");
+                }
                 prog.stmts.push_back(stmt.value());
             } else {
                 error("Invalid statement at top level");

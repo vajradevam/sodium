@@ -1,23 +1,26 @@
 // Test unified print, argc(), argv()
 
 // --- argc() ---
-var ac = argc();
-if (ac < 1) {
-    return(1);  // fail: argc should never be < 1
-}
-if (ac != 1) {
-    return(2);  // fail: expected argc == 1 when run without args
-}
 
 // --- argv(0) ---
-var p = argv(0);
-if (p == 0) {
-    return(3);  // fail: argv(0) should not be null
-}
 
 // --- unified print ---
 // print with a string literal should work
-print("argc test: ok");
-print(ac);  // print integer
 
-return(0);  // pass
+
+function main() {
+    var ac = argc();
+    if (ac < 1) {
+        return(1);  // fail: argc should never be < 1
+    }
+    if (ac != 1) {
+        return(2);  // fail: expected argc == 1 when run without args
+    }
+    var p = argv(0);
+    if (p == 0) {
+        return(3);  // fail: argv(0) should not be null
+    }
+    print("argc test: ok");
+    print(ac);  // print integer
+    return(0);  // pass
+}

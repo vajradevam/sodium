@@ -1,9 +1,12 @@
 // break out of a while loop early
-var i = 0;
-while (i < 10) {
-    if (i == 3) {
-        break;
+
+function main() {
+    var i = 0;
+    while (i < 10) {
+        if (i == 3) {
+            break;
+        }
+        i = i + 1;
     }
-    i = i + 1;
+    return(i);
 }
-return(i);

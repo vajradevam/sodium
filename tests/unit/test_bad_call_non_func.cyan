@@ -1,5 +1,8 @@
 // Compile-fail: calling a non-function variable
 // Expected: Undefined function (or invalid call)
-var x = 10;
-x();
-return(0);
+
+function main() {
+    var x = 10;
+    x();
+    return(0);
+}

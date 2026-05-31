@@ -1,4 +1,7 @@
 // Compile-fail: ++ on non-identifier
 // Expected: Expected identifier after '++'
-++5;
-return(0);
+
+function main() {
+    ++5;
+    return(0);
+}

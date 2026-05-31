@@ -1,4 +1,7 @@
 // Compile-fail: missing closing parenthesis
 // Expected: Expected ')'
-var x = (1 + 2;
-return(0);
+
+function main() {
+    var x = (1 + 2;
+    return(0);
+}

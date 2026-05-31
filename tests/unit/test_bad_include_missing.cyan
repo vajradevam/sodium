@@ -1,4 +1,7 @@
 // Compile-fail: missing include file
 // Expected: include file not found
 #include "nonexistent_test_file.cyan"
-return(0);
+
+function main() {
+    return(0);
+}

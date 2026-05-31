@@ -1,9 +1,12 @@
 // decrement loop
-var sum = 0;
-var i = 10;
-while (i > 0) {
-    sum = sum + i;
-    i--;
-}
 // sum = 55
-return(sum);
+
+function main() {
+    var sum = 0;
+    var i = 10;
+    while (i > 0) {
+        sum = sum + i;
+        i--;
+    }
+    return(sum);
+}

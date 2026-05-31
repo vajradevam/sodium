@@ -1,3 +1,6 @@
 // Compile-fail: missing semicolon
 // Expected: Expected `;`
-var x = 10 return(0);
+
+function main() {
+    var x = 10 return(0);
+}

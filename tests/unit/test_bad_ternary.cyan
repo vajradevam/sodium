@@ -1,4 +1,7 @@
 // Compile-fail: ternary with missing parts
 // Expected: Expected ':' in ternary expression
-var x = 1 ? 2;
-return(0);
+
+function main() {
+    var x = 1 ? 2;
+    return(0);
+}

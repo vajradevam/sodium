@@ -1,5 +1,8 @@
 // Compile-fail: array literal size mismatch
 // Expected: Array size mismatch
-var arr[3];
-arr = [1, 2, 3, 4];
-return(0);
+
+function main() {
+    var arr[3];
+    arr = [1, 2, 3, 4];
+    return(0);
+}

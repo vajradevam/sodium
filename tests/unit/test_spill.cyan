@@ -47,6 +47,9 @@ function test_spill() {
     return (sum);
 }
 
-var result = test_spill();
-print(result);
-return (result);
+
+function main() {
+    var result = test_spill();
+    print(result);
+    return (result);
+}
