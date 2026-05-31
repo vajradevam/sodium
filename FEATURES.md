@@ -47,7 +47,9 @@
 | Mixed `read()` / `read(buf)` on same input stream | ✅ |
 | `argc()` builtin (argument count) | ✅ |
 | `argv()` builtin (argument vector) | ✅ |
-| Top-level statements (outside functions) | ✅ |
+| C-style `function main()` entry point (top-level statements are not allowed) | ✅ |
+| `return` inside `main()` produces the exit code; void main → exit(0) | ✅ |
+| Global initializers run before `main()` via `_start_globals` | ✅ |
 | String literals (`"hello"`) | ✅ |
 | Hex integer literals (`0xFF`) | ✅ |
 | Struct declarations (`struct Name { var field; ... }`) | ✅ |

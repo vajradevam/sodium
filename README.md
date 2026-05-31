@@ -30,7 +30,9 @@ sodium my_program.cyan
 ### Hello world
 
 ```cyan
-return(42);
+function main() {
+    return(42);
+}
 ```
 
 ```bash
@@ -207,8 +209,8 @@ while i < argc() {
 }
 ```
 
-The entry point is top-level statements (not a `main` function). The runtime
-captures `argc` and `argv` from the kernel before any user code runs.
+The entry point is `function main()` (C-style). The runtime captures `argc`
+and `argv` from the kernel before `main()` is called.
 
 ### Global and static variables
 
@@ -291,7 +293,7 @@ qemu-riscv64 ./program
 ```
 
 All language features work identically on both targets. The full test suite
-(304 tests) runs on both architectures with 0 failures.
+(302 tests) runs on both architectures with 0 failures.
 
 The RISC-V backend handles large stack frames (e.g. `var buf[256]` = 2048 bytes)
 by using `li`+`add` for frame offsets that exceed the 12-bit signed immediate
@@ -449,7 +451,7 @@ bash scripts/run_tests.sh
 ```
 
 ```text
-Results: 304 passed, 0 failed
+Results: 302 passed, 0 failed
 ```
 
 Each test file compiles to both backends and the resulting binary's exit
@@ -481,7 +483,7 @@ Install with:
 
 ## Current Status
 
-- **304 tests passing** across both x86-64 and RISC-V
+- **302 tests passing** across both x86-64 and RISC-V
 - **Packed stack allocation**: all integer types use their exact byte sizes on
 the stack (`i8` → 1 byte, `i16` → 2 bytes, `i32` → 4 bytes, `i64` → 8 bytes)
 - **Full IR pipeline** with SSA virtual registers and linear scan allocation
@@ -491,6 +493,7 @@ the stack (`i8` → 1 byte, `i16` → 2 bytes, `i32` → 4 bytes, `i64` → 8 by
 - **Hex literals** (`0x` prefix) and **logical NOT** (`!`) operator
 - **SFL heap allocator** with 15 size classes, O(1) alloc/free
 - **`argc()`/`argv()` builtins** for command-line argument access
+- **C-style `function main()` entry point** — top-level statements are not allowed; the program must define `main()` which returns the exit code
 - **Unified `print`** with C-style format strings (`%d`, `%s`, `%%`), multiple comma-separated arguments, expressions/function calls in args, and backward compatible with plain integer and string-literal printing
 - **`read(buf)` builtin** for reading lines from stdin into array buffers
 - **Shared input buffer**: both `read()` and `read(buf)` share a single `.bss`
