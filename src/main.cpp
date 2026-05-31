@@ -37,9 +37,10 @@ int main(int argc, char* argv[]) {
     std::string output_path;         // -o <file>, or derived from input
     std::vector<std::string> include_dirs;
     std::string target = "x86_64";  // default
+    std::string cyanlib_dir;         // --cyanlib-dir <path> overrides default
 
     auto usage = []() {
-        std::cerr << "Usage: sodium [--target <arch>] [--print-ast] [--emit-ir] [--no-alloc] [-o <file>] [-S] [-I <dir>] <filename.cyan>" << std::endl;
+        std::cerr << "Usage: sodium [--target <arch>] [--print-ast] [--emit-ir] [--no-alloc] [-o <file>] [-S] [-I <dir>] [--cyanlib-dir <dir>] <filename.cyan>" << std::endl;
     };
 
     for (int i = 1; i < argc; i++) {
@@ -68,6 +69,13 @@ int main(int argc, char* argv[]) {
         } else if (std::strcmp(argv[i], "-I") == 0 || std::strcmp(argv[i], "--include-dir") == 0) {
             if (i + 1 < argc) {
                 include_dirs.push_back(argv[++i]);
+            } else {
+                usage();
+                exit(EXIT_FAILURE);
+            }
+        } else if (std::strcmp(argv[i], "--cyanlib-dir") == 0) {
+            if (i + 1 < argc) {
+                cyanlib_dir = argv[++i];
             } else {
                 usage();
                 exit(EXIT_FAILURE);
@@ -197,6 +205,55 @@ int main(int argc, char* argv[]) {
     } else {
         std::cerr << "Unsupported target: " << target << " (use x86_64 or riscv64)" << std::endl;
         exit(EXIT_FAILURE);
+    }
+
+    // Add default cyanlib include path (shipped with the compiler).
+    // Priority: --cyanlib-dir flag > SODIUM_CYANLIB_DIR env > auto-detect
+    if (cyanlib_dir.empty()) {
+        const char* env_dir = std::getenv("SODIUM_CYANLIB_DIR");
+        if (env_dir) {
+            cyanlib_dir = env_dir;
+        }
+    }
+    if (!cyanlib_dir.empty()) {
+        include_dirs.push_back(cyanlib_dir);
+    } else {
+        // Auto-detect: look relative to compiler binary
+        std::string exe_dir;
+        char exe_path[PATH_MAX];
+        ssize_t len = readlink("/proc/self/exe", exe_path, sizeof(exe_path) - 1);
+        if (len != -1) {
+            exe_path[len] = '\0';
+            exe_dir = get_dir(exe_path);
+        } else if (argv[0][0] == '/') {
+            exe_dir = get_dir(argv[0]);
+        } else {
+            exe_dir = ".";
+        }
+        // Check <exe_dir>/cyanlib (installed layout)
+        std::string trial = exe_dir + "/cyanlib/string.cyan";
+        std::ifstream f(trial);
+        if (f.good()) {
+            include_dirs.push_back(exe_dir + "/cyanlib");
+        } else {
+            // Check <exe_dir>/../cyanlib (build-directory layout)
+            trial = exe_dir + "/../cyanlib/string.cyan";
+            std::ifstream f2(trial);
+            if (f2.good()) {
+                include_dirs.push_back(exe_dir + "/../cyanlib");
+            }
+        }
+        // Last resort: check development directory ($HOME/myc/sodium/cyanlib)
+        if (include_dirs.empty()) {
+            const char* home = std::getenv("HOME");
+            if (home) {
+                trial = std::string(home) + "/myc/sodium/cyanlib/string.cyan";
+                std::ifstream f3(trial);
+                if (f3.good()) {
+                    include_dirs.push_back(std::string(home) + "/myc/sodium/cyanlib");
+                }
+            }
+        }
     }
 
     std::string contents;    

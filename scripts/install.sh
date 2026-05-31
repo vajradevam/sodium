@@ -72,6 +72,12 @@ cp -r "$SODIUM_DIR/sodium-rt" "$INSTALL_DIR/sodium-rt"
 chmod -R +r "$INSTALL_DIR/sodium-rt"
 ok "Installed sodium-rt → $INSTALL_DIR/sodium-rt/"
 
+# Install cyanlib library alongside the binary
+rm -rf "$INSTALL_DIR/cyanlib"
+cp -r "$SODIUM_DIR/cyanlib" "$INSTALL_DIR/cyanlib"
+chmod -R +r "$INSTALL_DIR/cyanlib"
+ok "Installed cyanlib → $INSTALL_DIR/cyanlib/"
+
 # ── VS Code extension ───────────────────────────────────────────────
 if [ "$INSTALL_VSCODE" = true ]; then
     info "Installing VS Code extension..."

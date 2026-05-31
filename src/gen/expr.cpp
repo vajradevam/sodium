@@ -323,8 +323,8 @@ void Generator::gen_expr(const NodeExpr& expr)
                 uint32_t size = gen->pop_vreg();
                 uint32_t result = gen->m_ir.call("_sodium_malloc", {IRValue::vreg(size)});
                 gen->push_vreg(result);
-                // malloc returns Ptr(i64) by default (no element type info)
-                Type* pointee = gen->alloc_type(Type::make_int(IntType::i64));
+                // malloc returns Ptr(u8) — untyped bytes
+                Type* pointee = gen->alloc_type(Type::make_int(IntType::u8));
                 gen->m_tstack.back() = Type::make_ptr(pointee);
                 return;
             }

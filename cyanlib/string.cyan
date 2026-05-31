@@ -1,0 +1,101 @@
+// ──────────────────────────────────────────────────────────────────────────────
+// string.cyan — String and memory operations for Cyan.
+//
+// This file provides standard string/memory utilities as pure Cyan functions.
+// Include it in your program with:
+//     #include "string.cyan"
+//
+// All functions work with byte-level pointers (Ptr(u8)) so they handle
+// null-terminated strings and raw memory buffers correctly.
+//
+// NOTE: malloc() returns Ptr(i64) for backward compatibility. To use these
+// functions with malloc'd buffers, pass string literals or use the buffer
+// directly with pointer arithmetic — the type inference propagates Ptr(u8)
+// from string literals automatically.
+// ──────────────────────────────────────────────────────────────────────────────
+
+#pragma once
+
+// ── String Functions ─────────────────────────────────────────────────────────
+
+// strlen(s) — returns the length of the null-terminated string s,
+// excluding the null terminator.
+function strlen(s) {
+    var n = 0;
+    while (*(s + n) != 0) { n = n + 1; }
+    return(n);
+}
+
+// strcmp(a, b) — compares two strings lexicographically.
+// Returns 0 if equal, negative if a < b, positive if a > b.
+function strcmp(a, b) {
+    var i = 0;
+    while (1) {
+        var ca = *(a + i);
+        var cb = *(b + i);
+        if (ca != cb) { return(ca - cb); }
+        if (ca == 0) { return(0); }
+        i = i + 1;
+    }
+}
+
+// strcat(dst, src) — appends src to the end of dst.
+// dst must have enough space. Returns dst.
+function strcat(dst, src) {
+    var i = strlen(dst);
+    var j = 0;
+    while (*(src + j) != 0) {
+        *(dst + i + j) = *(src + j);
+        j = j + 1;
+    }
+    *(dst + i + j) = 0;
+    return(dst);
+}
+
+// strcpy(dst, src) — copies src to dst (including null terminator).
+// dst must have enough space. Returns dst.
+function strcpy(dst, src) {
+    var i = 0;
+    while (1) {
+        *(dst + i) = *(src + i);
+        if (*(src + i) == 0) { return(dst); }
+        i = i + 1;
+    }
+}
+
+// ── Memory Functions ─────────────────────────────────────────────────────────
+
+// memcpy(dst, src, n) — copies n bytes from src to dst.
+// Returns dst.
+function memcpy(dst, src, n) {
+    var i = 0;
+    while (i < n) {
+        *(dst + i) = *(src + i);
+        i = i + 1;
+    }
+    return(dst);
+}
+
+// memset(p, c, n) — sets the first n bytes at p to byte value c.
+// Returns p.
+function memset(p, c, n) {
+    var i = 0;
+    while (i < n) {
+        *(p + i) = c;
+        i = i + 1;
+    }
+    return(p);
+}
+
+// memcmp(a, b, n) — compares the first n bytes of a and b.
+// Returns 0 if equal, negative if a < b, positive if a > b.
+function memcmp(a, b, n) {
+    var i = 0;
+    while (i < n) {
+        if (*(a + i) != *(b + i)) {
+            return(*(a + i) - *(b + i));
+        }
+        i = i + 1;
+    }
+    return(0);
+}

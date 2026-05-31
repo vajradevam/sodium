@@ -110,6 +110,18 @@ public:
     /// Allocate a persistent copy of a Type (for pointee pointers).
     Type* alloc_type(const Type& t);
 
+    /// Static type inference on an expression AST (no IR emitted).
+    /// Returns the inferred type and records callee parameter types in m_inferred_param_types.
+    Type infer_expr_type(const NodeExpr& expr,
+                         const std::unordered_map<std::string, Type>& scope_types);
+
+    /// Walk all function bodies to infer parameter types from call sites.
+    void collect_call_types();
+
+    /// Map: function name → inferred parameter types
+    std::unordered_map<std::string, std::vector<Type>> m_inferred_param_types;
+    int m_type_infer_iteration = 0;  // iteration counter for type inference, used to suppress duplicate warnings
+
 private:
     NodeProg m_prog;
     Backend* m_backend_ptr;

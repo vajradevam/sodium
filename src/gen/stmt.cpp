@@ -525,18 +525,49 @@ void Generator::gen_stmt(const NodeStmt& stmt)
             }
         }
 
+        // Type-aware store/load helpers
+        void typed_store(uint32_t ptr, uint32_t val, size_t elem_size) const {
+            if (elem_size >= 8)      gen->m_ir.store(IRValue::vreg(ptr), 0, IRValue::vreg(val));
+            else if (elem_size >= 4) gen->m_ir.store_32(IRValue::vreg(ptr), 0, IRValue::vreg(val));
+            else if (elem_size >= 2) gen->m_ir.store_16(IRValue::vreg(ptr), 0, IRValue::vreg(val));
+            else                     gen->m_ir.store_8(IRValue::vreg(ptr), 0, IRValue::vreg(val));
+        }
+        uint32_t typed_load_val(uint32_t ptr, size_t elem_size, bool is_signed) const {
+            if (elem_size >= 8)      return gen->m_ir.load(IRValue::vreg(ptr), 0);
+            else if (elem_size == 4) return is_signed ? gen->m_ir.load_s32(IRValue::vreg(ptr), 0) : gen->m_ir.load_u32(IRValue::vreg(ptr), 0);
+            else if (elem_size == 2) return is_signed ? gen->m_ir.load_s16(IRValue::vreg(ptr), 0) : gen->m_ir.load_u16(IRValue::vreg(ptr), 0);
+            else                     return is_signed ? gen->m_ir.load_s8(IRValue::vreg(ptr), 0) : gen->m_ir.load_u8(IRValue::vreg(ptr), 0);
+        }
+
         void operator()(const NodeStmtDerefAssign* stmt_deref) const
         {
             if (stmt_deref->op == AssignOp::assign) {
                 gen->gen_expr(*stmt_deref->expr);
                 gen->gen_expr(*stmt_deref->ptr_expr);
+                Type ptr_type = gen->peek_type();
                 uint32_t ptr = gen->pop_vreg();
                 uint32_t val = gen->pop_vreg();
-                gen->m_ir.store(IRValue::vreg(ptr), 0, IRValue::vreg(val));
+                if (ptr_type.kind == Type::Ptr && ptr_type.pointee) {
+                    typed_store(ptr, val, type_size(*ptr_type.pointee));
+                } else {
+                    gen->m_ir.store(IRValue::vreg(ptr), 0, IRValue::vreg(val));
+                }
             } else {
                 gen->gen_expr(*stmt_deref->ptr_expr);
+                Type ptr_type = gen->peek_type();
                 uint32_t ptr = gen->pop_vreg();
-                uint32_t old_val = gen->m_ir.load(IRValue::vreg(ptr), 0);
+
+                size_t elem_size = 8;
+                bool is_signed = false;
+                if (ptr_type.kind == Type::Ptr && ptr_type.pointee) {
+                    elem_size = type_size(*ptr_type.pointee);
+                    is_signed = (ptr_type.pointee->kind == Type::Int &&
+                                 (ptr_type.pointee->int_type == IntType::i8 ||
+                                  ptr_type.pointee->int_type == IntType::i16 ||
+                                  ptr_type.pointee->int_type == IntType::i32));
+                }
+
+                uint32_t old_val = typed_load_val(ptr, elem_size, is_signed);
                 gen->gen_expr(*stmt_deref->expr);
                 uint32_t rhs = gen->pop_vreg();
                 uint32_t result = old_val;
@@ -553,7 +584,7 @@ void Generator::gen_stmt(const NodeStmt& stmt)
                     case AssignOp::shr_assign:     result = gen->m_ir.shr(IRValue::vreg(old_val), IRValue::vreg(rhs)); break;
                     default: break;
                 }
-                gen->m_ir.store(IRValue::vreg(ptr), 0, IRValue::vreg(result));
+                typed_store(ptr, result, elem_size);
             }
         }
     };

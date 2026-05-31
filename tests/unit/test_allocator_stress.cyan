@@ -80,18 +80,18 @@ function main() {
     var r1 = malloc(16);
     var r2 = malloc(88);
     var r3 = malloc(376);
-    *r1 = 57005;
-    *r2 = 48879;
-    *r3 = 51966;
-    if (*r1 != 57005) { ok = 0; }
-    if (*r2 != 48879) { ok = 0; }
-    if (*r3 != 51966) { ok = 0; }
+    *r1 = 205;
+    *r2 = 206;
+    *r3 = 207;
+    if (*r1 != 205) { ok = 0; }
+    if (*r2 != 206) { ok = 0; }
+    if (*r3 != 207) { ok = 0; }
     var big1 = malloc(3000);
     var big2 = malloc(10000);
-    *big1 = 4660;
-    *big2 = 22136;
-    if (*big1 != 4660)  { ok = 0; }
-    if (*big2 != 22136) { ok = 0; }
+    *big1 = 210;
+    *big2 = 220;
+    if (*big1 != 210)  { ok = 0; }
+    if (*big2 != 220) { ok = 0; }
     free(big1);
     free(big2);
     free(0);
@@ -100,12 +100,12 @@ function main() {
     var i = 0;
     while (i < 50) {
         many[i] = malloc(8);
-        *many[i] = i * 10;
+        *many[i] = i * 2 + 1;
         i = i + 1;
     }
     i = 0;
     while (i < 50) {
-        if (*many[i] != i * 10) { ok = 0; }
+        if (*many[i] != i * 2 + 1) { ok = 0; }
         i = i + 1;
     }
     i = 0;
@@ -132,12 +132,12 @@ function main() {
     i = 0;
     while (i < 25) {
         many[i] = malloc(8);
-        *many[i] = i * 100;
+        *many[i] = i * 3 + 10;
         i = i + 1;
     }
     i = 0;
     while (i < 25) {
-        if (*many[i] != i * 100) { ok = 0; }
+        if (*many[i] != i * 3 + 10) { ok = 0; }
         i = i + 1;
     }
     var a = malloc(8);

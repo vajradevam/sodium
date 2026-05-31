@@ -71,7 +71,13 @@ void Generator::gen_func_def(const NodeFuncDef& func)
 
         uint32_t offset = m_next_frame_offset;
         m_next_frame_offset += 8;
-        scope.vars[param_name] = Var { .stack_loc = offset, .type = Type::make_int(IntType::i64) };
+        // Use inferred parameter type if available, otherwise default i64
+        Type param_type = Type::make_int(IntType::i64);
+        auto inferred_it = m_inferred_param_types.find(func.name.value.value());
+        if (inferred_it != m_inferred_param_types.end() && i < inferred_it->second.size()) {
+            param_type = inferred_it->second[i];
+        }
+        scope.vars[param_name] = Var { .stack_loc = offset, .type = param_type };
         scope.var_count++;
 
         // Load parameter from ABI-defined location (argument register or stack)
@@ -219,6 +225,9 @@ void Generator::collect_globals(const std::vector<NodeStmt>& stmts)
     if (!main_func->params.empty()) {
         lsp_exit(main_func->name.loc, "main function must not take parameters");
     }
+
+    // Infer parameter types from call sites
+    collect_call_types();
 
     // Global initializers — emit as IR and flush FIRST
     // (before _start, so the order in the output is correct)

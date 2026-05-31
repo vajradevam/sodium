@@ -1,0 +1,57 @@
+// Test for cyanlib/string.cyan
+#include "string.cyan"
+
+function main() {
+    // ── strlen ─────────────────────────────────────────────────────
+    if (strlen("hello") != 5) { return(1); }
+
+    // ── strcmp ─────────────────────────────────────────────────────
+    if (strcmp("abc", "abc") != 0)   { return(2); }
+    if (strcmp("abc", "abd") >= 0)   { return(3); }
+    if (strcmp("abd", "abc") <= 0)   { return(4); }
+    if (strcmp("", "") != 0)         { return(5); }
+    if (strcmp("abc", "abcdef") >= 0){ return(6); }
+    if (strcmp("abcdef", "abc") <= 0){ return(7); }
+
+    // ── strcpy with malloc'd dst and string literal src ────────────
+    var buf = malloc(50);
+    strcpy(buf, "hello world");
+    if (strcmp(buf, "hello world") != 0) { return(8); }
+
+    // ── strcat with malloc'd buffers ───────────────────────────────
+    strcpy(buf, "hello");
+    strcat(buf, " world");
+    if (strcmp(buf, "hello world") != 0) { return(9); }
+    free(buf);
+
+    // ── memcmp (string literals) ───────────────────────────────────
+    if (memcmp("hello", "hello", 5) != 0) { return(10); }
+    if (memcmp("hello", "hella", 5) == 0) { return(11); }
+    if (memcmp("hello", "hella", 3) != 0) { return(12); }
+    if (memcmp("abc", "xyz", 0) != 0)     { return(13); }
+
+    // ── memcpy with malloc'd dst and string literal src ────────────
+    var dst = malloc(10);
+    memcpy(dst, "ABCDEF", 3);
+    if (strcmp(dst, "ABC") != 0) { return(14); }
+    free(dst);
+
+    // ── memset with malloc'd buffer ────────────────────────────────
+    var buf2 = malloc(10);
+    memset(buf2, 65, 5);
+    var i = 0;
+    while (i < 5) {
+        if (*(buf2 + i) != 65) { return(15); }
+        i = i + 1;
+    }
+    free(buf2);
+
+    // ── memcmp with malloc'd and string literal ────────────────────
+    var buf3 = malloc(10);
+    strcpy(buf3, "hello");
+    if (memcmp(buf3, "hello", 5) != 0) { return(16); }
+    free(buf3);
+
+    print("All string library tests passed!");
+    return(0);
+}
