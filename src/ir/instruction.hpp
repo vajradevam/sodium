@@ -70,6 +70,25 @@ struct IRInstruction {
         return { IROpcode::LOAD, dst, IRWidth::I64, {base}, "", "", "", offset };
     }
 
+    static IRInstruction load_s8(uint32_t dst, IRValue base, int64_t offset) {
+        return { IROpcode::LOAD_S8, dst, IRWidth::I64, {base}, "", "", "", offset };
+    }
+    static IRInstruction load_u8(uint32_t dst, IRValue base, int64_t offset) {
+        return { IROpcode::LOAD_U8, dst, IRWidth::I64, {base}, "", "", "", offset };
+    }
+    static IRInstruction load_s16(uint32_t dst, IRValue base, int64_t offset) {
+        return { IROpcode::LOAD_S16, dst, IRWidth::I64, {base}, "", "", "", offset };
+    }
+    static IRInstruction load_u16(uint32_t dst, IRValue base, int64_t offset) {
+        return { IROpcode::LOAD_U16, dst, IRWidth::I64, {base}, "", "", "", offset };
+    }
+    static IRInstruction load_s32(uint32_t dst, IRValue base, int64_t offset) {
+        return { IROpcode::LOAD_S32, dst, IRWidth::I64, {base}, "", "", "", offset };
+    }
+    static IRInstruction load_u32(uint32_t dst, IRValue base, int64_t offset) {
+        return { IROpcode::LOAD_U32, dst, IRWidth::I64, {base}, "", "", "", offset };
+    }
+
     static IRInstruction store(IRValue base, int64_t offset, IRValue src) {
         return { IROpcode::STORE, NONE_VREG, IRWidth::I64, {base, src}, "", "", "", offset };
     }

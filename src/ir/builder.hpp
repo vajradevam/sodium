@@ -143,6 +143,37 @@ public:
         return dst;
     }
 
+    uint32_t load_s8(IRValue base, int64_t offset) {
+        auto dst = new_vreg();
+        emit(IRInstruction::load_s8(dst, base, offset));
+        return dst;
+    }
+    uint32_t load_u8(IRValue base, int64_t offset) {
+        auto dst = new_vreg();
+        emit(IRInstruction::load_u8(dst, base, offset));
+        return dst;
+    }
+    uint32_t load_s16(IRValue base, int64_t offset) {
+        auto dst = new_vreg();
+        emit(IRInstruction::load_s16(dst, base, offset));
+        return dst;
+    }
+    uint32_t load_u16(IRValue base, int64_t offset) {
+        auto dst = new_vreg();
+        emit(IRInstruction::load_u16(dst, base, offset));
+        return dst;
+    }
+    uint32_t load_s32(IRValue base, int64_t offset) {
+        auto dst = new_vreg();
+        emit(IRInstruction::load_s32(dst, base, offset));
+        return dst;
+    }
+    uint32_t load_u32(IRValue base, int64_t offset) {
+        auto dst = new_vreg();
+        emit(IRInstruction::load_u32(dst, base, offset));
+        return dst;
+    }
+
     uint32_t lea(IRValue base, int64_t offset) {
         auto dst = new_vreg();
         emit(IRInstruction::lea(dst, base, offset));

@@ -15,19 +15,44 @@ Generator::Generator(NodeProg root, Backend& backend, const TargetRegisterInfo& 
 // IR virtual register stack helpers
 // ==========================================================================
 
+void Generator::push_type(Type t) {
+    m_tstack.push_back(t);
+}
+
+Type Generator::pop_type() {
+    if (m_tstack.empty())
+        return Type::make_int(IntType::i64);
+    Type t = m_tstack.back();
+    m_tstack.pop_back();
+    return t;
+}
+
+Type Generator::peek_type() {
+    if (m_tstack.empty())
+        return Type::make_int(IntType::i64);
+    return m_tstack.back();
+}
+
+Type* Generator::alloc_type(const Type& t) {
+    m_type_pool.push_back(t);
+    return &m_type_pool.back();
+}
+
 uint32_t Generator::push_vreg(uint32_t vreg) {
     m_vstack.push_back(vreg);
+    push_type(Type::make_int(IntType::i64));  // default type
     return vreg;
 }
 
 uint32_t Generator::pop_vreg() {
     if (m_vstack.empty()) {
-        // Allocate a fresh vreg for convenience
+        pop_type();  // keep stacks in sync
         uint32_t fresh = m_ir.current_function()->new_vreg();
         return fresh;
     }
     uint32_t vreg = m_vstack.back();
     m_vstack.pop_back();
+    pop_type();
     return vreg;
 }
 
@@ -45,16 +70,23 @@ void Generator::load_var_to_vstack(const std::string& name) {
     for (auto it = m_scopes.rbegin(); it != m_scopes.rend(); ++it) {
         if (it->vars.contains(name)) {
             const auto& var = it->vars.at(name);
-            if (var.array_size > 0 || var.type == IntType::i64 || var.type == IntType::u64) {
+            if (var.array_size > 0) {
                 uint32_t addr = m_ir.frame_addr(static_cast<int64_t>(var.stack_loc));
                 uint32_t val = m_ir.load(IRValue::vreg(addr), 0);
                 push_vreg(val);
+                m_tstack.back() = Type::make_int(IntType::i64); // array element type is i64
+                return;
+            } else if (var.type.kind == Type::Ptr || var.type.int_type == IntType::i64 || var.type.int_type == IntType::u64) {
+                uint32_t addr = m_ir.frame_addr(static_cast<int64_t>(var.stack_loc));
+                uint32_t val = m_ir.load(IRValue::vreg(addr), 0);
+                push_vreg(val);
+                m_tstack.back() = var.type;
                 return;
             } else {
                 uint32_t addr = m_ir.frame_addr(static_cast<int64_t>(var.stack_loc));
                 uint32_t val = m_ir.load(IRValue::vreg(addr), 0);
                 // Extend the loaded value
-                switch (var.type) {
+                switch (var.type.int_type) {
                     case IntType::i8:  val = m_ir.sext(IRValue::vreg(val), IRWidth::I8); break;
                     case IntType::i16: val = m_ir.sext(IRValue::vreg(val), IRWidth::I16); break;
                     case IntType::i32: val = m_ir.sext(IRValue::vreg(val), IRWidth::I32); break;
@@ -64,6 +96,7 @@ void Generator::load_var_to_vstack(const std::string& name) {
                     default: break;
                 }
                 push_vreg(val);
+                m_tstack.back() = var.type;
                 return;
             }
         }
@@ -73,12 +106,14 @@ void Generator::load_var_to_vstack(const std::string& name) {
         uint32_t val = m_ir.lea_label(name);
         uint32_t loaded = m_ir.load(IRValue::vreg(val), 0);
         push_vreg(loaded);
+        m_tstack.back() = Type::make_int(IntType::i64);
         return;
     }
     // Try constant
     if (m_constants.contains(name)) {
         uint32_t val = m_ir.load_i64(m_constants.at(name));
         push_vreg(val);
+        m_tstack.back() = Type::make_int(IntType::i64);
         return;
     }
     lsp_exit({}, "Undeclared identifier: " + name);
@@ -93,11 +128,15 @@ void Generator::store_var_from_vstack(const std::string& name, AssignOp op) {
                 lsp_exit({}, "Cannot assign to array variable directly (use arr = [a,b,c] or arr[i] = val)");
             }
 
+            bool is_ptr_type = (var.type.kind == Type::Ptr);
+            bool is_64bit_int = (var.type.kind == Type::Int &&
+                                 (var.type.int_type == IntType::i64 || var.type.int_type == IntType::u64));
+
             if (op == AssignOp::assign) {
                 uint32_t val = pop_vreg();
-                if (var.type != IntType::i64 && var.type != IntType::u64) {
-                    // Truncate
-                    switch (var.type) {
+                if (!is_ptr_type && !is_64bit_int) {
+                    // Truncate to variable's type width
+                    switch (var.type.int_type) {
                         case IntType::i8:
                         case IntType::u8:  val = m_ir.and_(IRValue::vreg(val), IRValue::imm_i64(0xFF)); break;
                         case IntType::i16:
@@ -130,8 +169,8 @@ void Generator::store_var_from_vstack(const std::string& name, AssignOp op) {
                     default: break;
                 }
                 // Truncate if needed
-                if (var.type != IntType::i64 && var.type != IntType::u64) {
-                    switch (var.type) {
+                if (!is_ptr_type && !is_64bit_int) {
+                    switch (var.type.int_type) {
                         case IntType::i8:
                         case IntType::u8:  result = m_ir.and_(IRValue::vreg(result), IRValue::imm_i64(0xFF)); break;
                         case IntType::i16:
@@ -296,7 +335,7 @@ void Generator::exit_scope()
     m_scopes.pop_back();
 }
 
-void Generator::declare_var(const std::string& name, IntType type, SourceLoc loc) {
+void Generator::declare_var(const std::string& name, Type type, SourceLoc loc) {
     auto& scope = m_scopes.back();
     if (scope.vars.contains(name)) {
         lsp_exit(loc, "Identifier already used in this scope: " + name);
@@ -344,6 +383,9 @@ void Generator::gen_expr(const NodeExpr& expr)
             gen->m_strings.push_back({label, str});
             uint32_t v = gen->m_ir.lea_label(label);
             gen->push_vreg(v);
+            // String literal is pointer to u8 (byte)
+            Type* pointee = gen->alloc_type(Type::make_int(IntType::u8));
+            gen->m_tstack.back() = Type::make_ptr(pointee);
         }
 
         void operator()(const NodeExprIndex* expr_index)
@@ -472,12 +514,18 @@ void Generator::gen_expr(const NodeExpr& expr)
                         const auto& var = it->vars.at(name);
                         uint32_t addr = gen->m_ir.frame_addr(static_cast<int64_t>(var.stack_loc));
                         gen->push_vreg(addr);
+                        // Record pointer type
+                        Type* pointee = gen->alloc_type(var.type);
+                        gen->m_tstack.back() = Type::make_ptr(pointee);
                         return;
                     }
                 }
                 if (gen->m_globals.contains(name)) {
                     uint32_t addr = gen->m_ir.lea_label(name);
                     gen->push_vreg(addr);
+                    // Global variables default to i64
+                    Type* pointee = gen->alloc_type(Type::make_int(IntType::i64));
+                    gen->m_tstack.back() = Type::make_ptr(pointee);
                     return;
                 }
                 lsp_exit(addr_of->ampersand.loc, "Undeclared identifier: " + name);
@@ -494,6 +542,9 @@ void Generator::gen_expr(const NodeExpr& expr)
                         uint32_t offset = gen->m_ir.mul(IRValue::vreg(idx), IRValue::imm_i64(8));
                         uint32_t elem_addr = gen->m_ir.sub(IRValue::vreg(base_addr), IRValue::vreg(offset));
                         gen->push_vreg(elem_addr);
+                        // Array elements are i64 (8-byte slots)
+                        Type* pointee = gen->alloc_type(Type::make_int(IntType::i64));
+                        gen->m_tstack.back() = Type::make_ptr(pointee);
                         return;
                     }
                 }
@@ -503,6 +554,8 @@ void Generator::gen_expr(const NodeExpr& expr)
                     uint32_t offset = gen->m_ir.mul(IRValue::vreg(idx), IRValue::imm_i64(8));
                     uint32_t elem_addr = gen->m_ir.add(IRValue::vreg(base_addr), IRValue::vreg(offset));
                     gen->push_vreg(elem_addr);
+                    Type* pointee = gen->alloc_type(Type::make_int(IntType::i64));
+                    gen->m_tstack.back() = Type::make_ptr(pointee);
                     return;
                 }
                 lsp_exit((*arr_idx)->name.loc, "Undeclared identifier: " + name);
@@ -526,6 +579,9 @@ void Generator::gen_expr(const NodeExpr& expr)
                 uint32_t base_addr = gen->m_ir.frame_addr(static_cast<int64_t>(var.stack_loc));
                 uint32_t field_addr = gen->m_ir.lea(IRValue::vreg(base_addr), -static_cast<int64_t>(field_offset * 8));
                 gen->push_vreg(field_addr);
+                // Struct fields are i64 (8-byte slots)
+                Type* pointee = gen->alloc_type(Type::make_int(IntType::i64));
+                gen->m_tstack.back() = Type::make_ptr(pointee);
             } else {
                 lsp_exit(addr_of->ampersand.loc, "Cannot take address of this expression");
             }
@@ -535,9 +591,38 @@ void Generator::gen_expr(const NodeExpr& expr)
         {
             // *ptr — evaluate ptr, then load from that address
             gen->gen_expr(*deref->expr);
+            Type ptr_type = gen->peek_type();
             uint32_t ptr = gen->pop_vreg();
-            uint32_t val = gen->m_ir.load(IRValue::vreg(ptr), 0);
-            gen->push_vreg(val);
+
+            if (ptr_type.kind == Type::Ptr && ptr_type.pointee) {
+                size_t elem_size = type_size(*ptr_type.pointee);
+                bool is_signed = (ptr_type.pointee->kind == Type::Int &&
+                                  (ptr_type.pointee->int_type == IntType::i8 ||
+                                   ptr_type.pointee->int_type == IntType::i16 ||
+                                   ptr_type.pointee->int_type == IntType::i32 ||
+                                   ptr_type.pointee->int_type == IntType::i64));
+                uint32_t v;
+                if (elem_size >= 8) {
+                    v = gen->m_ir.load(IRValue::vreg(ptr), 0);
+                } else if (elem_size == 4) {
+                    v = is_signed ? gen->m_ir.load_s32(IRValue::vreg(ptr), 0)
+                                  : gen->m_ir.load_u32(IRValue::vreg(ptr), 0);
+                } else if (elem_size == 2) {
+                    v = is_signed ? gen->m_ir.load_s16(IRValue::vreg(ptr), 0)
+                                  : gen->m_ir.load_u16(IRValue::vreg(ptr), 0);
+                } else {
+                    v = is_signed ? gen->m_ir.load_s8(IRValue::vreg(ptr), 0)
+                                  : gen->m_ir.load_u8(IRValue::vreg(ptr), 0);
+                }
+                gen->push_vreg(v);
+                // Result type is the pointee type
+                Type* pointee_copy = gen->alloc_type(*ptr_type.pointee);
+                gen->m_tstack.back() = *pointee_copy;
+            } else {
+                // Unknown pointer type — load 8 bytes (default)
+                uint32_t val = gen->m_ir.load(IRValue::vreg(ptr), 0);
+                gen->push_vreg(val);
+            }
         }
 
         void operator()(const NodeExprCall* expr_call)
@@ -552,6 +637,9 @@ void Generator::gen_expr(const NodeExpr& expr)
                 uint32_t size = gen->pop_vreg();
                 uint32_t result = gen->m_ir.call("_sodium_malloc", {IRValue::vreg(size)});
                 gen->push_vreg(result);
+                // malloc returns Ptr(i64) by default (no element type info)
+                Type* pointee = gen->alloc_type(Type::make_int(IntType::i64));
+                gen->m_tstack.back() = Type::make_ptr(pointee);
                 return;
             }
             if (fname == "free") {
@@ -585,6 +673,9 @@ void Generator::gen_expr(const NodeExpr& expr)
                 uint32_t entry_addr = gen->m_ir.add(IRValue::vreg(argv_ptr), IRValue::vreg(offset));
                 uint32_t str_ptr = gen->m_ir.load(IRValue::vreg(entry_addr), 0);
                 gen->push_vreg(str_ptr);
+                // argv(i) returns Ptr(u8) (pointer to the argument string)
+                Type* pointee = gen->alloc_type(Type::make_int(IntType::u8));
+                gen->m_tstack.back() = Type::make_ptr(pointee);
                 return;
             }
             if (fname == "print_str") {
@@ -624,10 +715,46 @@ void Generator::gen_expr(const NodeExpr& expr)
                 void operator()(const BinExprAdd* add) {
                     gen->gen_expr(*add->lhs);
                     gen->gen_expr(*add->rhs);
+                    Type type_b = gen->pop_type();
+                    Type type_a = gen->pop_type();
                     uint32_t b = gen->pop_vreg();
                     uint32_t a = gen->pop_vreg();
-                    uint32_t v = gen->m_ir.add(IRValue::vreg(a), IRValue::vreg(b));
-                    gen->push_vreg(v);
+
+                    if (type_a.kind == Type::Ptr && type_a.pointee &&
+                        type_b.kind == Type::Int) {
+                        // ptr + int: scale the int by sizeof(*ptr)
+                        size_t elem_size = type_size(*type_a.pointee);
+                        if (elem_size > 1) {
+                            uint32_t scaled = gen->m_ir.mul(IRValue::vreg(b),
+                                IRValue::imm_i64(static_cast<int64_t>(elem_size)));
+                            uint32_t v = gen->m_ir.add(IRValue::vreg(a), IRValue::vreg(scaled));
+                            gen->push_vreg(v);
+                            gen->m_tstack.back() = type_a;
+                        } else {
+                            uint32_t v = gen->m_ir.add(IRValue::vreg(a), IRValue::vreg(b));
+                            gen->push_vreg(v);
+                            gen->m_tstack.back() = type_a;
+                        }
+                    } else if (type_b.kind == Type::Ptr && type_b.pointee &&
+                               type_a.kind == Type::Int) {
+                        // int + ptr: scale the int by sizeof(*ptr)
+                        size_t elem_size = type_size(*type_b.pointee);
+                        if (elem_size > 1) {
+                            uint32_t scaled = gen->m_ir.mul(IRValue::vreg(a),
+                                IRValue::imm_i64(static_cast<int64_t>(elem_size)));
+                            uint32_t v = gen->m_ir.add(IRValue::vreg(scaled), IRValue::vreg(b));
+                            gen->push_vreg(v);
+                            gen->m_tstack.back() = type_b;
+                        } else {
+                            uint32_t v = gen->m_ir.add(IRValue::vreg(a), IRValue::vreg(b));
+                            gen->push_vreg(v);
+                            gen->m_tstack.back() = type_b;
+                        }
+                    } else {
+                        // int + int
+                        uint32_t v = gen->m_ir.add(IRValue::vreg(a), IRValue::vreg(b));
+                        gen->push_vreg(v);
+                    }
                 }
                 void operator()(const BinExprMulti* mul) {
                     gen->gen_expr(*mul->lhs);
@@ -640,10 +767,49 @@ void Generator::gen_expr(const NodeExpr& expr)
                 void operator()(const BinExprSub* sub) {
                     gen->gen_expr(*sub->lhs);
                     gen->gen_expr(*sub->rhs);
+                    Type type_b = gen->pop_type();
+                    Type type_a = gen->pop_type();
                     uint32_t b = gen->pop_vreg();
                     uint32_t a = gen->pop_vreg();
-                    uint32_t v = gen->m_ir.sub(IRValue::vreg(a), IRValue::vreg(b));
-                    gen->push_vreg(v);
+
+                    if (type_a.kind == Type::Ptr && type_a.pointee &&
+                        type_b.kind == Type::Int) {
+                        // ptr - int: scale the int by sizeof(*ptr)
+                        size_t elem_size = type_size(*type_a.pointee);
+                        if (elem_size > 1) {
+                            uint32_t scaled = gen->m_ir.mul(IRValue::vreg(b),
+                                IRValue::imm_i64(static_cast<int64_t>(elem_size)));
+                            uint32_t v = gen->m_ir.sub(IRValue::vreg(a), IRValue::vreg(scaled));
+                            gen->push_vreg(v);
+                            gen->m_tstack.back() = type_a;
+                        } else {
+                            uint32_t v = gen->m_ir.sub(IRValue::vreg(a), IRValue::vreg(b));
+                            gen->push_vreg(v);
+                            gen->m_tstack.back() = type_a;
+                        }
+                    } else if (type_a.kind == Type::Ptr && type_b.kind == Type::Ptr &&
+                               type_a.pointee && type_b.pointee &&
+                               *type_a.pointee == *type_b.pointee) {
+                        // ptr - ptr: difference in bytes, divide by element size
+                        size_t elem_size = type_size(*type_a.pointee);
+                        uint32_t diff = gen->m_ir.sub(IRValue::vreg(a), IRValue::vreg(b));
+                        if (elem_size > 1) {
+                            // Shift right by log2(elem_size) for power-of-2 division
+                            // (all element sizes are powers of 2: 1, 2, 4, 8)
+                            int shift = 0;
+                            size_t s = elem_size;
+                            while (s > 1) { s >>= 1; shift++; }
+                            uint32_t v = gen->m_ir.shr(IRValue::vreg(diff),
+                                IRValue::imm_i64(static_cast<int64_t>(shift)));
+                            gen->push_vreg(v);
+                        } else {
+                            gen->push_vreg(diff);
+                        }
+                    } else {
+                        // int - int
+                        uint32_t v = gen->m_ir.sub(IRValue::vreg(a), IRValue::vreg(b));
+                        gen->push_vreg(v);
+                    }
                 }
                 void operator()(const BinExprDiv* div) {
                     gen->gen_expr(*div->lhs);
@@ -797,7 +963,8 @@ void Generator::gen_stmt(const NodeStmt& stmt)
 
         void operator()(const NodeStmtLet* stmt_let) const
         {
-            auto var_type = stmt_let->type.value_or(IntType::i64);
+            auto raw_type = stmt_let->type.value_or(IntType::i64);
+            Type var_type = Type::make_int(raw_type);
 
             // Handle struct-typed variable
             if (!stmt_let->struct_type_name.empty()) {
@@ -837,24 +1004,36 @@ void Generator::gen_stmt(const NodeStmt& stmt)
             } else {
                 gen->declare_var(stmt_let->ident.value.value(), var_type, stmt_let->ident.loc);
                 gen->gen_expr(*stmt_let->expr);
-                uint32_t val = gen->pop_vreg();
-                // Truncate if needed
-                if (var_type != IntType::i64 && var_type != IntType::u64) {
-                    switch (var_type) {
-                        case IntType::i8:
-                        case IntType::u8:  val = gen->m_ir.and_(IRValue::vreg(val), IRValue::imm_i64(0xFF)); break;
-                        case IntType::i16:
-                        case IntType::u16: val = gen->m_ir.and_(IRValue::vreg(val), IRValue::imm_i64(0xFFFF)); break;
-                        case IntType::i32:
-                        case IntType::u32: val = gen->m_ir.zext(IRValue::vreg(val), IRWidth::I32); break;
-                        default: break;
+                // Check if the expression produced a pointer type — if so, update var's type
+                if (gen->peek_type().kind == Type::Ptr) {
+                    Type expr_type = gen->pop_type();
+                    uint32_t val = gen->pop_vreg();
+                    // Update variable type to the pointer type
+                    auto& scope = gen->m_scopes.back();
+                    scope.vars[stmt_let->ident.value.value()] = 
+                        Var { .stack_loc = scope.vars.at(stmt_let->ident.value.value()).stack_loc,
+                              .type = expr_type };
+                    uint32_t addr = gen->m_ir.frame_addr(static_cast<int64_t>(scope.vars.at(stmt_let->ident.value.value()).stack_loc));
+                    gen->m_ir.store(IRValue::vreg(addr), 0, IRValue::vreg(val));
+                } else {
+                    uint32_t val = gen->pop_vreg();
+                    // Truncate if needed
+                    if (var_type.kind == Type::Int && var_type.int_type != IntType::i64 && var_type.int_type != IntType::u64) {
+                        switch (var_type.int_type) {
+                            case IntType::i8:
+                            case IntType::u8:  val = gen->m_ir.and_(IRValue::vreg(val), IRValue::imm_i64(0xFF)); break;
+                            case IntType::i16:
+                            case IntType::u16: val = gen->m_ir.and_(IRValue::vreg(val), IRValue::imm_i64(0xFFFF)); break;
+                            case IntType::i32:
+                            case IntType::u32: val = gen->m_ir.zext(IRValue::vreg(val), IRWidth::I32); break;
+                            default: break;
+                        }
                     }
+                    auto& scope = gen->m_scopes.back();
+                    const auto& var = scope.vars.at(stmt_let->ident.value.value());
+                    uint32_t addr = gen->m_ir.frame_addr(static_cast<int64_t>(var.stack_loc));
+                    gen->m_ir.store(IRValue::vreg(addr), 0, IRValue::vreg(val));
                 }
-                // Store
-                auto& scope = gen->m_scopes.back();
-                const auto& var = scope.vars.at(stmt_let->ident.value.value());
-                uint32_t addr = gen->m_ir.frame_addr(static_cast<int64_t>(var.stack_loc));
-                gen->m_ir.store(IRValue::vreg(addr), 0, IRValue::vreg(val));
             }
         }
 

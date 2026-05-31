@@ -16,6 +16,53 @@ enum class IntType {
     u8, u16, u32, u64
 };
 
+// ── Type representation ───────────────────────────────────────────────────
+// A Type is either a base integer type or a pointer to another type.
+// Pointer types carry the pointed-to type for scaling and load/store width.
+
+struct Type {
+    enum Kind : uint8_t { Int, Ptr };
+    Kind kind;
+    IntType int_type;    // valid when kind == Int
+    Type* pointee;       // valid when kind == Ptr (arena-allocated via parser allocator)
+
+    static Type make_int(IntType t) { return {Int, t, nullptr}; }
+    static Type make_ptr(Type* t, ArenaAllocator& alloc) {
+        Type* p = alloc.alloc<Type>();
+        p->kind = Ptr;
+        p->int_type = IntType::i64; // unused
+        p->pointee = t;
+        return {Ptr, IntType::i64, p};
+    }
+    // For convenience: create a pointer type without an arena (static storage).
+    // Used in the Generator where we have a fixed set of pointer types.
+    static Type make_ptr(Type* t) {
+        return {Ptr, IntType::i64, t};
+    }
+
+    bool operator==(const Type& o) const {
+        if (kind != o.kind) return false;
+        if (kind == Int) return int_type == o.int_type;
+        // Ptr: compare pointee types recursively
+        if (pointee == o.pointee) return true;
+        if (!pointee || !o.pointee) return false;
+        return *pointee == *o.pointee;
+    }
+    bool operator!=(const Type& o) const { return !(*this == o); }
+};
+
+// Return the size in bytes of a value of the given type.
+inline size_t type_size(const Type& t) {
+    if (t.kind == Type::Ptr) return 8;  // pointers are 8 bytes
+    switch (t.int_type) {
+        case IntType::i8:  case IntType::u8:  return 1;
+        case IntType::i16: case IntType::u16: return 2;
+        case IntType::i32: case IntType::u32: return 4;
+        case IntType::i64: case IntType::u64: return 8;
+    }
+    return 8; // unreachable
+}
+
 // ── Expression AST nodes ───────────────────────────────────────────────────
 
 struct NodeExprIntLit { Token int_lit; };

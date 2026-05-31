@@ -1,0 +1,45 @@
+// Test type-aware pointer arithmetic
+// ptr + n should advance by n * sizeof(*ptr) bytes
+// ptr - ptr should give element difference based on the pointer type
+
+// Test 1: i32 (4 bytes)
+var x: i32 = 42;
+var ptr = &x;
+var before = ptr;
+ptr = ptr + 1;
+var after = ptr;
+var elem_diff = after - before;
+// elem_diff should be 1 (one i32 element = 4 bytes)
+if (elem_diff != 1) { return(1); }
+
+// Test 2: i64 (8 bytes)
+var y: i64 = 99;
+var p64 = &y;
+var b64 = p64;
+p64 = p64 + 2;
+var a64 = p64;
+// Both b64 and a64 are Ptr(i64), sizeof(i64)=8, byte diff=16, /8 = 2
+if ((a64 - b64) != 2) { return(2); }
+
+// Test 3: u8 (1 byte)
+var z: u8 = 7;
+var p8 = &z;
+var b8 = p8;
+p8 = p8 + 3;
+var a8 = p8;
+// Both Ptr(u8), sizeof(u8)=1, byte diff=3, /1 = 3
+if ((a8 - b8) != 3) { return(3); }
+
+// Test 4: malloc returns Ptr(i64), sizeof(i64)=8, ptr+1 advances by 8
+var buf = malloc(32);
+var bb = buf;
+buf = buf + 1;
+var ab = buf;
+// Both Ptr(i64), byte diff=8, /8 = 1
+if ((ab - bb) != 1) { return(4); }
+
+// Test 5: ptr - ptr with same type gives element diff
+// (p64 + 2) - p64 = 2 elements
+if ((a64 - b64) != 2) { return(5); }
+
+return(0);

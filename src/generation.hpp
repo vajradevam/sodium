@@ -19,6 +19,7 @@
 #include "ir/linear_scan.hpp"
 #include "ir/rewriter.hpp"
 #include "ir/target_regs.hpp"
+#include <list>
 #include "ir/emitter.hpp"
 
 enum class IntType;
@@ -26,7 +27,7 @@ enum class IntType;
 struct Var {
     size_t stack_loc;       // index in current stack frame (0 = RSP, 1 = RSP+8, ...)
     size_t array_size = 0;
-    IntType type = IntType::i64;
+    Type type = Type::make_int(IntType::i64);
     std::string struct_type; // empty if not a struct type
 };
 
@@ -67,7 +68,7 @@ public:
 
     [[nodiscard]] std::string gen_prog();
 
-    void declare_var(const std::string& name, IntType type = IntType::i64, SourceLoc loc = {});
+    void declare_var(const std::string& name, Type type = Type::make_int(IntType::i64), SourceLoc loc = {});
     Var lookup_var(const std::string& name, SourceLoc loc = {});
 
     void gen_expr(const NodeExpr& expr);
@@ -91,6 +92,11 @@ public:
     uint32_t pop_vreg();
     uint32_t peek_vreg();
 
+    /// Type stack (parallel to vreg stack). Tracks the type of each value.
+    void push_type(Type t);
+    Type pop_type();
+    Type peek_type();
+
     /// Load/store a local or global variable into/from a vreg on the vstack.
     void load_var_to_vstack(const std::string& name);
     void store_var_from_vstack(const std::string& name, AssignOp op = AssignOp::assign);
@@ -100,6 +106,9 @@ public:
 
     /// Access the backend.
     Backend& backend() const { return *m_backend_ptr; }
+
+    /// Allocate a persistent copy of a Type (for pointee pointers).
+    Type* alloc_type(const Type& t);
 
 private:
     NodeProg m_prog;
@@ -141,8 +150,12 @@ private:
     // ---- IR state ----
     IRBuilder m_ir;
     std::vector<uint32_t> m_vstack;
+    std::vector<Type> m_tstack;     ///< Type stack, parallel to m_vstack
     uint32_t m_frame_slots = 0;     ///< Number of frame slots allocated in current function
     uint32_t m_next_frame_slot = 0; ///< Next free frame slot index
+
+    // Type pool: persistent storage for Type::pointee pointers
+    std::list<Type> m_type_pool;
 
     TargetRegisterInfo m_tri = TargetRegisterInfo::x86_64_systemv();
 };

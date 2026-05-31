@@ -55,7 +55,7 @@
 | Compound assignment through pointer (`*ptr += expr`) | ✅ |
 | Double dereference (`**ptr`) | ✅ |
 | Pointer to struct fields | ✅ |
-| Pointer arithmetic (`ptr + n`, `ptr - n`, `&arr[i]`) | ✅ |
+| Type-aware pointer arithmetic (`ptr + n` scales by `sizeof(*ptr)`) | ✅ |
 | Pointer to global variables | ✅ |
 | `malloc()` / `free()` builtins (SFL allocator) | ✅ |
 | Empty blocks (`{}`) | ✅ |
