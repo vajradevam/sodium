@@ -1,112 +1,105 @@
-# Sodium/Cyan — TODO
+# Sodium/Cyan — Development Roadmap
 
-## Done ✅
+## ✅ Done
 
-- [x] **Spill code in register allocator** — store callee-save values to stack
-      when caller-save registers are exhausted. Previously, values spanning >5
-      calls on x86-64 got silently corrupted. Now uses fp-relative LOAD/STORE.
-- [x] **Hex literal syntax** (`0xFF`, `0xAB`) — tokenizer-level `0x`/`0X` prefix,
-      converts to decimal string for pipeline compatibility.
-- [x] **`!` logical NOT operator** — parser + codegen. Emits `CMP_EQ %dst, %x, 0`
-      in IR, no backend changes needed.
-- [x] **`argc()` / `argv()` builtins** — runtime globals populated by `_start`
-      from kernel stack. Both x86-64 and RISC-V conventions handled.
-- [x] **`print_str()` builtin** — prints string literals to stdout via raw write
-      syscall, appends newline.
-- [x] **Unified `print`** — compile-time dispatch: string literals go to
-      `print_str`, everything else to `print_int`.
+### Language
+- [x] C-style `function main()` entry point (top-level statements not allowed)
+- [x] Integer types (`i8`–`u64`), type annotations, overflow/truncation
+- [x] Arrays (declaration, indexing, assignment, literals, const sizes)
+- [x] Functions (definition, parameters, return values, recursion, forward refs)
+- [x] Structs (declaration, field access, assignment, compound assignment)
+- [x] Pointers (`&`, `*`, `**`, pointer arithmetic with type-aware scaling, pointer diff)
+- [x] `malloc`/`free` builtins (SFL allocator)
+- [x] Control flow: `if`/`else`, `while`, `do-while`, `for`, `switch`/`case`, `break`/`continue`
+- [x] Operators: arithmetic, comparison, logical, bitwise, compound assignment, ++/--, ternary
+- [x] Global variables (scalar, array, expression initializers)
+- [x] Static variables (inside functions)
+- [x] Constants (`const`, compile-time evaluation)
+- [x] Hex literals (`0xFF`), logical NOT (`!`)
+- [x] String literals with Unicode escape sequences
+- [x] Empty blocks (`{}`)
 
-## Phase 5: File I/O & Runtime
+### I/O & Builtins
+- [x] Unified `print` with C-style format strings (`%d`, `%s`, `%%`)
+- [x] `print()` with multiple comma-separated arguments
+- [x] `print()` with expressions/function calls in args
+- [x] `print()` with no arguments (just newline)
+- [x] `read()` — read integer from stdin
+- [x] `read(buf)` — read line into array buffer, returns byte count
+- [x] Shared input buffer (correct mixed `read()`/`read(buf)`)
+- [x] `argc()` / `argv()` builtins
 
+### Compiler Infrastructure
+- [x] Tokenizer → Parser → AST → IR → Backend
+- [x] SSA-style IR with basic blocks and control flow
+- [x] Liveness analysis + linear scan register allocation
+- [x] x86-64 backend (NASM assembly)
+- [x] RISC-V 64 backend (GAS assembly)
+- [x] Dual-architecture test runner (302 tests passing)
+- [x] 48 compile-failure tests (~30 error categories)
+- [x] Source locations (`file:line:col`) with caret annotations
+- [x] CLI: `-o`, `-S`, `--target`, `--print-ast`, `--emit-ir`, `--no-alloc`, `-I`
+- [x] Include mechanism (`#include`, `#pragma once`, `#error`)
+- [x] Chained arena allocator (no fixed size limit)
+- [x] Packed stack allocation (byte-granularity)
+- [x] Spill code in register allocator
+- [x] Freestanding C runtime (SFL allocator, CRT, I/O via syscalls)
+- [x] LSP server (`cyan-lsp`) — diagnostics, completions, hover, goto-def, document symbols
+- [x] VS Code extension (syntax highlighting + Cyan Dark theme + LSP)
+- [x] Install script (`install.sh`)
+
+### RISC-V Specific
+- [x] GP relaxation fix (`-Wl,--no-relax`)
+- [x] Large stack-frame support (`addi` > 2047 → `li` + `add`)
+- [x] `lea` without hardcoded temp register
+- [x] Stack probe on function entry (frames > 2048 bytes)
+
+## 📋 Next Up
+
+### Phase 1: String & Memory Operations
+- [ ] `strlen`, `strcmp`, `strcat`, `strcpy` builtins
+- [ ] `memcpy`, `memset`, `memcmp` builtins
+- [ ] String buffer manipulation utilities
+
+### Phase 2: File I/O
 - [ ] `fopen` / `fclose` builtins
 - [ ] `fread` / `fwrite` builtins
 - [ ] `fprintf` / `fscanf` builtins
-- [ ] Text file reading/writing
-- [x] Large-block free list for >2048 byte allocations
+- [ ] Text file reading/writing examples
+
+### Phase 3: Heap & Allocator
 - [ ] Growable heap via `mmap` / `brk`
 - [ ] True coalescing to reduce fragmentation
 
-## Phase 6: String & Math Library
-
-- [ ] `memcpy`, `memset`, `memcmp`
-- [ ] String operations (`strlen`, `strcmp`, `strcat`, `strcpy`)
-- [ ] `printf`-style formatting
-- [ ] `sprintf` / `snprintf`
-- [ ] Math helpers (`abs`, `min`, `max`, `clamp`)
-
-## Phase 7: Language Completeness
-
-- [ ] Pointer type annotations (`var p: int*`)
-- [x] Pointer arithmetic (`ptr + 1`, `ptr - 1`, `&arr[i]`)
-- [ ] Null pointer safety (check before deref)
+### Phase 4: Language Enhancements
 - [ ] Passing structs by value to functions
 - [ ] Struct return values
 - [ ] Arrays of structs
 - [ ] Nested structs
 - [ ] Struct literal initializers (`{ .x = 10 }`)
 - [ ] Multi-dimensional arrays
+- [ ] Pointer type annotations (`var p: int*`)
+- [ ] Null pointer safety (check before deref)
 - [ ] Enum types
 - [ ] Type aliases (`typedef`)
+- [ ] Function pointers
+- [ ] Error recovery (report multiple errors)
 
-## Phase 8: Optimization
-
+### Phase 5: Optimization
 - [ ] Constant folding in IR
 - [ ] Dead code elimination
 - [ ] Peephole optimization pass
 - [ ] Function inlining
 
-## Phase 9: Tooling
-
-- [ ] Error recovery (report multiple errors per compilation)
-- [ ] Bounds checking (opt-in `--bounds` flag)
+### Phase 6: Tooling & Portability
 - [ ] Inline assembly syntax
-- [ ] Package manager / standard library registry
+- [ ] Bounds checking (opt-in `--bounds` flag)
+- [ ] WASM backend
+- [ ] Thread safety (for the allocator)
 
-## Phase 10: Bootstrapping
-
+### Phase 7: Self-hosting
 - [ ] Tokenizer written in Cyan
 - [ ] Parser written in Cyan
 - [ ] Code generator written in Cyan
 - [ ] Self-hosted compiler can compile itself
 - [ ] Drop the C++ bootstrap compiler
-
-## Done ✅
-
-### Phase 1: Polish for Distribution
-- README with install instructions, language tour, examples, LSP/VS Code docs
-- `install.sh` — one-command build + install
-- Example programs in `examples/`
-- BUGS.md, FEATURES.md reflecting current state
-- For-loop variable scoping (`for var i` scoped to loop)
-- Global/static array declarations
-- Undefined function compile-time check
-
-### Phase 2: Include Mechanism
-- `#include` directive with search paths (`-I` flag)
-- `#pragma once` guard mechanism
-- `#error` directive
-- Tests for includes, pragma once, missing includes
-- LSP handles includes (preprocesses documents)
-
-### Phase 3: Structs
-- `struct` declaration and field access
-- Struct variable declaration (`var p: Point;`)
-- Field assignment and compound assignment
-- Multiple struct types
-
-### Phase 4: Pointers & Heap Allocation
-- Address-of (`&`) and dereference (`*`)
-- `malloc` / `free` builtins (SFL allocator)
-- Assignment through pointer (`*ptr = expr`)
-- Compound assignment through pointer (`*ptr += expr`)
-- Pointer to pointer (double deref)
-- Pointer to struct fields and globals
-
-### Phase 4.5: IR & Multi-Architecture
-- SSA-style intermediate representation
-- Liveness analysis + linear scan register allocation
-- x86-64 backend (NASM)
-- RISC-V 64 backend (GAS)
-- Dual-architecture test runner (203+ tests)
-- SFL allocator in shared C runtime
-- BSS memory pool (no syscalls)

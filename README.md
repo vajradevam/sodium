@@ -43,10 +43,13 @@ sodium hello.cyan && ./hello && echo $?
 ### Variables and types
 
 ```cyan
-var x = 5;
-var y: i32 = 10;
-var z: u8 = 255;
-var name = "Cyan";
+function main() {
+    var x = 5;
+    var y: i32 = 10;
+    var z: u8 = 255;
+    var name = "Cyan";
+    return(0);
+}
 
 // All integer types:
 // i8, i16, i32, i64, u8, u16, u32, u64
@@ -55,85 +58,100 @@ var name = "Cyan";
 ### Arithmetic and operators
 
 ```cyan
-var sum   = x + y;
-var diff  = x - y;
-var prod  = x * y;
-var quot  = x / y;
-var rem   = x % y;
+function main() {
+    var sum   = x + y;
+    var diff  = x - y;
+    var prod  = x * y;
+    var quot  = x / y;
+    var rem   = x % y;
 
-// Comparison
-var eq  = x == y;
-var neq = x != y;
-var lt  = x < y;
-var gt  = x > y;
-var lte = x <= y;
-var gte = x >= y;
+    // Comparison
+    var eq  = x == y;
+    var neq = x != y;
+    var lt  = x < y;
+    var gt  = x > y;
+    var lte = x <= y;
+    var gte = x >= y;
 
-// Logical
-var both   = x > 0 && y < 100;
-var either = x > 0 || y > 0;
-var not    = !x;              // logical NOT (== 0 ? 1 : 0)
+    // Logical
+    var both   = x > 0 && y < 100;
+    var either = x > 0 || y > 0;
+    var not    = !x;              // logical NOT (== 0 ? 1 : 0)
 
-// Bitwise
-var band    = x & y;
-var bor     = x | y;
-var bxor    = x ^ y;
-var shifted = x << 2;
-var not     = ~x;
+    // Bitwise
+    var band    = x & y;
+    var bor     = x | y;
+    var bxor    = x ^ y;
+    var shifted = x << 2;
+    var not     = ~x;
 
-// Compound assignment
-x += 5;   y *= 2;   z >>= 1;
+    // Compound assignment
+    x += 5;   y *= 2;   z >>= 1;
 
-// Increment / decrement (statement-level)
-a++;   ++a;   a--;   --a;
+    // Increment / decrement (statement-level)
+    a++;   ++a;   a--;   --a;
 
-// Ternary
-var max = x > y ? x : y;
+    // Ternary
+    var max = x > y ? x : y;
+    return(0);
+}
 ```
 
 ### Control flow
 
 ```cyan
-// if / else if / else
-if x > 0 {
-    // ...
-} else if x == 0 {
-    // ...
-} else {
-    // ...
-}
+function main() {
+    var x = 5;
 
-// while
-while i < 10 { i++; }
+    // if / else if / else
+    if x > 0 {
+        // ...
+    } else if x == 0 {
+        // ...
+    } else {
+        // ...
+    }
 
-// do-while
-do { i--; } while i > 0;
+    // while
+    var i = 0;
+    while i < 10 { i = i + 1; }
 
-// for
-for var i = 0; i < 10; i++ { print(i); }
+    // do-while
+    do { i = i - 1; } while i > 0;
 
-// switch (fall-through, no implicit break)
-switch x {
-    case 1 { print("one"); }
-    case 2 { print("two"); }
-    default { print("other"); }
+    // for
+    for var j = 0; j < 10; j = j + 1 { print(j); }
+
+    // switch (fall-through, no implicit break)
+    switch x {
+        case 1 { print("one"); }
+        case 2 { print("two"); }
+        default { print("other"); }
+    }
+
+    return(0);
 }
 ```
 
 ### Arrays
 
 ```cyan
-// Declare and initialize
-var arr[] = [10, 20, 30, 40, 50];
-
-// Access and assign
-arr[2] = 99;
-var third = arr[2];
-
-// Size from const expression
 const size = 10;
-var buffer[size];
-buffer[0] = 42;
+
+function main() {
+    // Declare and initialize
+    var arr[] = [10, 20, 30, 40, 50];
+
+    // Access and assign
+    arr[2] = 99;
+    var third = arr[2];
+
+    // Size from const expression
+    var buffer[size];
+    buffer[0] = 42;
+
+    return(0);
+}
 ```
 
 ### Functions
@@ -143,7 +161,11 @@ function add(a, b) {
     return(a + b);
 }
 
-var result = add(3, 4);
+function main() {
+    var result = add(3, 4);
+    print("%d", result);
+    return(0);
+}
 
 // Recursion
 function factorial(n) {
@@ -157,55 +179,63 @@ function factorial(n) {
 ```cyan
 struct Point { var x; var y; var z; };
 
-var p: Point;
-p.x = 10;  p.y = 20;  p.z = 30;
-p.x += 5;                // compound assignment on fields
-var sum = p.x + p.y;     // field reads in expressions
+function main() {
+    var p: Point;
+    p.x = 10;  p.y = 20;  p.z = 30;
+    p.x += 5;                // compound assignment on fields
+    var sum = p.x + p.y;     // field reads in expressions
+    return(0);
+}
 ```
 
 ### Pointers and heap allocation
 
 ```cyan
-var x = 42;
-var ptr = &x;
-*ptr = 100;              // write through pointer
-*ptr += 50;              // compound assign through pointer
-var y = *ptr;            // read through pointer
+function main() {
+    var x = 42;
+    var ptr = &x;
+    *ptr = 100;              // write through pointer
+    *ptr += 50;              // compound assign through pointer
+    var y = *ptr;            // read through pointer
 
-// Heap allocation (SFL allocator)
-var buf = malloc(256);
-*buf = 123;
-free(buf);
+    // Heap allocation (SFL allocator)
+    var buf = malloc(256);
+    *buf = 123;
+    free(buf);
 
-// Pointer to struct fields
-var p: Point;
-var px = &p.x;
-*px = 42;
+    // Pointer to struct fields
+    var p: Point;
+    var px = &p.x;
+    *px = 42;
 
-// Pointer arithmetic (byte-level, no implicit scaling)
-var arr[4];
-var p = &arr[0];         // address of array element (type: Ptr(i64))
-p = p + 1;               // advance by sizeof(i64) = 8 bytes
-var val = *p;            // load second element
+    // Pointer arithmetic (type-aware scaling)
+    var arr[4];
+    var ap = &arr[0];        // address of first element (type: Ptr(i64))
+    ap = ap + 1;             // advance by sizeof(i64) = 8 bytes
+    var val = *ap;           // load second element
 
-// With malloc'd buffers
-var buf = malloc(32);
-buf = buf + 1;           // advance by sizeof(i64) = 8 bytes
-*buf = 20;
+    // With malloc'd buffers
+    var buf = malloc(32);
+    buf = buf + 1;           // advance by sizeof(i64) = 8 bytes
+    *buf = 20;
 
-// Pointer difference (element count)
-var diff = (p + 3) - p;  // 3 (elements, not bytes)
+    // Pointer difference (element count)
+    var diff = (ap + 3) - ap; // 3 (elements, not bytes)
+    return(0);
+}
 ```
 
 ### Command-line arguments
 
 ```cyan
-print("argc = ");     // string literal → print_str
-print(argc());         // integer
-var i = 0;
-while i < argc() {
-    print(argv(i));    // pointer → prints address (use print_str for the string)
-    i++;
+function main() {
+    print("argc = %d", argc());
+    var i = 0;
+    while i < argc() {
+        print("argv[%d] = %s", i, argv(i));
+        i = i + 1;
+    }
+    return(0);
 }
 ```
 
@@ -220,8 +250,13 @@ global g_buffer[256];     // zero-initialized (.bss)
 
 function counter() {
     static calls = 0;     // persists across calls
-    calls++;
+    calls = calls + 1;
     return(calls);
+}
+
+function main() {
+    g_count = g_count + 1;
+    return(g_count);
 }
 ```
 
@@ -230,11 +265,15 @@ function counter() {
 ```cyan
 const SIZE = 100;
 const MAX = SIZE * 2 + 1;
-var arr[SIZE];
 
-// Hex literals (0x prefix, any integer size)
-var mask = 0xff;              // 255
-const PAGE = 0x1000;          // 4096
+function main() {
+    var arr[SIZE];
+
+    // Hex literals (0x prefix, any integer size)
+    var mask = 0xff;              // 255
+    const PAGE = 0x1000;          // 4096
+    return(0);
+}
 ```
 
 ### Input / output
