@@ -1,0 +1,8 @@
+// Test: integer literal out of range causes compile error
+// Expected: compile error
+// "Integer literal '99999999999999999999' out of range for 64-bit signed integer"
+
+function main() {
+    var x = 99999999999999999999;
+    return(0);
+}

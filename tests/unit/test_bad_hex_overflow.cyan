@@ -1,0 +1,8 @@
+// Test: hex literal that overflows int64_t causes compile error
+// Expected: compile error
+// "Integer literal '...' out of range for 64-bit signed integer"
+
+function main() {
+    var x = 0xFFFFFFFFFFFFFFFF;
+    return(0);
+}

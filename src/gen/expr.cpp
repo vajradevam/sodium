@@ -6,7 +6,14 @@ void Generator::gen_expr(const NodeExpr& expr)
 
         void operator()(const NodeExprIntLit* expr_int_lit)
         {
-            int64_t val = std::stoll(expr_int_lit->int_lit.value.value());
+            int64_t val;
+            try {
+                val = std::stoll(expr_int_lit->int_lit.value.value());
+            } catch (const std::out_of_range&) {
+                lsp_exit(expr_int_lit->int_lit.loc,
+                    "Integer literal '" + expr_int_lit->int_lit.value.value() +
+                    "' out of range for 64-bit signed integer");
+            }
             uint32_t v = gen->m_ir.load_i64(val);
             gen->push_vreg(v);
         }

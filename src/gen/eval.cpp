@@ -561,7 +561,13 @@ void Generator::collect_call_types()
         std::optional<int64_t> result;
 
         void operator()(const NodeExprIntLit* lit) {
-            result = static_cast<int64_t>(std::stoll(lit->int_lit.value.value()));
+            try {
+                result = static_cast<int64_t>(std::stoll(lit->int_lit.value.value()));
+            } catch (const std::out_of_range&) {
+                lsp_exit(lit->int_lit.loc,
+                    "Integer literal '" + lit->int_lit.value.value() +
+                    "' out of range for 64-bit signed integer");
+            }
         }
 
         void operator()(const NodeExprIdent* ident) {
@@ -579,17 +585,38 @@ void Generator::collect_call_types()
                 void operator()(const BinExprAdd* b) {
                     auto lhs = gen->eval_const_expr(b->lhs);
                     auto rhs = gen->eval_const_expr(b->rhs);
-                    if (lhs && rhs) result = lhs.value() + rhs.value();
+                    if (lhs && rhs) {
+                        int64_t a = lhs.value(), bv = rhs.value();
+                        int64_t res;
+                        if (__builtin_add_overflow(a, bv, &res)) {
+                            lsp_exit({}, "Integer overflow in constant expression");
+                        }
+                        result = res;
+                    }
                 }
                 void operator()(const BinExprSub* b) {
                     auto lhs = gen->eval_const_expr(b->lhs);
                     auto rhs = gen->eval_const_expr(b->rhs);
-                    if (lhs && rhs) result = lhs.value() - rhs.value();
+                    if (lhs && rhs) {
+                        int64_t a = lhs.value(), bv = rhs.value();
+                        int64_t res;
+                        if (__builtin_sub_overflow(a, bv, &res)) {
+                            lsp_exit({}, "Integer overflow in constant expression");
+                        }
+                        result = res;
+                    }
                 }
                 void operator()(const BinExprMulti* b) {
                     auto lhs = gen->eval_const_expr(b->lhs);
                     auto rhs = gen->eval_const_expr(b->rhs);
-                    if (lhs && rhs) result = lhs.value() * rhs.value();
+                    if (lhs && rhs) {
+                        int64_t a = lhs.value(), bv = rhs.value();
+                        int64_t res;
+                        if (__builtin_mul_overflow(a, bv, &res)) {
+                            lsp_exit({}, "Integer overflow in constant expression");
+                        }
+                        result = res;
+                    }
                 }
                 void operator()(const BinExprDiv* b) {
                     auto lhs = gen->eval_const_expr(b->lhs);
