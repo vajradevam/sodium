@@ -56,14 +56,17 @@ set(IR_SOURCES
     src/ir/dump.cpp
 )
 
+# Collect all source files in src/gen/ (the split Generator modules)
+file(GLOB GEN_SOURCES src/gen/*.cpp)
+
 add_executable(sodium
     src/main.cpp
     src/arena.cpp
     src/tokenization.cpp
     src/parser.cpp
-    src/generation.cpp
     src/ast_printer.cpp
     src/preprocessor.cpp
+    ${GEN_SOURCES}
     ${BACKEND_SOURCES}
     ${IR_SOURCES}
 )
@@ -74,9 +77,9 @@ add_executable(cyan-lsp
     src/arena.cpp
     src/tokenization.cpp
     src/parser.cpp
-    src/generation.cpp
     src/ast_printer.cpp
     src/preprocessor.cpp
+    ${GEN_SOURCES}
     ${BACKEND_SOURCES}
     ${IR_SOURCES}
 )
