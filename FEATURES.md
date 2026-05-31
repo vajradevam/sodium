@@ -40,6 +40,8 @@
 | `print()` with string literals (unified dispatch) | ✅ |
 | `print_str()` builtin (string to stdout) | ✅ |
 | `read()` builtin (integer from stdin) | ✅ |
+| `read(buf)` builtin (line from stdin into array buffer, returns byte count) | ✅ |
+| Mixed `read()` / `read(buf)` on same input stream | ✅ |
 | `argc()` builtin (argument count) | ✅ |
 | `argv()` builtin (argument vector) | ✅ |
 | Top-level statements (outside functions) | ✅ |
@@ -66,6 +68,7 @@
 | Feature | Status |
 |---------|--------|
 | Large-block free list (first-fit, no leak on free) | ✅ |
+| Shared `.bss` input buffer (`read()`/`read(buf)` share a 256-byte buffer with cursor) | ✅ |
 
 ### Compiler Infrastructure
 | Feature | Status |
@@ -99,12 +102,14 @@
 | Install script (`install.sh`) | ✅ |
 | RISC-V GP relaxation fix (`-Wl,--no-relax`) | ✅ |
 | Multi-byte loads/stores with direction fix for packed stack offsets | ✅ |
+| Large stack-frame support (RISC-V `addi` > 2047 → `li`+`add`) | ✅ |
+| `lea` without hardcoded temp register (RISC-V, preserves live values) | ✅ |
+| Spill code in register allocator (store/reload for values spanning many calls) | ✅ |
 
 ## 🔜 High Priority
 
 | Feature | Notes |
 |---------|-------|
-| Spill code in register allocator | Values spanning >5 calls get corrupted |
 | String operations | Concatenation, comparison, length |
 | File I/O | `fopen`, `fread`, `fwrite`, `fprintf` |
 
@@ -114,7 +119,6 @@
 |---------|-------|
 | True coalescing | Reduce fragmentation |
 | Growable heap | Via `mmap` / `brk` |
-| Pointer type annotations | `var p: int*` |
 | Passing structs by value to functions | |
 | Struct return values | |
 | Arrays of structs | |
