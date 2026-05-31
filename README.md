@@ -265,7 +265,7 @@ qemu-riscv64 ./program
 ```
 
 All language features work identically on both targets. The full test suite
-(221+ tests) runs on both architectures with 0 failures.
+(299 tests) runs on both architectures with 0 failures.
 
 ## Building from Source
 
@@ -418,12 +418,13 @@ bash scripts/run_tests.sh
 ```
 
 ```text
-Results: 221 passed, 0 failed
+Results: 299 passed, 0 failed
 ```
 
 Each test file compiles to both backends and the resulting binary's exit
-code is checked against an expected value. Compile-failure tests verify
-that invalid programs are correctly rejected.
+code is checked against an expected value. **48 compile-failure tests**
+verify that invalid programs are correctly rejected across ~30 distinct
+error categories.
 
 ## LSP Server
 
@@ -449,7 +450,9 @@ Install with:
 
 ## Current Status
 
-- **211+ tests passing** across both x86-64 and RISC-V
+- **299 tests passing** across both x86-64 and RISC-V
+- **Packed stack allocation**: all integer types use their exact byte sizes on
+the stack (`i8` → 1 byte, `i16` → 2 bytes, `i32` → 4 bytes, `i64` → 8 bytes)
 - **Full IR pipeline** with SSA virtual registers and linear scan allocation
 - **Dual backend**: x86-64 (NASM) and RISC-V 64 (GAS)
 - **Complete runtime**: SFL allocator, CRT, I/O
@@ -458,6 +461,7 @@ Install with:
 - **SFL heap allocator** with 15 size classes, O(1) alloc/free
 - **`argc()`/`argv()` builtins** for command-line argument access
 - **`print_str()` builtin** and **unified `print`** that handles both strings and integers
+- **48 compile-failure tests** (up from 9) covering ~30 error categories
 - **Platform**: Linux (x86-64 native + RISC-V cross-compile via qemu)
 
 ## License

@@ -60,6 +60,7 @@
 | `malloc()` / `free()` builtins (SFL allocator) | ✅ |
 | Empty blocks (`{}`) | ✅ |
 | Unicode escape sequences in strings | ✅ |
+| Packed stack allocation (byte-granularity for all types) | ✅ |
 
 ### Runtime
 | Feature | Status |
@@ -94,8 +95,10 @@
 | Completions | ✅ |
 | Compile-failure test support | ✅ |
 | Dual-architecture test runner | ✅ |
+| Compile-failure tests (48 tests covering ~30 error categories) | ✅ |
 | Install script (`install.sh`) | ✅ |
 | RISC-V GP relaxation fix (`-Wl,--no-relax`) | ✅ |
+| Multi-byte loads/stores with direction fix for packed stack offsets | ✅ |
 
 ## 🔜 High Priority
 
@@ -109,12 +112,9 @@
 
 | Feature | Notes |
 |---------|-------|
-| Large-block free list | >2048 byte allocations currently leak on free |
 | True coalescing | Reduce fragmentation |
 | Growable heap | Via `mmap` / `brk` |
-
 | Pointer type annotations | `var p: int*` |
-| Pointer arithmetic | `ptr + 1` |
 | Passing structs by value to functions | |
 | Struct return values | |
 | Arrays of structs | |
