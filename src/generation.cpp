@@ -490,10 +490,56 @@ void Generator::gen_expr(const NodeExpr& expr)
             gen->m_ir.new_block(label_end);
         }
 
-        void operator()(const NodeExprRead*) const
+        void operator()(const NodeExprRead* read_expr) const
         {
-            uint32_t v = gen->m_ir.call("_sodium_read_int", {});
-            gen->push_vreg(v);
+            if (read_expr->buffer == nullptr) {
+                // read() — integer read (existing behavior)
+                uint32_t v = gen->m_ir.call("_sodium_read_int", {});
+                gen->push_vreg(v);
+                gen->m_tstack.back() = Type::make_int(IntType::i64);
+            } else {
+                // read(buf) — read a line of input into an array buffer
+                auto* inner = read_expr->buffer;
+                if (auto* ident = std::get_if<NodeExprIdent*>(&inner->var)) {
+                    const auto& name = (*ident)->ident.value.value();
+                    // Try local scope first
+                    for (auto it = gen->m_scopes.rbegin(); it != gen->m_scopes.rend(); ++it) {
+                        if (it->vars.contains(name)) {
+                            const auto& var = it->vars.at(name);
+                            if (var.array_size == 0) {
+                                lsp_exit((*ident)->ident.loc,
+                                    "read() requires an array variable, but '" + name + "' is a scalar");
+                            }
+                            uint32_t addr = gen->m_ir.frame_addr(static_cast<int64_t>(var.stack_loc));
+                            int64_t byte_size = static_cast<int64_t>(var.array_size) * 8;
+                            uint32_t result = gen->m_ir.call("_sodium_read_str",
+                                {IRValue::vreg(addr), IRValue::imm_i64(byte_size)});
+                            gen->push_vreg(result);
+                            gen->m_tstack.back() = Type::make_int(IntType::i64);
+                            return;
+                        }
+                    }
+                    // Try global scope
+                    if (gen->m_global_var_info.contains(name)) {
+                        const auto& var = gen->m_global_var_info.at(name);
+                        if (var.array_size == 0) {
+                            lsp_exit((*ident)->ident.loc,
+                                "read() requires an array variable, but '" + name + "' is a global scalar");
+                        }
+                        uint32_t addr = gen->m_ir.lea_label(name);
+                        int64_t byte_size = static_cast<int64_t>(var.array_size) * 8;
+                        uint32_t result = gen->m_ir.call("_sodium_read_str",
+                            {IRValue::vreg(addr), IRValue::imm_i64(byte_size)});
+                        gen->push_vreg(result);
+                        gen->m_tstack.back() = Type::make_int(IntType::i64);
+                        return;
+                    }
+                    lsp_exit((*ident)->ident.loc, "Undeclared identifier: " + name);
+                } else {
+                    lsp_exit(read_expr->loc,
+                        "read() argument must be an array variable");
+                }
+            }
         }
 
         void operator()(const NodeExprArrLit* arr_lit) const
@@ -1664,7 +1710,7 @@ void Generator::gen_stmt(const NodeStmt& stmt)
         void operator()(const NodeExprCall*) {}
         void operator()(const NodeExprStringLit*) {}
         void operator()(const NodeExprIndex*) {}
-        void operator()(const NodeExprRead*) {}
+        void operator()(const NodeExprRead*) {}  // LSP no-op; read() has no variable references
         void operator()(const NodeExprArrLit*) {}
         void operator()(const NodeExprFieldAccess*) {}
         void operator()(const NodeExprAddrOf*) {}
@@ -1767,6 +1813,7 @@ void Generator::collect_globals(const std::vector<NodeStmt>& stmts)
     m_backend_ptr->extern_sym("_sodium_exit");
     m_backend_ptr->extern_sym("_sodium_print_int");
     m_backend_ptr->extern_sym("_sodium_read_int");
+    m_backend_ptr->extern_sym("_sodium_read_str");
     m_backend_ptr->extern_sym("_sodium_malloc");
     m_backend_ptr->extern_sym("_sodium_free");
     m_backend_ptr->extern_sym("_sodium_print_str");

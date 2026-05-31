@@ -9,7 +9,7 @@ CFLAGS   = -ffreestanding -nostdlib -fno-builtin -O2 -c
 
 TARGET = sodium-rt.a
 
-X86_OBJS = x86_64/crt0.o x86_64/exit.o x86_64/allocator.o x86_64/print.o x86_64/read.o
+X86_OBJS = x86_64/crt0.o x86_64/exit.o x86_64/allocator.o x86_64/print.o x86_64/read.o x86_64/read_str.o
 
 all: $(TARGET)
 

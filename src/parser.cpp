@@ -425,11 +425,19 @@ std::optional<NodeExpr*> Parser::parse_primary_expr()
             }
             consume(); // read
             consume(); // (
+            NodeExpr* read_buf = nullptr;
             if (peek().has_value() && peek().value().type != TokenType::close_paren) {
-                error("read() takes no arguments");
+                auto buf = parse_expr();
+                if (buf.has_value()) {
+                    read_buf = buf.value();
+                } else {
+                    error("Expected expression in read()");
+                }
             }
             consume(); // )
             auto read_expr = m_allocator.alloc<NodeExprRead>();
+            read_expr->loc = peek(-2).value().loc;
+            read_expr->buffer = read_buf;
             auto expr = m_allocator.alloc<NodeExpr>();
             expr->var = read_expr;
             return expr;

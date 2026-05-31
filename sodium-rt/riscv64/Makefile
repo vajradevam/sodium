@@ -7,7 +7,7 @@ AR   = riscv64-elf-ar
 ASFLAGS = -march=rv64gc -mno-relax
 CFLAGS  = -ffreestanding -nostdlib -fno-builtin -O2 -c
 
-SRCS = crt0.asm exit.asm print.asm read.asm
+SRCS = crt0.asm exit.asm print.asm read.asm read_str.asm
 OBJS = $(SRCS:.asm=.o) allocator.o
 
 all: sodium-rt.a

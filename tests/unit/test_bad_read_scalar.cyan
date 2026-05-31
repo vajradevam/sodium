@@ -1,0 +1,5 @@
+// Compile-fail: read() with a scalar variable (must be array)
+// Expected: read() requires an array variable
+var x = 42;
+var n = read(x);
+return(0);

@@ -135,7 +135,10 @@ struct NodeExprTernary {
     NodeExpr* else_expr;
 };
 
-struct NodeExprRead {};
+struct NodeExprRead {
+    NodeExpr* buffer = nullptr;  // nullptr = read integer, otherwise read string into buffer
+    SourceLoc loc {};
+};
 
 struct NodeExprArrLit {
     std::vector<NodeExpr*> elements;

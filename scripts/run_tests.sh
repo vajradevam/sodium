@@ -144,6 +144,7 @@ COMPILE_FAIL_UNIT+=("test_bad_prefix_op.cyan")
 COMPILE_FAIL_UNIT+=("test_bad_print_no_paren.cyan")
 COMPILE_FAIL_UNIT+=("test_bad_print_str_args.cyan")
 COMPILE_FAIL_UNIT+=("test_bad_read_args.cyan")
+COMPILE_FAIL_UNIT+=("test_bad_read_scalar.cyan")
 COMPILE_FAIL_UNIT+=("test_bad_redeclare_var.cyan")
 COMPILE_FAIL_UNIT+=("test_bad_return_value_top.cyan")
 COMPILE_FAIL_UNIT+=("test_bad_static_no_var.cyan")
@@ -166,6 +167,7 @@ STDOUT_TESTS["test_print.cyan"]=0
 # Unit tests requiring stdin
 declare -A STDIN_TESTS
 STDIN_TESTS["test_read.cyan|42"]=42
+STDIN_TESTS["test_read_str.cyan|hello world"]=11
 
 for test_file in "${!UNIT_TESTS[@]}"; do
     filepath="tests/unit/$test_file"
