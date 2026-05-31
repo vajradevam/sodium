@@ -38,7 +38,10 @@
 | Include mechanism (`#include` + `#pragma once`) | ✅ |
 | `print()` builtin (integer to stdout) | ✅ |
 | `print()` with string literals (unified dispatch) | ✅ |
-| `print_str()` builtin (string to stdout) | ✅ |
+| `print()` with C-style format strings (`%d`, `%s`, `%%`) | ✅ |
+| `print()` with multiple arguments (comma-separated) | ✅ |
+| `print()` with format string as literal + expressions/function calls in args | ✅ |
+| `print()` with no arguments (just newline) | ✅ |
 | `read()` builtin (integer from stdin) | ✅ |
 | `read(buf)` builtin (line from stdin into array buffer, returns byte count) | ✅ |
 | Mixed `read()` / `read(buf)` on same input stream | ✅ |
@@ -69,6 +72,7 @@
 |---------|--------|
 | Large-block free list (first-fit, no leak on free) | ✅ |
 | Shared `.bss` input buffer (`read()`/`read(buf)` share a 256-byte buffer with cursor) | ✅ |
+| Shared `.rodata` string table (`%s` and string literals share one pool) | ✅ |
 
 ### Compiler Infrastructure
 | Feature | Status |

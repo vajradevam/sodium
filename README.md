@@ -238,22 +238,39 @@ const PAGE = 0x1000;          // 4096
 ### Input / output
 
 ```cyan
-print(42);               // print integer to stdout    (appends newline)
-print("hello");          // print string to stdout     (appends newline)
-var input = read();       // read decimal integer from stdin
+// Print integers and strings (unified statement)
+print(42);               // "42\n"
+print("hello");          // "hello\n"
+print();                  // just "\n"
+
+// C-style format strings: %d (integer), %s (string), %% (literal %)
+print("x=%d y=%d", x, y);                   // "x=10 y=20\n"
+print("the answer is %d", 42);              // "the answer is 42\n"
+print("value: %s", "hello");                // "value: hello\n"
+print("100%%");                              // "100%\n"
+print("%d + %d = %d", 2, 3, 2 + 3);         // "2 + 3 = 5\n"
+print("double(21)=%d", double(21));         // function call in arg
+
+// Read integer from stdin
+var input = read();
 
 // Read a line of text into an array buffer
 var buf[256];
 var n = read(buf);       // reads up to 256 bytes, returns byte count
 ```
 
-The `print` statement automatically detects whether the argument is a string
-literal or an integer expression and calls the appropriate runtime function.
+The `print` statement uses C-style format specifiers (`%d` for integers,
+`%s` for string literals/pointers, `%%` for a literal `%`). Arguments
+after the format string are comma-separated expressions (including function
+calls). When the first argument is not a string literal, `print` falls back
+to the original behavior: printing a single integer or string.
 
 `read()` with no arguments reads an integer (backward compatible).
 `read(buf)` reads a line of text into an array buffer and returns the
 number of bytes read (excluding the null terminator). Both share a single
 internal buffer, so mixed calls work correctly.
+
+
 
 ## Both Architectures
 
@@ -274,7 +291,7 @@ qemu-riscv64 ./program
 ```
 
 All language features work identically on both targets. The full test suite
-(302 tests) runs on both architectures with 0 failures.
+(304 tests) runs on both architectures with 0 failures.
 
 The RISC-V backend handles large stack frames (e.g. `var buf[256]` = 2048 bytes)
 by using `li`+`add` for frame offsets that exceed the 12-bit signed immediate
@@ -432,7 +449,7 @@ bash scripts/run_tests.sh
 ```
 
 ```text
-Results: 302 passed, 0 failed
+Results: 304 passed, 0 failed
 ```
 
 Each test file compiles to both backends and the resulting binary's exit
@@ -464,7 +481,7 @@ Install with:
 
 ## Current Status
 
-- **302 tests passing** across both x86-64 and RISC-V
+- **304 tests passing** across both x86-64 and RISC-V
 - **Packed stack allocation**: all integer types use their exact byte sizes on
 the stack (`i8` → 1 byte, `i16` → 2 bytes, `i32` → 4 bytes, `i64` → 8 bytes)
 - **Full IR pipeline** with SSA virtual registers and linear scan allocation
@@ -474,7 +491,7 @@ the stack (`i8` → 1 byte, `i16` → 2 bytes, `i32` → 4 bytes, `i64` → 8 by
 - **Hex literals** (`0x` prefix) and **logical NOT** (`!`) operator
 - **SFL heap allocator** with 15 size classes, O(1) alloc/free
 - **`argc()`/`argv()` builtins** for command-line argument access
-- **`print_str()` builtin** and **unified `print`** that handles both strings and integers
+- **Unified `print`** with C-style format strings (`%d`, `%s`, `%%`), multiple comma-separated arguments, expressions/function calls in args, and backward compatible with plain integer and string-literal printing
 - **`read(buf)` builtin** for reading lines from stdin into array buffers
 - **Shared input buffer**: both `read()` and `read(buf)` share a single `.bss`
   buffer with cursor, enabling correct mixed calls on the same input stream
