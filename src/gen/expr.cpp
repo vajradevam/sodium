@@ -64,7 +64,12 @@ void Generator::gen_expr(const NodeExpr& expr)
                 gen->push_vreg(val);
                 return;
             }
-            lsp_exit(expr_index->name.loc, "Undeclared identifier: " + name);
+            std::string suggestion = gen->did_you_mean(name);
+            if (!suggestion.empty()) {
+                lsp_exit(expr_index->name.loc, "Undeclared identifier: " + name + " (did you mean '" + suggestion + "'?)");
+            } else {
+                lsp_exit(expr_index->name.loc, "Undeclared identifier: " + name);
+            }
         }
 
         void operator()(const NodeExprBitNot* bit_not)
@@ -153,7 +158,12 @@ void Generator::gen_expr(const NodeExpr& expr)
                         gen->m_tstack.back() = Type::make_int(IntType::i64);
                         return;
                     }
-                    lsp_exit((*ident)->ident.loc, "Undeclared identifier: " + name);
+                    std::string suggestion = gen->did_you_mean(name);
+                    if (!suggestion.empty()) {
+                        lsp_exit((*ident)->ident.loc, "Undeclared identifier: " + name + " (did you mean '" + suggestion + "'?)");
+                    } else {
+                        lsp_exit((*ident)->ident.loc, "Undeclared identifier: " + name);
+                    }
                 } else {
                     lsp_exit(read_expr->loc,
                         "read() argument must be an array variable");
@@ -221,7 +231,12 @@ void Generator::gen_expr(const NodeExpr& expr)
                     gen->m_tstack.back() = Type::make_ptr(pointee);
                     return;
                 }
-                lsp_exit(addr_of->ampersand.loc, "Undeclared identifier: " + name);
+                std::string suggestion = gen->did_you_mean(name);
+                if (!suggestion.empty()) {
+                    lsp_exit(addr_of->ampersand.loc, "Undeclared identifier: " + name + " (did you mean '" + suggestion + "'?)");
+                } else {
+                    lsp_exit(addr_of->ampersand.loc, "Undeclared identifier: " + name);
+                }
             } else if (auto* arr_idx = std::get_if<NodeExprIndex*>(&inner->var)) {
                 // &arr[i] — address of array element
                 const auto& name = (*arr_idx)->name.value.value();
@@ -251,7 +266,12 @@ void Generator::gen_expr(const NodeExpr& expr)
                     gen->m_tstack.back() = Type::make_ptr(pointee);
                     return;
                 }
-                lsp_exit((*arr_idx)->name.loc, "Undeclared identifier: " + name);
+                std::string suggestion = gen->did_you_mean(name);
+                if (!suggestion.empty()) {
+                    lsp_exit((*arr_idx)->name.loc, "Undeclared identifier: " + name + " (did you mean '" + suggestion + "'?)");
+                } else {
+                    lsp_exit((*arr_idx)->name.loc, "Undeclared identifier: " + name);
+                }
             } else if (auto* field = std::get_if<NodeExprFieldAccess*>(&inner->var)) {
                 // &obj.field
                 const auto& obj_name = (*field)->obj_name.value.value();
@@ -372,7 +392,12 @@ void Generator::gen_expr(const NodeExpr& expr)
                 return;
             }
             if (!gen->m_func_names.contains(fname)) {
-                lsp_exit(expr_call->name.loc, "Undefined function: " + fname);
+                std::string suggestion = gen->did_you_mean(fname);
+                if (!suggestion.empty()) {
+                    lsp_exit(expr_call->name.loc, "Undefined function: " + fname + " (did you mean '" + suggestion + "'?)");
+                } else {
+                    lsp_exit(expr_call->name.loc, "Undefined function: " + fname);
+                }
             }
 
             // Collect arguments (in evaluation order)

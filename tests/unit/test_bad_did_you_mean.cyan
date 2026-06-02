@@ -1,0 +1,5 @@
+function main() {
+    var count = 10;
+    var y = coutn + 1;
+    return(y);
+}

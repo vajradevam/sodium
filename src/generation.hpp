@@ -71,6 +71,9 @@ public:
     void declare_var(const std::string& name, Type type = Type::make_int(IntType::i64), SourceLoc loc = {});
     Var lookup_var(const std::string& name, SourceLoc loc = {});
 
+    /// Suggest a close match for an undeclared identifier, or empty string if none found.
+    std::string did_you_mean(const std::string& name) const;
+
     void gen_expr(const NodeExpr& expr);
     void gen_stmt(const NodeStmt& stmt);
     void gen_func_def(const NodeFuncDef& func);

@@ -125,7 +125,7 @@ Status legend:
 | N1 | `gen/pipeline.cpp` | Two-pass approach via pre-scan (`collect_globals`) — handles most forward refs | Acceptable | 🟢 fixed |
 | N2 | — | No qualified name lookup (no namespaces) | Missing feature | ⚪ wontfix |
 | N3 | `gen/eval.cpp:collect_call_types()` | **Fixed-point iteration with fragile merge heuristic** — if `&i64_var` seen before `string_lit`, parameter locked to Ptr(i64) | Correctness hazard | 🔴 open |
-| N4 | `gen/vars.cpp` | `"Undeclared identifier: X"` — no "did you mean?" suggestions | User-facing quality | 🔴 open |
+| N4 | `gen/vars.cpp` | `"Undeclared identifier: X"` — no "did you mean?" suggestions | User-facing quality | 🟢 fixed |
 
 ### Scoping Rules Coverage
 
@@ -198,7 +198,7 @@ Status legend:
 |---|------|-------------|----------|--------|
 | D1 | `tokenization.cpp:135` | Error messages occasionally show raw characters but mostly clean | Acceptable | 🟢 fixed |
 | D2 | `tokenization.hpp:5-12` | Source locations tracked at file:line:col — good | Good | 🟢 fixed |
-| D3 | `gen/vars.cpp` | **No "did you mean?" suggestions** for typos | User-facing quality | 🔴 open |
+| D3 | `gen/vars.cpp` | **No "did you mean?" suggestions** for typos | User-facing quality | 🟢 fixed |
 | D4 | — | Errors reported at correct location (not closing brace) | Good | 🟢 fixed |
 | D5 | `gen/eval.cpp:109-114` | **Almost no warnings** — only one (conflicting pointer types). No "unused variable", "unreachable code", "missing return", "implicit narrowing" | User-facing quality | 🔴 open |
 | D6 | all `lsp_exit`/`error()` | **No error/warning/note distinction** — everything is "error:" | User-facing quality | 🔴 open |
@@ -283,7 +283,7 @@ Status legend:
 | ID | Description | Effort | Status |
 |----|-------------|--------|--------|
 | L3 | String escape sequences unhandled | Small | 🔴 open (same as P0 correctness) |
-| D3 | No "did you mean?" suggestions for typos | Medium | 🔴 open |
+| D3 | No "did you mean?" suggestions for typos | Medium | 🟢 fixed |
 | D5 | Almost no warnings (unused vars, unreachable code, narrowing) | Medium | 🔴 open |
 | E5/D6 | No error/warning/note distinction | Small | 🔴 open |
 | — | `read()` returns 0 at EOF, indistinguishable from input 0 | Small | 🔴 open |
@@ -311,8 +311,8 @@ Status legend:
 
 | Category | Count |
 |----------|-------|
-| 🔴 Open (unfixed) | 45 |
-| 🟢 Fixed | 12 |
+| 🔴 Open (unfixed) | 43 |
+| 🟢 Fixed | 14 |
 | ⚪ Wontfix | 15 |
 | 🟡 In-progress | 0 |
 | ❔ Triage | 0 |

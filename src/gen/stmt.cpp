@@ -335,7 +335,12 @@ void Generator::gen_stmt(const NodeStmt& stmt)
                 gen->m_ir.store(IRValue::vreg(elem_addr), 0, IRValue::vreg(val));
                 return;
             }
-            lsp_exit(stmt_arr_assign->name.loc, "Undeclared identifier: " + name);
+            std::string suggestion = gen->did_you_mean(name);
+            if (!suggestion.empty()) {
+                lsp_exit(stmt_arr_assign->name.loc, "Undeclared identifier: " + name + " (did you mean '" + suggestion + "'?)");
+            } else {
+                lsp_exit(stmt_arr_assign->name.loc, "Undeclared identifier: " + name);
+            }
         }
 
         void operator()(const NodeStmtReturn* stmt_ret) const

@@ -62,7 +62,12 @@ void Generator::load_var_to_vstack(const std::string& name) {
         m_tstack.back() = Type::make_int(IntType::i64);
         return;
     }
-    lsp_exit({}, "Undeclared identifier: " + name);
+    std::string suggestion = did_you_mean(name);
+    if (!suggestion.empty()) {
+        lsp_exit({}, "Undeclared identifier: " + name + " (did you mean '" + suggestion + "'?)");
+    } else {
+        lsp_exit({}, "Undeclared identifier: " + name);
+    }
 }
 
 void Generator::store_var_from_vstack(const std::string& name, AssignOp op) {
@@ -175,5 +180,10 @@ void Generator::store_var_from_vstack(const std::string& name, AssignOp op) {
     if (m_constants.contains(name)) {
         lsp_exit({}, "Cannot assign to constant '" + name + "'");
     }
-    lsp_exit({}, "Undeclared identifier: " + name);
+    std::string suggestion = did_you_mean(name);
+    if (!suggestion.empty()) {
+        lsp_exit({}, "Undeclared identifier: " + name + " (did you mean '" + suggestion + "'?)");
+    } else {
+        lsp_exit({}, "Undeclared identifier: " + name);
+    }
 }
