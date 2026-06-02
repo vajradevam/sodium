@@ -363,6 +363,11 @@ private:
 
     [[noreturn]] void error(const std::string& msg);
 
+    /// Check if a token type is an assignment operator (=, +=, -=, *=, etc.)
+    static bool is_assign_op(TokenType t);
+    /// Convert an assignment-operator token to the AssignOp enum.
+    static AssignOp token_to_assign_op(TokenType t);
+
     const std::vector<Token> m_tokens;
     size_t m_index = 0;
     ArenaAllocator m_allocator;

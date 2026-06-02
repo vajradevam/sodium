@@ -63,7 +63,7 @@ Status legend:
 | P3 | `parser.cpp:109-116` | `error()` | **Error recovery: `exit(EXIT_FAILURE)`** — no multiple-error reporting | **User-facing quality** | Sync to `;` or `}` after error; collect multiple errors | 🔴 open |
 | P4 | `parser.cpp:233-640` | unary prefix handling | **Unary minus faked as `0 - x`** — creates BinExprSub with int_lit(0) | Design debt | Add proper `NodeExprUnaryMinus` | 🔴 open |
 | P5 | `parser.cpp:746-1310` | `parse_stmt()` | **Massive 30-branch if-else chain** with 5-token lookahead | **Maintainability hazard** | Factor into dispatch table + helper predicates | 🔴 open |
-| P6 | `parser.cpp:1069-1097` | struct field assign | Hardcoded 5-token lookahead for field assignment detection | Fragile | Extract `is_assignment_operator(TokenType)` helper | 🔴 open |
+| P6 | `parser.cpp:1069-1097` | struct field assign | Hardcoded 5-token lookahead for field assignment detection | Fragile | Extract `is_assignment_operator(TokenType)` helper | 🟢 fixed |
 | P7 | `parser.cpp:577-578` | `parse_format_string()` | No error on `%` at end of format string | Latent bug | Check `%` not at end of string | 🟢 fixed |
 | P8 | `parser.cpp` | all AST nodes | No visitor pattern, no parent pointers — traversal logic duplicated 3x | Design debt | Add `NodeVisitor` base, add parent pointers | 🔴 open |
 
@@ -311,8 +311,8 @@ Status legend:
 
 | Category | Count |
 |----------|-------|
-| 🔴 Open (unfixed) | 42 |
-| 🟢 Fixed | 15 |
+| 🔴 Open (unfixed) | 41 |
+| 🟢 Fixed | 16 |
 | ⚪ Wontfix | 15 |
 | 🟡 In-progress | 0 |
 | ❔ Triage | 0 |

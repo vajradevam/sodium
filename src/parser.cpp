@@ -785,6 +785,38 @@ std::optional<NodeStmt> Parser::parse_switch_stmt()
         return NodeStmt { .var = stmt_switch };
 }
 
+// ── Assignment operator helpers ─────────────────────────────────────────
+
+bool Parser::is_assign_op(TokenType t) {
+    return t == TokenType::eq
+        || t == TokenType::pluseq
+        || t == TokenType::minuseq
+        || t == TokenType::stareq
+        || t == TokenType::slasheq
+        || t == TokenType::percenteq
+        || t == TokenType::ampeq
+        || t == TokenType::pipeeq
+        || t == TokenType::careteq
+        || t == TokenType::shleq
+        || t == TokenType::shreq;
+}
+
+AssignOp Parser::token_to_assign_op(TokenType t) {
+    switch (t) {
+        case TokenType::pluseq:    return AssignOp::add_assign;
+        case TokenType::minuseq:   return AssignOp::sub_assign;
+        case TokenType::stareq:    return AssignOp::mul_assign;
+        case TokenType::slasheq:   return AssignOp::div_assign;
+        case TokenType::percenteq: return AssignOp::mod_assign;
+        case TokenType::ampeq:     return AssignOp::bitand_assign;
+        case TokenType::pipeeq:    return AssignOp::bitor_assign;
+        case TokenType::careteq:   return AssignOp::bitxor_assign;
+        case TokenType::shleq:     return AssignOp::shl_assign;
+        case TokenType::shreq:     return AssignOp::shr_assign;
+        default:                   return AssignOp::assign;
+    }
+}
+
 // Parse a format string literal and return the list of FormatSpecs.
 // Scans for %d, %s, %% patterns. Everything else is Text fragments.
 static std::vector<FormatSpec> parse_format_string(const std::string& fmt)
@@ -1040,33 +1072,11 @@ std::optional<NodeStmt> Parser::parse_for_stmt()
             }
             else if (peek().has_value() && peek().value().type == TokenType::ident
                 && peek(1).has_value()
-                && (peek(1).value().type == TokenType::eq
-                 || peek(1).value().type == TokenType::pluseq
-                 || peek(1).value().type == TokenType::minuseq
-                 || peek(1).value().type == TokenType::stareq
-                 || peek(1).value().type == TokenType::slasheq
-                 || peek(1).value().type == TokenType::percenteq
-                 || peek(1).value().type == TokenType::ampeq
-                 || peek(1).value().type == TokenType::pipeeq
-                 || peek(1).value().type == TokenType::careteq
-                 || peek(1).value().type == TokenType::shleq
-                 || peek(1).value().type == TokenType::shreq)) {
+                && is_assign_op(peek(1).value().type)) {
                 update = m_allocator.alloc<NodeStmtAssign>();
                 update->ident = consume();
                 auto op_token = consume();
-                switch (op_token.type) {
-                    case TokenType::pluseq: update->op = AssignOp::add_assign; break;
-                    case TokenType::minuseq: update->op = AssignOp::sub_assign; break;
-                    case TokenType::stareq: update->op = AssignOp::mul_assign; break;
-                    case TokenType::slasheq: update->op = AssignOp::div_assign; break;
-                    case TokenType::percenteq: update->op = AssignOp::mod_assign; break;
-                    case TokenType::ampeq: update->op = AssignOp::bitand_assign; break;
-                    case TokenType::pipeeq: update->op = AssignOp::bitor_assign; break;
-                    case TokenType::careteq: update->op = AssignOp::bitxor_assign; break;
-                    case TokenType::shleq: update->op = AssignOp::shl_assign; break;
-                    case TokenType::shreq: update->op = AssignOp::shr_assign; break;
-                    default: update->op = AssignOp::assign; break;
-                }
+                update->op = token_to_assign_op(op_token.type);
                 auto rhs = parse_expr();
                 if (!rhs) {
                     error("Invalid expression in for update");
@@ -1555,35 +1565,13 @@ std::optional<NodeStmt> Parser::parse_stmt() {
             && peek(1).has_value() && peek(1).value().type == TokenType::dot
             && peek(2).has_value() && peek(2).value().type == TokenType::ident
             && peek(3).has_value()
-             && (peek(3).value().type == TokenType::eq
-              || peek(3).value().type == TokenType::pluseq
-              || peek(3).value().type == TokenType::minuseq
-              || peek(3).value().type == TokenType::stareq
-              || peek(3).value().type == TokenType::slasheq
-              || peek(3).value().type == TokenType::percenteq
-              || peek(3).value().type == TokenType::ampeq
-              || peek(3).value().type == TokenType::pipeeq
-              || peek(3).value().type == TokenType::careteq
-              || peek(3).value().type == TokenType::shleq
-              || peek(3).value().type == TokenType::shreq)) {
+            && is_assign_op(peek(3).value().type)) {
                 auto stmt_field_assign = m_allocator.alloc<NodeStmtFieldAssign>();
                 stmt_field_assign->obj_name = consume();
                 consume(); // .
                 stmt_field_assign->field_name = consume();
                 auto op_token = consume();
-                switch (op_token.type) {
-                    case TokenType::pluseq: stmt_field_assign->op = AssignOp::add_assign; break;
-                    case TokenType::minuseq: stmt_field_assign->op = AssignOp::sub_assign; break;
-                    case TokenType::stareq: stmt_field_assign->op = AssignOp::mul_assign; break;
-                    case TokenType::slasheq: stmt_field_assign->op = AssignOp::div_assign; break;
-                    case TokenType::percenteq: stmt_field_assign->op = AssignOp::mod_assign; break;
-                    case TokenType::ampeq: stmt_field_assign->op = AssignOp::bitand_assign; break;
-                    case TokenType::pipeeq: stmt_field_assign->op = AssignOp::bitor_assign; break;
-                    case TokenType::careteq: stmt_field_assign->op = AssignOp::bitxor_assign; break;
-                    case TokenType::shleq: stmt_field_assign->op = AssignOp::shl_assign; break;
-                    case TokenType::shreq: stmt_field_assign->op = AssignOp::shr_assign; break;
-                    default: stmt_field_assign->op = AssignOp::assign; break;
-                }
+                stmt_field_assign->op = token_to_assign_op(op_token.type);
                 if (auto expr = parse_expr()) {
                     stmt_field_assign->expr = expr.value();
                 } else {
@@ -1598,33 +1586,11 @@ std::optional<NodeStmt> Parser::parse_stmt() {
         } else if (
             peek().has_value() && peek().value().type == TokenType::ident
             && peek(1).has_value()
-             && (peek(1).value().type == TokenType::eq
-              || peek(1).value().type == TokenType::pluseq
-              || peek(1).value().type == TokenType::minuseq
-              || peek(1).value().type == TokenType::stareq
-              || peek(1).value().type == TokenType::slasheq
-              || peek(1).value().type == TokenType::percenteq
-              || peek(1).value().type == TokenType::ampeq
-              || peek(1).value().type == TokenType::pipeeq
-              || peek(1).value().type == TokenType::careteq
-              || peek(1).value().type == TokenType::shleq
-              || peek(1).value().type == TokenType::shreq)) {
+            && is_assign_op(peek(1).value().type)) {
                 auto stmt_assign = m_allocator.alloc<NodeStmtAssign>();
                 stmt_assign->ident = consume();
                 auto op_token = consume();
-                switch (op_token.type) {
-                    case TokenType::pluseq: stmt_assign->op = AssignOp::add_assign; break;
-                    case TokenType::minuseq: stmt_assign->op = AssignOp::sub_assign; break;
-                    case TokenType::stareq: stmt_assign->op = AssignOp::mul_assign; break;
-                    case TokenType::slasheq: stmt_assign->op = AssignOp::div_assign; break;
-                    case TokenType::percenteq: stmt_assign->op = AssignOp::mod_assign; break;
-                    case TokenType::ampeq: stmt_assign->op = AssignOp::bitand_assign; break;
-                    case TokenType::pipeeq: stmt_assign->op = AssignOp::bitor_assign; break;
-                    case TokenType::careteq: stmt_assign->op = AssignOp::bitxor_assign; break;
-                    case TokenType::shleq: stmt_assign->op = AssignOp::shl_assign; break;
-                    case TokenType::shreq: stmt_assign->op = AssignOp::shr_assign; break;
-                    default: stmt_assign->op = AssignOp::assign; break;
-                }
+                stmt_assign->op = token_to_assign_op(op_token.type);
                 if (auto expr = parse_expr()) {
                     stmt_assign->expr = expr.value();
                 } else {
@@ -1670,36 +1636,13 @@ std::optional<NodeStmt> Parser::parse_stmt() {
             }
 
             // Check for assignment operator
-            if (!peek().has_value() ||
-                (peek().value().type != TokenType::eq &&
-                 peek().value().type != TokenType::pluseq &&
-                 peek().value().type != TokenType::minuseq &&
-                 peek().value().type != TokenType::stareq &&
-                 peek().value().type != TokenType::slasheq &&
-                 peek().value().type != TokenType::percenteq &&
-                 peek().value().type != TokenType::ampeq &&
-                 peek().value().type != TokenType::pipeeq &&
-                 peek().value().type != TokenType::careteq &&
-                 peek().value().type != TokenType::shleq &&
-                 peek().value().type != TokenType::shreq)) {
+            if (!peek().has_value() || !is_assign_op(peek().value().type)) {
                 if (g_lsp_mode) { g_lsp_errors.push_back({stmt_deref->star.loc, "Expected '=' or compound assignment after pointer dereference"}); throw LSPAbort(); }
                 lsp_exit(stmt_deref->star.loc, "Expected '=' or compound assignment after pointer dereference");
             }
 
             auto op_token = consume();
-            switch (op_token.type) {
-                case TokenType::pluseq: stmt_deref->op = AssignOp::add_assign; break;
-                case TokenType::minuseq: stmt_deref->op = AssignOp::sub_assign; break;
-                case TokenType::stareq: stmt_deref->op = AssignOp::mul_assign; break;
-                case TokenType::slasheq: stmt_deref->op = AssignOp::div_assign; break;
-                case TokenType::percenteq: stmt_deref->op = AssignOp::mod_assign; break;
-                case TokenType::ampeq: stmt_deref->op = AssignOp::bitand_assign; break;
-                case TokenType::pipeeq: stmt_deref->op = AssignOp::bitor_assign; break;
-                case TokenType::careteq: stmt_deref->op = AssignOp::bitxor_assign; break;
-                case TokenType::shleq: stmt_deref->op = AssignOp::shl_assign; break;
-                case TokenType::shreq: stmt_deref->op = AssignOp::shr_assign; break;
-                default: stmt_deref->op = AssignOp::assign; break;
-            }
+            stmt_deref->op = token_to_assign_op(op_token.type);
 
             if (auto expr = parse_expr()) {
                 stmt_deref->expr = expr.value();
