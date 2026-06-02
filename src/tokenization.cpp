@@ -682,5 +682,8 @@ std::vector<Token> Tokenizer::tokenize() {
         }
     }
     m_index = 0;
+    m_line = 1;
+    m_col = 1;
+    m_at_line_start = true;
     return tokens;
 }

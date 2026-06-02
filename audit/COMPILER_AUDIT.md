@@ -50,7 +50,7 @@ Status legend:
 | L2 | `tokenization.hpp` | `TokenType` enum | No operator category table — can't ask "is this binary op?" without a switch | Design debt | Add `operator_category(TokenType)` array | 🔴 open |
 | L3 | `tokenization.cpp:129-148` | string literal loop | **Escape sequences not processed** — `\n`, `\t`, `\"`, `\\`, `\x41` stored as raw bytes | **Correctness bug** | Implement escape processing: `\n`→0x0A, `\t`→0x09, `\"`→0x22, `\\`→0x5C, `\xNN`→byte, `\uNNNN`→UTF-8 | 🔴 open |
 | L4 | `tokenization.cpp:60-70` | `consume()` | Line tracking only increments on `\n` — `\r\n` on Windows double-counts lines | Latent bug | Track `\r` as line increment too, or normalize input | 🔴 open |
-| L5 | `tokenization.cpp` | after tokenize loop | `m_index` reset to 0 at end but `m_line`/`m_col` not reset | Minor | Reset all state if reusing Tokenizer | 🔴 open |
+| L5 | `tokenization.cpp` | after tokenize loop | `m_index` reset to 0 at end but `m_line`/`m_col` not reset | Minor | Reset all state if reusing Tokenizer | 🟢 fixed |
 | L6 | `tokenization.hpp:95-100` | `peek()` | No sentinel for EOF — returns `{}`, correct but slightly awkward | Style | Fine | ⚪ wontfix |
 | L7 | `tokenization.cpp` | identifier loop | **No identifier interning** — every identifier is a full `std::string` | Performance | Use `std::unordered_map<std::string, uint32_t>` intern table | 🔴 open |
 
@@ -311,8 +311,8 @@ Status legend:
 
 | Category | Count |
 |----------|-------|
-| 🔴 Open (unfixed) | 41 |
-| 🟢 Fixed | 16 |
+| 🔴 Open (unfixed) | 40 |
+| 🟢 Fixed | 17 |
 | ⚪ Wontfix | 15 |
 | 🟡 In-progress | 0 |
 | ❔ Triage | 0 |
