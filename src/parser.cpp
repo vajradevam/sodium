@@ -863,8 +863,20 @@ std::optional<NodeStmt> Parser::parse_print_stmt()
 
     // Check if first argument is a string literal (potential format string)
     if (auto* str_lit = std::get_if<NodeExprStringLit*>(&first_expr.value()->var)) {
+        // Check for unescaped trailing % in format string
+        const auto& fmt_str = (*str_lit)->value.value.value();
+        if (!fmt_str.empty() && fmt_str.back() == '%') {
+            // Count consecutive % characters from the end
+            size_t trail_pct = 0;
+            for (auto it = fmt_str.rbegin(); it != fmt_str.rend() && *it == '%'; ++it)
+                trail_pct++;
+            // Odd count means an unescaped trailing %
+            if (trail_pct % 2 == 1) {
+                error("Trailing '%' in format string literal");
+            }
+        }
         // Parse the format string
-        specs = parse_format_string((*str_lit)->value.value.value());
+        specs = parse_format_string(fmt_str);
 
         // Parse additional comma-separated arguments
         while (peek().has_value() && peek().value().type == TokenType::comma) {
