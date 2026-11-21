@@ -3,3 +3,6 @@ sodium-out/
 sodium-rt/**/*.o
 sodium-rt/**/*.a
 build-asan/
+
+# crash dumps from qemu repros
+*.core
