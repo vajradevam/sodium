@@ -1,4 +1,5 @@
 #include "preprocessor.hpp"
+#include "tokenization.hpp"
 
 #include <fstream>
 #include <filesystem>
@@ -93,6 +94,7 @@ static std::string preprocess_impl(
         }
 
         all_included.push_back(resolved);
+        register_source_file(resolved, inc_text);
 
         // Recursively process the included file
         std::string processed = preprocess_impl(inc_text, resolved, include_dirs, system_include_dir, visited, all_included);

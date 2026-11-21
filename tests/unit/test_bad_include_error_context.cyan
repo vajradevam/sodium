@@ -1,0 +1,7 @@
+// EXPECT-ERROR: V8-CONTEXT-MARKER
+
+#include "v8_error_helper.cyan"
+
+function main() {
+    return v8_helper();
+}

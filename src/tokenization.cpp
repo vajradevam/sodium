@@ -4,6 +4,11 @@
 // Global definitions
 bool g_show_code = false;
 std::string g_source_text;
+std::unordered_map<std::string, std::string> g_source_files;
+
+void register_source_file(const std::string& name, std::string text) {
+    g_source_files[name] = std::move(text);
+}
 bool g_lsp_mode = false;
 std::vector<LSPError> g_lsp_errors;
 
@@ -18,10 +23,16 @@ static std::string trim(const std::string& s) {
 
 void print_code_context(const SourceLoc& loc) {
     if (!g_show_code || loc.line == 0 || loc.col == 0) return;
-    if (g_source_text.empty()) return;
 
-    const char* p = g_source_text.data();
-    const char* end = p + g_source_text.size();
+    const std::string* text = &g_source_text;
+    if (!loc.file.empty()) {
+        auto it = g_source_files.find(loc.file);
+        if (it != g_source_files.end()) text = &it->second;
+    }
+    if (text->empty()) return;
+
+    const char* p = text->data();
+    const char* end = p + text->size();
     size_t current = 1;
     while (p < end && current < loc.line) {
         if (*p == '\n') current++;

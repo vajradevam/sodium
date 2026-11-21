@@ -7,6 +7,7 @@
 #include <string>
 #include <vector>
 #include <optional>
+#include <unordered_map>
 
 struct SourceLoc {
     size_t line = 0;
@@ -112,6 +113,11 @@ inline std::string format_err(const SourceLoc& loc, const std::string& msg) {
 // Globals for --show-code source annotations.
 extern bool g_show_code;
 extern std::string g_source_text;
+
+/// Source text of every file seen during preprocessing, keyed by the path
+/// recorded in SourceLoc. Used to show the right line for errors in includes.
+extern std::unordered_map<std::string, std::string> g_source_files;
+void register_source_file(const std::string& name, std::string text);
 
 // LSP mode: when true, errors are collected instead of calling exit().
 // The LSP server catches LSPAbort to resume after the first error.

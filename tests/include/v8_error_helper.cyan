@@ -1,0 +1,6 @@
+// EXPECT-ERROR: Invalid expression in variable declaration
+
+function v8_helper() {
+    var bad = ; // V8-CONTEXT-MARKER
+    return bad;
+}

@@ -299,6 +299,8 @@ int main(int argc, char* argv[]) {
         contents = contents_stream.str();
     }
 
+    register_source_file(filename, contents);
+
     // Run preprocessor
     PreprocessedResult pp_result = preprocess(contents, filename, include_dirs);
     contents = std::move(pp_result.expanded_source);

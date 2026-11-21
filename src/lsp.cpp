@@ -297,6 +297,7 @@ ParseResult parse_document(const std::string& text, const std::string& filename 
 
     // Run preprocessor
     std::vector<std::string> include_dirs;
+    register_source_file(filename, text);
     PreprocessedResult pp = preprocess(text, filename, include_dirs);
     g_source_text = pp.expanded_source;
 
