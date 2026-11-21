@@ -1,0 +1,35 @@
+// EXPECT-EXIT: 0
+
+// V1: stack-passed arguments beyond the register budget (6 on x86_64, 8 on
+// riscv64), nested calls used as arguments, and recursion with stack args.
+
+function sum9(a, b, c, d, e, f, g, h, i) {
+    return(a + b + c + d + e + f + g + h + i);
+}
+
+function sum11(a, b, c, d, e, f, g, h, i, j, k) {
+    return(a + b + c + d + e + f + g + h + i + j + k);
+}
+
+function rec9(n, a, b, c, d, e, f, g, h, i) {
+    if (n == 0) { return(a + b + c + d + e + f + g + h + i); }
+    return(rec9(n - 1, a, b, c, d, e, f, g, h, i + 1));
+}
+
+function main() {
+    var x = 1;
+    var y = 2;
+    var r = sum9(x, y, 3, 4, 5, 6, 7, 8, 9);
+    if (r != 45) { return(1); }
+
+    var n = sum11(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11);
+    if (n != 66) { return(2); }
+
+    var nested = sum9(sum9(1, 1, 1, 1, 1, 1, 1, 1, 1), 2, 3, 4, 5, 6, 7, 8, 9);
+    if (nested != 53) { return(3); }
+
+    var deep = rec9(3, 1, 2, 3, 4, 5, 6, 7, 8, 9);
+    if (deep != 48) { return(4); }
+
+    return(0);
+}

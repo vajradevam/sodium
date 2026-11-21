@@ -46,7 +46,7 @@ anyway, tick the box, and note "not reproducible" in PROGRESS.md.
 - [x] **P0-END** `check.sh --full`, tag `phase-0-done`.
 
 ## Phase 1 — Verify and fix known suspicions (each: repro test first)
-- [ ] **V1 >6 args (x86_64) / >8 args (riscv64)** incl. nested calls as arguments and recursion with stack args; RSP alignment at call.
+- [x] **V1 >6 args (x86_64) / >8 args (riscv64)** incl. nested calls as arguments and recursion with stack args; RSP alignment at call.
 - [ ] **V2 Register pressure / spills:** programs with 20+ live values across calls, in loops, on both targets; check spill slots don't collide with locals or arrays.
 - [ ] **V3 Signed/unsigned semantics:** `>>` arithmetic vs logical by type, `/ %` with negatives and unsigned, comparisons of mixed signedness, `i8..u64` truncation/extension on assign, args, returns, compound ops, `++/--` at type boundaries.
 - [ ] **V4 Type equality / pointer types:** `Type::operator==` on pointers from different arenas; `T**`; pointer-to-struct; pointer comparison; pointer diff scaling.

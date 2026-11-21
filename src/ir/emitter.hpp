@@ -24,6 +24,14 @@ public:
     /// Emit a complete function.
     void emit_function(const IRFunction& func) {
         m_func_name = func.name;
+        // Callee-save PUSHes are inserted in the entry block and POPs only
+        // before returns, so every call sees all of them active.
+        m_stack_push_words = 0;
+        for (const auto& block : func.blocks) {
+            for (const auto& insn : block.instructions) {
+                if (insn.op == IROpcode::PUSH) ++m_stack_push_words;
+            }
+        }
 
         // Function label
         m_backend.label(func.name);
@@ -306,10 +314,18 @@ public:
                 // at the lowest address (closest to the return address),
                 // matching the LOAD_PARAM offset formula:
                 //   load_param(idx) = [fp + 16 + (idx - n_arg_regs) * 8]
-                if (nargs > n_arg_regs) {
-                    for (size_t i = nargs; i-- > n_arg_regs; ) {
-                        m_backend.push(operand_name(insn, i));
-                    }
+                const int stack_args = (nargs > n_arg_regs)
+                    ? static_cast<int>(nargs - n_arg_regs) : 0;
+                // Keep SP 16-byte aligned at the call: the prologue leaves it
+                // aligned, each callee-save PUSH toggles it, and each argument
+                // push toggles it again. One dummy word restores the parity.
+                const int pad = ((stack_args & 1) != (m_stack_push_words & 1)) ? 1 : 0;
+                if (pad) {
+                    m_backend.push(m_tri.name_of(m_tri.ret_reg));
+                }
+                for (int i = stack_args - 1; i >= 0; --i) {
+                    m_backend.push(operand_name(insn,
+                        static_cast<size_t>(n_arg_regs + static_cast<size_t>(i))));
                 }
 
                 // Now set up register arguments IN REVERSE ORDER
@@ -326,8 +342,8 @@ public:
 
                 m_backend.call(insn.call_target);
 
-                if (nargs > n_arg_regs) {
-                    m_backend.adjust_stack(static_cast<int64_t>(nargs - n_arg_regs) * 8);
+                if (stack_args + pad != 0) {
+                    m_backend.adjust_stack(static_cast<int64_t>(stack_args + pad) * 8);
                 }
 
                 if (insn.dst != IRInstruction::NONE_VREG) {
@@ -426,6 +442,11 @@ private:
     Backend& m_backend;
     const TargetRegisterInfo& m_tri;
     std::string m_func_name;
+
+    // Net number of callee-save PUSH IR instructions seen in this function.
+    // The prologue leaves SP 16-byte aligned; each push toggles it, so this
+    // parity is needed to keep stacks aligned at call sites.
+    int m_stack_push_words = 0;
 
     std::string mangle_label(const std::string& label) const {
         if (label.empty()) return label;
