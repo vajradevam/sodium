@@ -17,6 +17,7 @@ public:
 
     // Stack
     void push(const std::string& reg) override;
+    void push_frame_offset(int offset) override;
     void pop(const std::string& reg) override;
     void adjust_stack(int64_t bytes) override;
 

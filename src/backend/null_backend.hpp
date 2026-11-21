@@ -17,6 +17,7 @@ public:
     std::string target_name() const override { return "null"; }
 
     void push(const std::string& reg) override { (void)reg; }
+    void push_frame_offset(int offset) override { (void)offset; }
     void pop(const std::string& reg) override { (void)reg; }
     void adjust_stack(int64_t bytes) override { (void)bytes; }
 

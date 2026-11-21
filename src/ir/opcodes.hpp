@@ -104,7 +104,8 @@ enum class IROpcode : uint8_t {
     SYSCALL,     // syscall (args are in arch-specific registers)
 
     /// Push register onto stack (callee-save prologue).
-    PUSH,
+    PUSH,        // push a register
+    PUSH_FRAME,  // push the 8-byte value at [fp + imm_arg]
     /// Pop register from stack (callee-save epilogue).
     POP,
 };
