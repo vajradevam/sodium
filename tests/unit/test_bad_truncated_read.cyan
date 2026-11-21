@@ -1,0 +1,4 @@
+// EXPECT-ERROR: Unexpected end of input
+
+function main() {
+    return(read(
