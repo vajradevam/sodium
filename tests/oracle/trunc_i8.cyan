@@ -1,0 +1,11 @@
+// EXPECT-EXIT: 0
+
+function main() {
+    var a: i8 = 100;
+    print(a);
+    a = 200;
+    print(a);
+    a = -129;
+    print(a);
+    return 0;
+}
