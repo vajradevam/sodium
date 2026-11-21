@@ -91,3 +91,20 @@ set(SODIUM_WARNING_FLAGS
     -Wall -Wextra -Wshadow -Wpedantic -Wconversion -Wno-sign-conversion -Werror)
 target_compile_options(sodium PRIVATE ${SODIUM_WARNING_FLAGS})
 target_compile_options(cyan-lsp PRIVATE ${SODIUM_WARNING_FLAGS})
+
+# T4: native C++ unit tests (no network, no external framework).
+file(GLOB UNIT_TEST_SOURCES tests/cpp/test_*.cpp)
+add_executable(unit_tests
+    tests/cpp/main.cpp
+    ${UNIT_TEST_SOURCES}
+    src/tokenization.cpp
+    src/preprocessor.cpp
+    src/parser.cpp
+    src/ast_printer.cpp
+    src/arena.cpp
+    ${GEN_SOURCES}
+    ${BACKEND_SOURCES}
+    ${IR_SOURCES}
+)
+target_include_directories(unit_tests PRIVATE src tests/cpp)
+target_compile_options(unit_tests PRIVATE ${SODIUM_WARNING_FLAGS})

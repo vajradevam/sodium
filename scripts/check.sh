@@ -21,6 +21,10 @@ step "IR/assembly regression sweep (both targets)"
 ./scripts/sweep.sh > build/last_sweep.log 2>&1 || die "sweep (see build/last_sweep.log)"
 tail -2 build/last_sweep.log
 
+step "C++ unit tests"
+./build/unit_tests > build/last_unit.log 2>&1 || die "unit tests (see build/last_unit.log)"
+tail -2 build/last_unit.log
+
 step "test suite"
 ./scripts/run_tests.sh > build/last_tests.log 2>&1; rc=$?
 tail -4 build/last_tests.log
