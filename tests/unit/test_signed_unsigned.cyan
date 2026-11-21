@@ -1,0 +1,56 @@
+// EXPECT-EXIT: 0
+
+// V3: signed/unsigned semantics for the constructs currently implemented.
+// Typed parameters/returns and u64 literals arrive with Phase 3.
+
+function main() {
+    // >> is arithmetic for signed values, logical for unsigned payloads.
+    if ((-8 >> 1) != -4) { return(1); }
+    var u8a: u8 = 200;
+    if ((u8a >> 1) != 100) { return(2); }
+
+    // Signed division and modulo truncate toward zero / follow the dividend.
+    if ((-7 / 2) != -3) { return(3); }
+    if ((7 / -2) != -3) { return(4); }
+    if ((-7 % 2) != -1) { return(5); }
+    if ((7 % -2) != 1) { return(6); }
+
+    // Truncation on assignment at each width boundary.
+    var a: i8 = 127;
+    a = a + 1;
+    if (a != -128) { return(7); }
+    var b: u8 = 255;
+    b = b + 1;
+    if (b != 0) { return(8); }
+    var c: i16 = 32767;
+    c = c + 1;
+    if (c != -32768) { return(9); }
+    var d: u32 = 4294967295;
+    d = d + 1;
+    if (d != 0) { return(10); }
+
+    // Compound assignment and ++/-- wrap at the same boundaries.
+    var e: u8 = 255;
+    e += 2;
+    if (e != 1) { return(11); }
+    var f: i8 = 100;
+    f *= 2;
+    if (f != -56) { return(12); }
+    var g: u32 = 0;
+    g--;
+    if (g != 4294967295) { return(13); }
+    var h: i16 = -32768;
+    h--;
+    if (h != 32767) { return(14); }
+
+    // Comparisons promote typed values the way C does.
+    var u: u8 = 200;
+    var s: i8 = -56;
+    if (!(u > s)) { return(15); }
+    var u32a: u32 = 4294967295;
+    var i32a: i32 = -1;
+    if (!(u32a > i32a)) { return(16); }
+    if (u32a == i32a) { return(17); }
+
+    return(0);
+}
