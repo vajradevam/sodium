@@ -1,0 +1,17 @@
+// TARGETS: x86_64
+// EXPECT-EXIT: 0
+
+// V10: a stack frame larger than 2 MiB. riscv64 is excluded because its
+// JAL-based calls exceed the ±1 MiB relocation range with such a frame
+// (tracked as V11); x86_64 handles the large frame correctly.
+
+function main() {
+    var a[300000];
+    a[0] = 1;
+    a[150000] = 2;
+    a[299999] = 3;
+    if (a[0] != 1) { return(1); }
+    if (a[150000] != 2) { return(2); }
+    if (a[299999] != 3) { return(3); }
+    return(0);
+}

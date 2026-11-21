@@ -1,0 +1,21 @@
+// EXPECT-EXIT: 0
+
+// V10: full-range 64-bit literals and riscv64 12-bit immediate boundaries.
+
+function main() {
+    if (9223372036854775807 != 9223372036854775807) { return(1); }
+    if (-9223372036854775807 != -9223372036854775807) { return(2); }
+    if (4294967296 != 4294967296) { return(3); }
+
+    // addi/lui boundaries on riscv64; small immediates on x86_64.
+    var a = -2048;
+    var b = -2049;
+    var c = 2047;
+    var d = 2048;
+    if (a != -2048) { return(4); }
+    if (b != -2049) { return(5); }
+    if (c != 2047) { return(6); }
+    if (d != 2048) { return(7); }
+    if (a + b + c + d != -2) { return(8); }
+    return(0);
+}
