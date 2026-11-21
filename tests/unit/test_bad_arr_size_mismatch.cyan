@@ -1,3 +1,5 @@
+// EXPECT-ERROR: Array size mismatch
+
 // Compile-fail: array literal size mismatch
 // Expected: Array size mismatch
 

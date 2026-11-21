@@ -1,3 +1,5 @@
+// EXPECT-ERROR: argv() takes exactly one argument (the index)
+
 // Compile-fail: argv() with wrong number of arguments
 // Expected: argv() takes exactly one argument
 

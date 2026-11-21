@@ -1,3 +1,5 @@
+// EXPECT-ERROR: argc() takes no arguments
+
 // Compile-fail: argc() with arguments
 // Expected: argc() takes no arguments
 

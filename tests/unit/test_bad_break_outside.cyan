@@ -1,3 +1,5 @@
+// EXPECT-ERROR: break outside loop or switch
+
 // Compile-fail: break outside loop
 // Expected: break outside loop or switch
 

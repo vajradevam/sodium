@@ -1,3 +1,5 @@
+// EXPECT-ERROR: Expected ':' in ternary expression
+
 // Compile-fail: ternary with missing parts
 // Expected: Expected ':' in ternary expression
 

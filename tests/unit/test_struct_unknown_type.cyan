@@ -1,3 +1,5 @@
+// EXPECT-ERROR: Expected type after ':'
+
 
 function main() {
     var p: NonExistent;

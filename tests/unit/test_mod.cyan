@@ -1,3 +1,5 @@
+// EXPECT-EXIT: 3
+
 // modulo operator
 // a == 1
 // b == 0

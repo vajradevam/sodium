@@ -1,3 +1,6 @@
+// EXPECT-EXIT: 14
+// EXPECT-STDOUT: 14
+
 // Hex literal tests
 //
 // Exercises 0x and 0X prefix, various hex values, and comparison

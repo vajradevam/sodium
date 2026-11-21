@@ -1,3 +1,5 @@
+// EXPECT-EXIT: 6
+
 // compound assignment: += -= *= /=
 // x == 15
 // x == 12

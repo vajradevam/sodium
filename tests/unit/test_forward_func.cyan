@@ -1,3 +1,5 @@
+// EXPECT-EXIT: 1
+
 // Test: forward function references
 // Functions can reference other functions defined later in the source.
 // The compiler collects all function names before code generation.

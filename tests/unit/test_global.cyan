@@ -1,3 +1,5 @@
+// EXPECT-EXIT: 15
+
 global var x = 10;
 global var y;
 

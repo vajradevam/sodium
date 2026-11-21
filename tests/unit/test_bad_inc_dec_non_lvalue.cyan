@@ -1,3 +1,5 @@
+// EXPECT-ERROR: Expected identifier after '++'
+
 // Compile-fail: ++ on non-identifier
 // Expected: Expected identifier after '++'
 

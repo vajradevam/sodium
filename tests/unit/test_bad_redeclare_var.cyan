@@ -1,3 +1,5 @@
+// EXPECT-ERROR: Identifier already used in this scope: x
+
 // Compile-fail: variable redeclaration
 // Expected: Identifier already used in this scope
 

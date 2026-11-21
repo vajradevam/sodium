@@ -1,3 +1,6 @@
+// EXPECT-EXIT: 14
+// EXPECT-STDOUT: 14
+
 // Logical NOT (!) operator tests
 //
 // Tests ! on zero, non-zero, double negation, and in conditions.

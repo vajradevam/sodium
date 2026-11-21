@@ -1,3 +1,5 @@
+// EXPECT-EXIT: 50
+
 // nested ternary
 // r == 50
 

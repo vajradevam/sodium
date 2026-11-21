@@ -1,3 +1,5 @@
+// EXPECT-ERROR: Trailing '%' in format string literal
+
 function main() {
     print("trailing %");
     return(0);

@@ -1,3 +1,6 @@
+// EXPECT-EXIT: 0
+// EXPECT-STDOUT: All string library tests passed!
+
 // Test for cyanlib/string.cyan
 #include "string.cyan"
 

@@ -1,3 +1,5 @@
+// EXPECT-ERROR: Invalid statement
+
 // Compile-fail: assigning to rvalue
 // Expected: Invalid statement (or similar)
 

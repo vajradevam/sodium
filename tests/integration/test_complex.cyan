@@ -1,3 +1,5 @@
+// EXPECT-EXIT: 120
+
 // Compute 5! (factorial) using while loop
 
 function main() {

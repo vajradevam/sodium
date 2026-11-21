@@ -1,3 +1,5 @@
+// EXPECT-ERROR: Expected type after ':'
+
 // Compile-fail: unknown type in variable declaration
 // Expected: Expected type after ':'
 

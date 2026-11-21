@@ -1,3 +1,5 @@
+// EXPECT-ERROR: read() argument must be an array variable
+
 // Compile-fail: read() with arguments
 // Expected: read() takes no arguments
 

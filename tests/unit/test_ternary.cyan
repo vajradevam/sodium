@@ -1,3 +1,5 @@
+// EXPECT-EXIT: 30
+
 // ternary conditional
 // r == 10
 // s == 20

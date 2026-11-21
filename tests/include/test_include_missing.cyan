@@ -1,3 +1,5 @@
+// EXPECT-ERROR: include file not found: nonexistent.cyan
+
 #include "nonexistent.cyan"
 
 function main() {

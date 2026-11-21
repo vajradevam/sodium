@@ -1,3 +1,5 @@
+// EXPECT-ERROR: Expected value after 'case'
+
 // Compile-fail: case without value
 // Expected: Expected value after 'case'
 

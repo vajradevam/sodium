@@ -1,3 +1,5 @@
+// EXPECT-ERROR: Expected '(' after if
+
 // Compile-fail: if without '('
 // Expected: Expected '(' after if
 

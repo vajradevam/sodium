@@ -1,3 +1,5 @@
+// EXPECT-EXIT: 6
+
 // bitwise with comparison precedence
 // a == 3
 // b == 1

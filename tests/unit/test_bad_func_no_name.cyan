@@ -1,3 +1,5 @@
+// EXPECT-ERROR: Expected function name
+
 // Compile-fail: function declaration without name
 // Expected: Expected function name
 function () { }

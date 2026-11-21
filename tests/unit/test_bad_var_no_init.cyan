@@ -1,3 +1,5 @@
+// EXPECT-ERROR: Invalid statement
+
 // Compile-fail: var without initializer and no type
 // Expected: Invalid statement
 

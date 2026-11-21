@@ -1,3 +1,5 @@
+// EXPECT-EXIT: 0
+
 // else if chain with multiple branches, take middle
 
 function main() {

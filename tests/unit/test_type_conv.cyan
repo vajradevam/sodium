@@ -1,3 +1,5 @@
+// EXPECT-EXIT: 1
+
 // Test: Integer type conversions, overflow, and sign extension
 // Types: i8, i16, i32, u8, u16, u32
 // All stored as 64-bit on the stack but truncated/extended on load/store.

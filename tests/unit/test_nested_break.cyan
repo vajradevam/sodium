@@ -1,3 +1,5 @@
+// EXPECT-EXIT: 9
+
 // break inside nested loops: break only inner loop
 
 function main() {

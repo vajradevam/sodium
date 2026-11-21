@@ -1,3 +1,5 @@
+// EXPECT-ERROR: Division by zero in constant expression
+
 // Test: compile-time division by zero should produce an error
 // Note: constexpr division by zero is caught at compile time.
 // Expected: compile error "Division by zero in constant expression"

@@ -1,3 +1,5 @@
+// EXPECT-EXIT: 100
+
 
 function main() {
     var result = 0;

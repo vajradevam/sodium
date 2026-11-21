@@ -1,3 +1,5 @@
+// EXPECT-EXIT: 55
+
 const SIZE = 10;
 
 function main() {

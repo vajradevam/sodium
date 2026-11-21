@@ -1,3 +1,5 @@
+// EXPECT-ERROR: Expected index expression
+
 // Compile-fail: empty brackets in index expression
 // Expected: Expected index expression
 

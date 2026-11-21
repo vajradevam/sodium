@@ -1,3 +1,5 @@
+// EXPECT-EXIT: 70
+
 #include "helper.cyan"
 #include "helper.cyan"
 

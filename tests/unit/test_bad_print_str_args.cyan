@@ -1,3 +1,5 @@
+// EXPECT-ERROR: Undefined function: print_str (did you mean 'print'?)
+
 // Compile-fail: print_str() with wrong number of arguments
 // Expected: print_str() takes exactly one argument
 

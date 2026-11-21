@@ -1,3 +1,5 @@
+// EXPECT-EXIT: 55
+
 // Test compound assignment operators in for-loop update
 
 function main() {

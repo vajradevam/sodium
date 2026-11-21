@@ -1,3 +1,5 @@
+// EXPECT-ERROR: Expected ';' after for init
+
 // Compile-fail: for without enough semicolons
 // Expected: Expected ';' after for init
 

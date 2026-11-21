@@ -1,3 +1,7 @@
+// EXPECT-EXIT: 0
+// EXPECT-STDOUT: argc test: ok
+// EXPECT-STDOUT: 1
+
 // Test unified print, argc(), argv()
 
 // --- argc() ---

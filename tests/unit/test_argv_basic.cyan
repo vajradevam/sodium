@@ -1,3 +1,5 @@
+// EXPECT-EXIT: 0
+
 // Test argv() builtin
 // argv(0) should return a non-null pointer (the program path)
 // argv(argc()) should return null (NULL terminator)

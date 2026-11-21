@@ -1,3 +1,5 @@
+// EXPECT-EXIT: 12
+
 
 function main() {
     var i = 0;

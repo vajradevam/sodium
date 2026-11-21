@@ -1,3 +1,7 @@
+// EXPECT-EXIT: 15
+// EXPECT-STDOUT: 15
+// EXPECT-STDOUT: 15
+
 // Test: pointer deref in complex expression
 
 function main() {

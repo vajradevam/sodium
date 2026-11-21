@@ -1,3 +1,5 @@
+// EXPECT-ERROR: Expected expression after '-'
+
 // Compile-fail: missing operand after prefix operator
 // Expected: Expected expression after operator
 

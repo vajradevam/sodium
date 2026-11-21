@@ -1,3 +1,5 @@
+// EXPECT-ERROR: Expected '(' after while
+
 // Compile-fail: while without '('
 // Expected: Expected '(' after while
 

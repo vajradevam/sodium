@@ -1,3 +1,5 @@
+// EXPECT-ERROR: Expected 'while' after do body
+
 // Compile-fail: do without while
 // Expected: Expected 'while' after do body
 

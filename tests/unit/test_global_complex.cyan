@@ -1,3 +1,5 @@
+// EXPECT-EXIT: 1
+
 // Test: complex global variable patterns
 // Global arrays, global with compound assignments, etc.
 

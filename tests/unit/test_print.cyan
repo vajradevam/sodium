@@ -1,3 +1,5 @@
+// EXPECT-EXIT: 0
+
 
 function main() {
     print(0);

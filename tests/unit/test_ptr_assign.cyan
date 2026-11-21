@@ -1,3 +1,8 @@
+// EXPECT-EXIT: 94
+// EXPECT-STDOUT: 42
+// EXPECT-STDOUT: 47
+// EXPECT-STDOUT: 94
+
 // Test: assignment and compound assignment through pointer
 
 function main() {

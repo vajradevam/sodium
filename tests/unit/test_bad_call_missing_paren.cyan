@@ -1,3 +1,5 @@
+// EXPECT-ERROR: Invalid argument in function call
+
 // Compile-fail: missing closing parenthesis in function call
 // Expected: Expected ')' after function arguments
 

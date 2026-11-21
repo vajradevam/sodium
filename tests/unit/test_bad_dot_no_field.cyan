@@ -1,3 +1,5 @@
+// EXPECT-ERROR: Expected field name after '.'
+
 // Compile-fail: expected field name after '.'
 // Expected: Expected field name after '.'
 

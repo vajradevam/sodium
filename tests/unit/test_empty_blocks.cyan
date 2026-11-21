@@ -1,3 +1,5 @@
+// EXPECT-EXIT: 1
+
 // Test: empty blocks and minimal statements
 // Various edge cases with empty bodies
 

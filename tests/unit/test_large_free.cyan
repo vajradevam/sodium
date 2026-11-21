@@ -1,3 +1,5 @@
+// EXPECT-EXIT: 0
+
 // Test that large-block free list works (>2048 bytes)
 // Allocate, free, reallocate — should reuse the same address
 // Same address means free list reused the block

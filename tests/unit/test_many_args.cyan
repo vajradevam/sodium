@@ -1,3 +1,5 @@
+// EXPECT-EXIT: 1
+
 // Test: function with many arguments (exercises stack argument overflow)
 // x86-64 passes first 6 args in registers (rdi, rsi, rdx, rcx, r8, r9),
 // remaining go on the stack.  RISC-V passes first 8 in a0-a7.

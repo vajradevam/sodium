@@ -1,3 +1,5 @@
+// EXPECT-ERROR: Array assignment requires an array literal
+
 // Test that assigning a scalar to an array variable is rejected
 
 function main() {

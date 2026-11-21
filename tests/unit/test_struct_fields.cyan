@@ -1,3 +1,12 @@
+// EXPECT-EXIT: 91
+// EXPECT-STDOUT: 15
+// EXPECT-STDOUT: 1
+// EXPECT-STDOUT: 5
+// EXPECT-STDOUT: 20
+// EXPECT-STDOUT: 35
+// EXPECT-STDOUT: 10
+// EXPECT-STDOUT: 5
+
 struct Point {
     var x;
     var y;

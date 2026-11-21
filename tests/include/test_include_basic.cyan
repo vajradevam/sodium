@@ -1,3 +1,5 @@
+// EXPECT-EXIT: 30
+
 #include "helper.cyan"
 
 function main() {

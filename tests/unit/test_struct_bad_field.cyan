@@ -1,3 +1,5 @@
+// EXPECT-ERROR: Unknown field 'z' in struct 'Point'
+
 struct Point {
     var x;
     var y;

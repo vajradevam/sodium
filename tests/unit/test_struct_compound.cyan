@@ -1,3 +1,5 @@
+// EXPECT-EXIT: 1
+
 // Test: struct field compound assignment
 // struct field access with +=, -=, *=, etc.
 

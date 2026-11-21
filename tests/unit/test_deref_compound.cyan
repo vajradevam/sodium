@@ -1,3 +1,5 @@
+// EXPECT-EXIT: 1
+
 // Test: compound assignment through pointer dereference
 // *ptr += expr, *ptr -= expr, *ptr *= expr, etc.
 
