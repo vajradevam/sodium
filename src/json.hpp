@@ -185,7 +185,7 @@ class Parser {
     JsonValue parse_object() {
         if (consume() != '{') throw std::runtime_error("Expected '{'");
         JsonValue::ObjectType obj;
-        if (peek() == '}') { pos++; return std::move(obj); }
+        if (peek() == '}') { pos++; return obj; }
         while (true) {
             if (peek() != '"') throw std::runtime_error("Expected string key in object");
             auto key = parse_string();
@@ -193,7 +193,7 @@ class Parser {
             obj[key] = parse_value();
             skip_ws();
             if (pos >= s.size()) throw std::runtime_error("Unexpected end of object");
-            if (s[pos] == '}') { pos++; return std::move(obj); }
+            if (s[pos] == '}') { pos++; return obj; }
             if (s[pos] != ',') throw std::runtime_error("Expected ',' or '}' in object");
             pos++; // skip ','
         }
@@ -202,12 +202,12 @@ class Parser {
     JsonValue parse_array() {
         if (consume() != '[') throw std::runtime_error("Expected '['");
         JsonValue::ArrayType arr;
-        if (peek() == ']') { pos++; return std::move(arr); }
+        if (peek() == ']') { pos++; return arr; }
         while (true) {
             arr.push_back(parse_value());
             skip_ws();
             if (pos >= s.size()) throw std::runtime_error("Unexpected end of array");
-            if (s[pos] == ']') { pos++; return std::move(arr); }
+            if (s[pos] == ']') { pos++; return arr; }
             if (s[pos] != ',') throw std::runtime_error("Expected ',' or ']' in array");
             pos++; // skip ','
         }

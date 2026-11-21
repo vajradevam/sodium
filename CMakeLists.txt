@@ -83,3 +83,11 @@ add_executable(cyan-lsp
     ${BACKEND_SOURCES}
     ${IR_SOURCES}
 )
+
+# T1: strict warnings, fatal via -Werror for every build (including check.sh).
+# Clang's -Wconversion implies -Wsign-conversion while GCC's does not; disable
+# it here so both compilers enforce the same (currently clean) warning set.
+set(SODIUM_WARNING_FLAGS
+    -Wall -Wextra -Wshadow -Wpedantic -Wconversion -Wno-sign-conversion -Werror)
+target_compile_options(sodium PRIVATE ${SODIUM_WARNING_FLAGS})
+target_compile_options(cyan-lsp PRIVATE ${SODIUM_WARNING_FLAGS})

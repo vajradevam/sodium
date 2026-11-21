@@ -128,7 +128,7 @@ public:
             }
 
             // 2c. Find a free register.
-            int free_reg = find_free_register(range, preferred);
+            int free_reg = find_free_register(preferred);
 
             if (free_reg >= 0) {
                 assign_register(range, free_reg);
@@ -161,8 +161,7 @@ private:
         );
     }
 
-    int find_free_register(const LiveRange& range,
-                           const std::vector<int>& available) {
+    int find_free_register(const std::vector<int>& available) {
         for (int preg : available) {
             bool in_use = false;
             for (auto& ai : m_active) {

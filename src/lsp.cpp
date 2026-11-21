@@ -202,7 +202,6 @@ struct SymbolTable {
 
 void walk_stmt(const NodeStmt& stmt, SymbolTable& table);
 void walk_block(const NodeBlock* block, SymbolTable& table);
-void walk_expr(const NodeExpr* expr, SymbolTable& table);
 
 void walk_block(const NodeBlock* block, SymbolTable& table) {
     if (!block) return;

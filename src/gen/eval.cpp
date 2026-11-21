@@ -298,7 +298,6 @@ Type Generator::infer_expr_type(
         void operator()(const NodeExprFieldAccess* field) {
             // struct.field → look up struct type
             const auto& obj_name = field->obj_name.value.value();
-            const auto& field_name = field->field_name.value.value();
             auto si = gen->m_struct_types.find(obj_name);
             if (si != gen->m_struct_types.end()) {
                 // Struct fields are always i64 for now
