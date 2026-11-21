@@ -1,6 +1,6 @@
 #!/bin/bash
 
-COMPILER="./build/sodium"
+COMPILER="${COMPILER:-./build/sodium}"
 PASS=0
 FAIL=0
 

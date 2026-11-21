@@ -1,0 +1,126 @@
+# PLAN.md — the only task list
+
+Rules: see AGENTS.md. Work top to bottom. A task is done only when its **Done when** holds, `scripts/check.sh`
+passes, it is committed, and its box is ticked. Add sub-tasks freely (commit the split). IDs are stable; never reuse.
+"Verify" tasks come from the old (deleted) audit: reproduce first; if the claim is false, add the regression test
+anyway, tick the box, and note "not reproducible" in PROGRESS.md.
+
+## Phase 0 — Harness (do this before any feature work)
+- [ ] **T0 Discoverable tests.** Rewrite `scripts/run_tests.sh` per D-005: auto-discover `tests/**/*.cyan`, read
+  `EXPECT-*` headers, check exit code *and* stdout, run per-target, use `mktemp -d` (no fixed `/tmp` names), print a
+  summary by category, `--filter <substr>`, `--target <t>`, `-j` parallelism. Migrate all 150+ existing tests (move the
+  hardcoded exit-code map into headers; derive stdout expectations by running current output **and reviewing it by
+  hand**). Done when: no hardcoded test map remains; count of tests ≥ 318 run-equivalents; a deliberately wrong expectation fails.
+- [ ] **T1 Strict build.** Add `-Wall -Wextra -Wshadow -Wconversion`-class warnings (choose the strictest set that you
+  can make clean) and make warnings fatal in `check.sh`. Fix all. Done when: zero warnings from a clean rebuild.
+- [ ] **T2 CI-equivalent script.** `scripts/check.sh` additionally: `--emit-ir`/`-S` sweep over every test on both targets
+  (no crash), and rejects trailing whitespace/tab-vs-space drift in changed files. Add `.clang-format` or document style
+  from the existing code (don't mass-reformat).
+- [ ] **T3 Fuzz/smoke harness.** `scripts/fuzz_smoke.sh`: feed mutated/truncated test files (deterministic seed) to the
+  compiler; it must never crash/hang (timeout 5 s) — it may only exit 0 or 1 with a diagnostic. Fix crashes found (one commit each, with a regression test).
+- [ ] **T4 C++ unit tests.** `tests/cpp/` + CMake target `unit_tests` (plain asserts or a vendored single-header
+  framework — no network): tokenizer, preprocessor, parser (AST shape), const-eval, arena, liveness, linear-scan, allocator
+  (`sodium-rt/allocator.c` compiled natively). Wire into `check.sh`. Done when ≥ 60 cases and they run in <10 s.
+- [ ] **T5 Differential oracle.** Add `scripts/oracle.sh` + a corpus of small Cyan programs with a hand-written C
+  twin; compile both and diff stdout/exit code. Start with ≥ 25 programs (arith edge cases, shifts, signed/unsigned
+  division, truncation, pointer math, recursion). Any mismatch is a bug → fix.
+- [ ] **T6 Cleanup of build hygiene.** `.gitignore` covers all outputs; `git status` is clean after `check.sh`; remove `system()`
+  shell-outs in `main.cpp` in favor of `fork/execvp` with argv arrays (fixes shell injection via `-o` paths); test with a path containing spaces and `;`.
+- [ ] **P0-END** `check.sh --full`, tag `phase-0-done`.
+
+## Phase 1 — Verify and fix known suspicions (each: repro test first)
+- [ ] **V1 >6 args (x86_64) / >8 args (riscv64)** incl. nested calls as arguments and recursion with stack args; RSP alignment at call.
+- [ ] **V2 Register pressure / spills:** programs with 20+ live values across calls, in loops, on both targets; check spill slots don't collide with locals or arrays.
+- [ ] **V3 Signed/unsigned semantics:** `>>` arithmetic vs logical by type, `/ %` with negatives and unsigned, comparisons of mixed signedness, `i8..u64` truncation/extension on assign, args, returns, compound ops, `++/--` at type boundaries.
+- [ ] **V4 Type equality / pointer types:** `Type::operator==` on pointers from different arenas; `T**`; pointer-to-struct; pointer comparison; pointer diff scaling.
+- [ ] **V5 Array/struct stores:** `arr[i]=v` and `s.f=v` use 8-byte stores unconditionally — find any program where that corrupts neighbors (typed element/field once V-phase types exist); document and add tests.
+- [ ] **V6 Allocator:** allocations >2048 B leak on free; double-free/invalid-free behavior; alignment (16 B); zero-size; reuse after free; stress with random sizes (native C test + Cyan test). Implement mmap-backed large blocks and heap growth (`brk`/`mmap`) with real coalescing. Done when stress test cycles 1 GiB of alloc/free without growth.
+- [ ] **V7 I/O:** `read()` EOF indistinguishable from 0 → add a way to detect EOF (e.g. `read_eof()` or return convention per D-decision; record in DECISIONS.md); `read(buf)` overflow safety (bound by buffer size); partial writes in `print`.
+- [ ] **V8 `#line` caret context** wrong source line in diagnostics for included files; test with include + error inside the include.
+- [ ] **V9 Scoping & shadowing, static/global init order, switch fall-through with declarations, `break` inside `switch` inside loop** — add tests for every combination found missing.
+- [ ] **V10 Large frames / large immediates / large constants** on both targets (arrays > 2 MiB on stack with probes, 64-bit immediates, negative immediates at 12-bit boundary on riscv64).
+- [ ] **V11 riscv64 PIC / `--no-relax` dependence:** document the real constraint or fix it.
+- [ ] **P1-END** `check.sh --full`, tag `phase-1-done`, update PROGRESS.md with true state.
+
+## Phase 2 — Diagnostics (makes everything after faster to debug)
+- [ ] **E0 Diagnostic engine.** One `DiagnosticEngine` (severity, loc, message, notes, fix-it hint) replacing scattered `cerr`+`exit`; no global mutable state for it. Output format per D-004.
+- [ ] **E1 Parser error recovery** (sync on `;` `}` keywords); report up to N errors, no cascades. Tests with 3 independent errors in one file.
+- [ ] **E2 Semantic error recovery** in `src/gen/*`: undeclared identifiers, wrong arg counts, redeclarations continue to the end of the function/file.
+- [ ] **E3 Warnings:** unused variable/parameter, unreachable code, missing return in non-void path, narrowing assign, unused result, `=` in condition; `-Werror`, `-w`.
+- [ ] **E4 Notes** ("previous declaration here", "did you mean …"), `-fcolor-diagnostics`/NO_COLOR.
+- [ ] **E5 LSP uses the engine** (multiple diagnostics, severities); add LSP protocol tests (scripted stdio session) to `tests/lsp/`.
+- [ ] **P2-END** `check.sh --full`, tag.
+
+## Phase 3 — Real type system (per D-002/D-003)
+- [ ] **Y1 Typed params and return types** (`function f(a: i32, p: u8*) -> i64`), arity + type checking at calls, implicit conversions only for safe widening / literal fit; untyped still accepted (warn after Y9).
+- [ ] **Y2 Typed struct fields** + C-rule layout, `sizeof`, field loads/stores at correct width (fixes V5).
+- [ ] **Y3 Typed local arrays** (`var a: i32[10];`) with element-width loads/stores and `sizeof`; array-to-pointer decay in calls.
+- [ ] **Y4 `bool`, `char`, `true/false/null`.**
+- [ ] **Y5 Casts** `as`; explicit narrowing required where Y1 rules reject implicit.
+- [ ] **Y6 `type` aliases, `enum`.**
+- [ ] **Y7 Pointer-to-struct field access** (`p->x` or `(*p).x`, pick per DECISIONS) and `&s.f`, nested struct (`a.b.c`), arrays of structs, struct literals `{ .x = 1 }`.
+- [ ] **Y8 Struct by value:** param, return, assignment (`a = b`), on both ABIs.
+- [ ] **Y9 Multi-dimensional arrays; `const` correctness; remove call-site inference** (or keep strictly as fallback emitting a warning). Migrate `cyanlib` and tests to typed signatures.
+- [ ] **Y10 Function pointers** and indirect calls on both targets.
+- [ ] **P3-END** full gate, tag, rewrite parts of docs that changed.
+
+## Phase 4 — Standard library & runtime (Cyan-written wherever possible)
+- [ ] **L1 `cyanlib/string.cyan` rewritten with typed signatures:** strlen, strcmp, strncmp, strcpy, strncpy, strcat, strchr, strstr, memcpy, memmove (overlap-safe), memset, memcmp; tests for each incl. empty/overlap/boundary.
+- [ ] **L2 `cyanlib/fmt.cyan`:** int→string (all bases), string→int with error reporting, `%x %c %u %ld`-style print specifiers in `print`.
+- [ ] **L3 `cyanlib/mem.cyan`** wrappers: calloc, realloc, aligned alloc; allocator leak check mode (`SODIUM_ALLOC_DEBUG`).
+- [ ] **L4 File I/O via raw syscalls** in sodium-rt (`open/close/read/write/lseek/unlink`) on both arches + `cyanlib/io.cyan` (read file to buffer, write buffer, line reader, `stderr` printing, exit codes).
+- [ ] **L5 Dynamic containers in Cyan:** `Vec` (growable array), `Str` builder, hash map (string→i64). Property-style tests with many random operations vs expected checksums.
+- [ ] **L6 `argv`/`envp`/`exit` handling polish;** `print` to fd; `assert(cond, "msg")` builtin.
+- [ ] **P4-END** full gate, tag.
+
+## Phase 5 — IR & optimization (D-006; all behind `-O1` first)
+- [ ] **O1 IR verifier** (`--verify-ir`, run automatically in debug builds): defs dominate uses, operand types, block terminators, no dangling labels. Run it over the whole suite.
+- [ ] **O2 Constant folding & algebraic simplification** (x+0, x*1, x*2^n → shift, strength reduction), with overflow semantics identical to runtime.
+- [ ] **O3 Dead code / unreachable block elimination**, jump threading, empty-block removal.
+- [ ] **O4 Local value numbering / CSE; redundant load-store elimination** within basic blocks.
+- [ ] **O5 mem2reg-style promotion** of non-address-taken scalar locals to vregs (decide phi vs. block-args and record in DECISIONS.md).
+- [ ] **O6 Register allocator quality:** live-range splitting or better spill heuristics; callee-saved use; measure spills on a benchmark set.
+- [ ] **O7 Peephole per backend;** inlining of small leaf functions.
+- [ ] **O8 Benchmarks** (`bench/`: fib, sieve, matmul, sort, hash) with a script printing instruction counts (qemu `-d` or `perf stat`) — track no regressions; `-O1` becomes default only if the whole suite plus oracle pass under it.
+- [ ] **P5-END** full gate under `-O0` and `-O1`, tag.
+
+## Phase 6 — Language extras
+- [ ] **X1 Floats** (`f32`,`f64`) incl. ABI on both targets, literals, conversions, print. (Decide scope in DECISIONS.md first; skip → BLOCKED if it needs >1 phase.)
+- [ ] **X2 `#define` object/function macros, `#ifdef/#else/#endif`, `#if` constant expr**, include guards test.
+- [ ] **X3 Module hygiene:** `import`-style or keep `#include`; namespacing for `cyanlib` (prefix convention documented).
+- [ ] **X4 Bounds-check mode** `--bounds`, null-deref checks `--check-null`, stack-overflow probe diagnostics; each with tests proving they trigger and don't change valid programs.
+- [ ] **X5 Inline asm** minimal form, per-arch, with clobber list.
+- [ ] **X6 Debug info:** `.loc`/line tables so `gdb`/`qemu -g` can step source lines.
+- [ ] **P6-END** gate, tag.
+
+## Phase 7 — Tooling & docs
+- [ ] **D1 README rewrite from verified behavior only:** language reference (every construct with a test link), CLI flags, build/test instructions, architecture overview, known limitations. Every code sample in the README is extracted and compiled by a test (`scripts/doc_check.sh`).
+- [ ] **D2 `docs/IR.md`, `docs/ABI.md`, `docs/BACKENDS.md`** describing the actual implementation (generated/verified against code).
+- [ ] **D3 LSP hardening:** incremental diagnostics, rename, find-references, signature help, semantic tokens; protocol tests. VS Code extension refreshed for new syntax (typed params, enums, etc.).
+- [ ] **D4 `sodium fmt`** (canonical formatter; idempotence test over all tests) and `--version`, `--help`, man-style usage text.
+- [ ] **D5 Install/packaging script tested in a clean temp prefix.**
+- [ ] **P7-END** gate, tag.
+
+## Phase 8 — More targets (optional; do only if Phases 0–7 are done)
+- [ ] **B1 Backend interface audit:** document & test the `Backend` contract with a `null_backend` conformance suite.
+- [ ] **B2 aarch64 backend** (qemu-aarch64) passing the full suite, or **WASM** (decide in DECISIONS.md).
+- [ ] **P8-END** gate, tag.
+
+## Phase 9 — Self-hosting (D-007)
+Prerequisite check: Phases 3, 4 complete; compiler source subset needed is listed in `docs/SELFHOST.md` (write it first: which constructs the Cyan-written compiler needs, what's missing).
+- [ ] **S0 Selfhost plan doc + gap list;** add any missing language/library features as Phase-3/4 style tasks and do them first.
+- [ ] **S1 Tokenizer in Cyan** (`selfhost/tokenizer.cyan`); differential test: token stream identical to C++ tokenizer on every test file.
+- [ ] **S2 Preprocessor + parser in Cyan;** AST dump identical (`--print-ast`) for every test file.
+- [ ] **S3 Semantic analysis + IR generation in Cyan;** `--emit-ir` identical.
+- [ ] **S4 Regalloc + x86_64 backend in Cyan;** output assembly identical or binaries behaviorally identical on the full suite.
+- [ ] **S5 riscv64 backend in Cyan.**
+- [ ] **S6 Bootstrap:** C++ compiler builds `sodium1` (Cyan source); `sodium1` builds `sodium2`; `sodium2` builds `sodium3`; `sodium2` and `sodium3` binaries identical; full suite passes using `sodium3`.
+- [ ] **S7 Make the Cyan compiler the default; keep the C++ bootstrap in `bootstrap/` with a script to rebuild.**
+- [ ] **P9-END** gate, tag `selfhosted`.
+
+## Standing chores (do opportunistically when touching the area; each is its own commit)
+- [ ] Parser `parse_stmt` 30-branch chain → table/dispatch; precedence climbing (Pratt) for expressions.
+- [ ] Remove duplicate AST visitors (printer/LSP/gen walks) → one visitor utility.
+- [ ] `std::list<Type>` type pool → arena; `std::map`→`unordered_map` where order unneeded; trim `generation.hpp` includes.
+- [ ] Eliminate remaining global mutable state (tokenizer/diagnostics/arena) so compilation is re-entrant (needed by LSP).
+- [ ] Thread-safety note/policy for allocator (document single-threaded; or add a lock behind a flag).

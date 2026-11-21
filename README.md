@@ -1,5 +1,7 @@
 # Cyan Language Compiler — Sodium
 
+> **Status: unverified.** This README predates the project reset and may be stale. Authoritative docs: `AGENTS.md`, `PLAN.md`, `docs/`. Task D1 rewrites this file from verified behavior.
+
 **Sodium** is a compiler for the **Cyan** programming language — a small, clean,
 compiled systems language targeting **x86-64 Linux** and **RISC-V 64**. Cyan is
 designed to be simple enough to hold in your head while being expressive enough
