@@ -16,3 +16,24 @@ Format: `YYYY-MM-DD  TASK-ID  summary  (tests A→B)`
 2026-11-21  V12  riscv64 print(0) emitted a NUL byte: the zero path in print.asm wrote '0' at buf[30] but then label 4 advanced to buf[31]. Added the missing decrement. Re-enabled EXPECT-STDOUT on test_print (4 lines) and test_print_all (59 lines); both targets now match. Found by the differential oracle.
 2026-11-21  T5a-c  Differential oracle: scripts/oracle.sh + 29 hand-written C/Cyan twin pairs (arith, shifts, signed division/modulo, i8/u8/i16/u32 truncation, comparisons, pointer math/diff, recursion, loops, switch); 58 comparisons on both targets, 0 mismatches, wired into check.sh. Two real bugs found and fixed in separate commits with regression tests: signed >> was logical, and V12.  (368→388 integration passed, 0 failed)
 2026-11-22  T6  Build hygiene: removed every system() call from main.cpp. Assemble/link now use fork+execvp with argv arrays; mkdir uses filesystem::create_directories; output copy uses filesystem::copy_file; temp cleanup uses unlink/rmdir on known files. Added scripts/test_paths.sh (spaces, semicolons, and an injection attempt that must not create a marker file) to check.sh. Verified git status clean after check.sh --full.  (388→388 passed, 0 failed)
+
+## State of the project — end of Phase 0 (re-verified against code, 2026-11-22)
+
+- Gate: `scripts/check.sh --full` passes: strict `-Werror` build (GCC 16, also verified with Clang 23),
+  388 integration tests passed / 0 failed / 2 skipped (helper.cyan on each target) across x86_64 and
+  riscv64, 390 run-equivalents, ASan/UBSan clean. `git status` is clean after the gate.
+- Discovered tests: 195 `tests/**/*.cyan` files, all driven by D-005 `// EXPECT-*` headers; no hardcoded
+  test map remains. Runner supports `--filter`, `--target`, `-j` and mktemp workdirs.
+- Harness proof: `--self-test` (in the gate) rejects deliberately wrong exit/stdout/error expectations.
+- Regression sweep: 780 `--emit-ir` and `-S` invocations (every test × 2 modes × 2 targets), 0 crashes.
+- Fuzz smoke: deterministic seeded mutations, 1000 iterations per gate; >50k mutants in ad-hoc campaigns.
+  Fixed two crashes found this way: EOF in `Parser::consume()` and too-few print format arguments.
+- C++ unit tests: 94 cases / 1742 checks, <0.01 s, covering arena, tokenizer, preprocessor, parser AST,
+  const-eval, liveness, linear scan, and the natively compiled runtime allocator.
+- Differential oracle: 29 hand-written C/Cyan twin pairs, 58 comparisons on both targets, 0 mismatches.
+  It exposed two real bugs, both fixed with regression tests: signed `>>` was emitted as logical SHR, and
+  riscv64 `print(0)` wrote an uninitialized NUL byte (V12).
+- Security hygiene: no `system()` calls remain in main.cpp; output paths with spaces/semicolons are safe.
+- Remaining work: all of Phases 1–9 are unchecked. Noted for Phase 1: V3 still covers signed/unsigned
+  semantics beyond shifts, and V6 covers allocator 16-byte alignment (payloads are currently 8-aligned).
+  README.md is still unverified (D1).
