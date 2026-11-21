@@ -52,7 +52,7 @@ anyway, tick the box, and note "not reproducible" in PROGRESS.md.
   calls, a call result held in a caller-save arg register (e.g. riscv a7) is overwritten while setting up the next
   call; recursion with 20 args also fails on x86_64. Needs callee-save/spill selection that reserves argument
   registers, or save/restore around calls. Repro: nested `sum20(sum20(...), ...)` and `recurse20` cases.
-- [ ] **V3 Signed/unsigned semantics:** `>>` arithmetic vs logical by type, `/ %` with negatives and unsigned, comparisons of mixed signedness, `i8..u64` truncation/extension on assign, args, returns, compound ops, `++/--` at type boundaries.
+- [x] **V3 Signed/unsigned semantics:** `>>` arithmetic vs logical by type, `/ %` with negatives and unsigned, comparisons of mixed signedness, `i8..u64` truncation/extension on assign, args, returns, compound ops, `++/--` at type boundaries.
 - [ ] **V4 Type equality / pointer types:** `Type::operator==` on pointers from different arenas; `T**`; pointer-to-struct; pointer comparison; pointer diff scaling.
 - [ ] **V5 Array/struct stores:** `arr[i]=v` and `s.f=v` use 8-byte stores unconditionally — find any program where that corrupts neighbors (typed element/field once V-phase types exist); document and add tests.
 - [ ] **V6 Allocator:** allocations >2048 B leak on free; double-free/invalid-free behavior; alignment (16 B — T4e found payloads are only 8-byte aligned despite the `aligned(16)` comment); zero-size; reuse after free; stress with random sizes (native C test + Cyan test). Implement mmap-backed large blocks and heap growth (`brk`/`mmap`) with real coalescing. Done when stress test cycles 1 GiB of alloc/free without growth.
