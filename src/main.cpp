@@ -234,6 +234,10 @@ int main(int argc, char* argv[]) {
         rt_dir = resolve_rt_dir();
         if (!emit_asm_only) {
             asm_argv = {"riscv64-elf-as", "-march=rv64gc", "-mno-relax", "-o", obj_file, asm_file};
+            // --no-relax is required: relaxation rewrites auipc/addi pairs
+            // that the compiler uses for label addresses, breaking pointer
+            // arithmetic. Calls use auipc+jalr now, so the old JAL range limit
+            // is gone, but relaxation of data labels is still unsafe.
             link_argv = {"riscv64-elf-gcc", "-nostdlib", "-static", "-Wl,--no-relax",
                          "-o", exe_file, obj_file, rt_dir + "/sodium-rt.a"};
         }

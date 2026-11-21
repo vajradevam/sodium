@@ -585,8 +585,10 @@ void RISCV64Backend::cmp_result(const std::string& dst, const std::string& a,
 // ---- control ----
 
 void RISCV64Backend::call(const std::string& target) {
-    // RISC-V: jal ra, target
-    emit_insn("jal", "ra, " + target);
+    // `jal ra, target` has a +-1 MiB range, which large stack frames can
+    // exceed (R_RISCV_JAL relocation truncated). The `call` pseudo expands
+    // to auipc+jalr and works at any distance, including with --no-relax.
+    emit_insn("call", target);
 }
 
 void RISCV64Backend::syscall() {

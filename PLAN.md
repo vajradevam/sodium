@@ -60,7 +60,7 @@ anyway, tick the box, and note "not reproducible" in PROGRESS.md.
 - [x] **V8 `#line` caret context** wrong source line in diagnostics for included files; test with include + error inside the include.
 - [x] **V9 Scoping & shadowing, static/global init order, switch fall-through with declarations, `break` inside `switch` inside loop** — add tests for every combination found missing.
 - [x] **V10 Large frames / large immediates / large constants** on both targets (arrays > 2 MiB on stack with probes, 64-bit immediates, negative immediates at 12-bit boundary on riscv64).
-- [ ] **V11 riscv64 PIC / `--no-relax` dependence:** document the real constraint or fix it. V10 found a concrete failure: a >2 MiB stack frame makes `call _start -> _sodium_exit` exceed the R_RISCV_JAL ±1 MiB range, so linking fails. Needs auipc+jalr calls or documented frame-size limit.
+- [x] **V11 riscv64 PIC / `--no-relax` dependence:** fixed the JAL range limit by emitting the `call` pseudo (auipc+jalr); >2 MiB stack frames now link and run. Kept `--no-relax` and documented why: relaxation rewrites the auipc/addi pairs used for label addresses and breaks pointer arithmetic (oracle mismatches in ptr_diff/ptr_malloc_store).
 - [ ] **P1-END** `check.sh --full`, tag `phase-1-done`, update PROGRESS.md with true state.
 
 ## Phase 2 — Diagnostics (makes everything after faster to debug)
