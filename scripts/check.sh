@@ -32,6 +32,10 @@ step "harness self-test (wrong EXPECT-* must fail)"
 ./scripts/run_tests.sh --self-test > build/last_selftest.log 2>&1 || die "harness self-test (see build/last_selftest.log)"
 tail -6 build/last_selftest.log
 
+step "fuzz smoke (deterministic mutations)"
+./scripts/fuzz_smoke.sh 20261121 1000 > build/last_fuzz.log 2>&1 || die "fuzz smoke (see build/last_fuzz.log)"
+tail -2 build/last_fuzz.log
+
 if [ $FULL -eq 1 ]; then
     step "sanitizer build (build-asan/)"
     cmake -S . -B build-asan -DCMAKE_BUILD_TYPE=Debug \
