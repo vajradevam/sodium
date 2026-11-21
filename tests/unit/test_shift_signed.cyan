@@ -1,0 +1,15 @@
+// EXPECT-EXIT: 0
+
+// Right shift of a negative signed value must be arithmetic (sign-preserving).
+
+function main() {
+    if ((-8 >> 1) != -4) { return 1; }
+    if ((-17 >> 2) != -5) { return 2; }
+    var x = -8;
+    x >>= 1;
+    if (x != -4) { return 3; }
+    var y = -17;
+    y >>= 2;
+    if (y != -5) { return 4; }
+    return 0;
+}

@@ -128,7 +128,7 @@ void Generator::store_var_from_vstack(const std::string& name, AssignOp op) {
                     case AssignOp::bitor_assign:   result = m_ir.or_(IRValue::vreg(lhs), IRValue::vreg(rhs)); break;
                     case AssignOp::bitxor_assign:  result = m_ir.xor_(IRValue::vreg(lhs), IRValue::vreg(rhs)); break;
                     case AssignOp::shl_assign:     result = m_ir.shl(IRValue::vreg(lhs), IRValue::vreg(rhs)); break;
-                    case AssignOp::shr_assign:     result = m_ir.shr(IRValue::vreg(lhs), IRValue::vreg(rhs)); break;
+                    case AssignOp::shr_assign:     result = m_ir.ashr(IRValue::vreg(lhs), IRValue::vreg(rhs)); break;
                     default: break;
                 }
                 // Truncate if needed
@@ -170,7 +170,7 @@ void Generator::store_var_from_vstack(const std::string& name, AssignOp op) {
                 case AssignOp::bitor_assign:   result = m_ir.or_(IRValue::vreg(lhs), IRValue::vreg(rhs)); break;
                 case AssignOp::bitxor_assign:  result = m_ir.xor_(IRValue::vreg(lhs), IRValue::vreg(rhs)); break;
                 case AssignOp::shl_assign:     result = m_ir.shl(IRValue::vreg(lhs), IRValue::vreg(rhs)); break;
-                case AssignOp::shr_assign:     result = m_ir.shr(IRValue::vreg(lhs), IRValue::vreg(rhs)); break;
+                case AssignOp::shr_assign:     result = m_ir.ashr(IRValue::vreg(lhs), IRValue::vreg(rhs)); break;
                 default: break;
             }
             m_ir.store(IRValue::vreg(m_ir.lea_label(name)), 0, IRValue::vreg(result));

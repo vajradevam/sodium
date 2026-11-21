@@ -639,7 +639,10 @@ void Generator::gen_expr(const NodeExpr& expr)
                     gen->gen_expr(*shr_op->rhs);
                     uint32_t b = gen->pop_vreg();
                     uint32_t a = gen->pop_vreg();
-                    uint32_t v = gen->m_ir.shr(IRValue::vreg(a), IRValue::vreg(b));
+                    // Cyan integers are signed i64 by default: >> is arithmetic.
+                    // Unsigned values are stored as non-negative 64-bit values, so
+                    // ASHR gives the same result as SHR for them.
+                    uint32_t v = gen->m_ir.ashr(IRValue::vreg(a), IRValue::vreg(b));
                     gen->push_vreg(v);
                 }
             };
