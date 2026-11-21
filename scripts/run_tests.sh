@@ -1,12 +1,13 @@
 #!/bin/bash
 # Discoverable test runner — see D-005 in docs/DECISIONS.md.
 # Every tests/**/*.cyan is a test; expectations come from // EXPECT-* headers.
-# Usage: scripts/run_tests.sh [--filter SUBSTR] [--target NAME] [-j N] [-h]
+# Usage: scripts/run_tests.sh [--filter SUBSTR] [--target NAME] [-j N] [--self-test] [-h]
 
 COMPILER="${COMPILER:-./build/sodium}"
 FILTER=""
 TARGET="all"
 JOBS=1
+SELF_TEST=0
 
 GREEN='\033[0;32m'
 RED='\033[0;31m'
@@ -19,6 +20,7 @@ Usage: scripts/run_tests.sh [options]
   --filter SUBSTR     run only tests whose path contains SUBSTR
   --target NAME       x86_64, riscv64, or all (default: all)
   -j N                run up to N cases in parallel (default: 1)
+  --self-test         verify the harness rejects deliberately wrong expectations
   -h, --help          show this help
 
 Tests are discovered under tests/**/*.cyan. Expectations are declared in
@@ -39,6 +41,7 @@ while [ "$#" -gt 0 ]; do
         --filter) need_arg "$@"; FILTER="$2"; shift 2 ;;
         --target) need_arg "$@"; TARGET="$2"; shift 2 ;;
         -j)       need_arg "$@"; JOBS="$2"; shift 2 ;;
+        --self-test) SELF_TEST=1; shift ;;
         -h|--help) usage; exit 0 ;;
         *) echo "error: unknown option '$1'" >&2; usage >&2; exit 2 ;;
     esac
@@ -186,6 +189,52 @@ run_case() {
     fi
     emit PASS ""
 }
+
+# ── harness self-test ──────────────────────────────────────────────
+# Proves a wrong EXPECT-* really fails (and a correct one really passes).
+# Synthetic files live in the mktemp workdir, so they never enter discovery.
+self_test() {
+    local td="$WORK/selftest"
+    mkdir -p "$td"
+    printf '// EXPECT-EXIT: 99\nfunction main() { return(0); }\n' > "$td/wrong_exit.cyan"
+    printf '// EXPECT-EXIT: 0\n// EXPECT-STDOUT: wrong line\nfunction main() { print(7); return(0); }\n' > "$td/wrong_stdout.cyan"
+    printf '// EXPECT-ERROR: no such diagnostic\nfunction main() { return(0); }\n' > "$td/wrong_error.cyan"
+    printf '// EXPECT-EXIT: 0\n// EXPECT-STDOUT: 7\nfunction main() { print(7); return(0); }\n' > "$td/control.cyan"
+
+    local base=${#CASES[@]}
+    local specs=(
+        "selftest|x86_64|$td/wrong_exit.cyan"
+        "selftest|x86_64|$td/wrong_stdout.cyan"
+        "selftest|x86_64|$td/wrong_error.cyan"
+        "selftest|x86_64|$td/control.cyan"
+    )
+    local expected=(FAIL FAIL FAIL PASS)
+    local specs_names=(wrong_exit.cyan wrong_stdout.cyan wrong_error.cyan control.cyan)
+    local want st cat target path reason i rc=0
+    for i in "${!specs[@]}"; do
+        CASES+=("${specs[$i]}")
+        run_case "$((base + i))"
+        IFS='|' read -r st cat target path reason < "$WORK/results/$((base + i))"
+        want="${expected[$i]}"
+        if [ "$st" = "$want" ]; then
+            echo -e "${GREEN}[PASS]${NC} self-test ${specs_names[$i]}: got $st as expected"
+        else
+            echo -e "${RED}[FAIL]${NC} self-test ${specs_names[$i]}: got $st, expected $want"
+            rc=1
+        fi
+    done
+    return "$rc"
+}
+
+if [ "$SELF_TEST" -eq 1 ]; then
+    self_test
+    rc=$?
+    echo "========================================"
+    [ "$rc" -eq 0 ] && echo "Self-test OK: wrong expectations are rejected." \
+                    || echo "Self-test FAILED."
+    echo "========================================"
+    exit "$rc"
+fi
 
 # ── discover ───────────────────────────────────────────────────────
 while IFS= read -r path; do

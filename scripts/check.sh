@@ -23,6 +23,10 @@ grep -E "SKIP|FAIL" build/last_tests.log | grep -v "^Results" | head -20
 [ $rc -eq 0 ] || die "tests (see build/last_tests.log)"
 grep -q "RISC-V backend: SKIPPED" build/last_tests.log && die "riscv64 tests were skipped (qemu-riscv64 missing)"
 
+step "harness self-test (wrong EXPECT-* must fail)"
+./scripts/run_tests.sh --self-test > build/last_selftest.log 2>&1 || die "harness self-test (see build/last_selftest.log)"
+tail -6 build/last_selftest.log
+
 if [ $FULL -eq 1 ]; then
     step "sanitizer build (build-asan/)"
     cmake -S . -B build-asan -DCMAKE_BUILD_TYPE=Debug \
