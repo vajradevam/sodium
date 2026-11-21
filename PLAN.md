@@ -27,16 +27,16 @@ anyway, tick the box, and note "not reproducible" in PROGRESS.md.
   from the existing code (don't mass-reformat).
 - [x] **T3 Fuzz/smoke harness.** `scripts/fuzz_smoke.sh`: feed mutated/truncated test files (deterministic seed) to the
   compiler; it must never crash/hang (timeout 5 s) — it may only exit 0 or 1 with a diagnostic. Fix crashes found (one commit each, with a regression test).
-- [ ] **T4a Unit-test scaffold (split from T4).** `tests/cpp/` with a tiny no-network assert framework + runner,
+- [x] **T4a Unit-test scaffold (split from T4).** `tests/cpp/` with a tiny no-network assert framework + runner,
   CMake `unit_tests` target linking the compiler sources, first cases (arena), and a `check.sh` step. Gate green before
   adding the rest.
-- [ ] **T4b Tokenizer + preprocessor cases (split from T4).** Token kinds/locations/escapes/numbers, reset-after-tokenize,
+- [x] **T4b Tokenizer + preprocessor cases (split from T4).** Token kinds/locations/escapes/numbers, reset-after-tokenize,
   `#line` markers, `#include`, `#pragma once`, `#error`. ≥16 cases.
-- [ ] **T4c Parser AST shape + const-eval cases (split from T4).** AST node shapes for expressions/statements, precedence,
+- [x] **T4c Parser AST shape + const-eval cases (split from T4).** AST node shapes for expressions/statements, precedence,
   and `Generator::eval_const_expr` over literals/operators/overflow/div-zero. ≥16 cases.
-- [ ] **T4d IR liveness + linear-scan cases (split from T4).** Live intervals, overlap, call-spanning, allocation of
+- [x] **T4d IR liveness + linear-scan cases (split from T4).** Live intervals, overlap, call-spanning, allocation of
   non-overlapping ranges, spills under pressure, sorted output. ≥16 cases.
-- [ ] **T4e Allocator cases + finalise T4 (split from T4).** Compile `sodium-rt/allocator.c` natively; alignment, reuse,
+- [x] **T4e Allocator cases + finalise T4 (split from T4).** Compile `sodium-rt/allocator.c` natively; alignment, reuse,
   sizes, zero-size, free-list recycling, stress. Verify ≥60 cases in <10 s and tick T4.
 - [ ] **T5 Differential oracle.** Add `scripts/oracle.sh` + a corpus of small Cyan programs with a hand-written C
   twin; compile both and diff stdout/exit code. Start with ≥ 25 programs (arith edge cases, shifts, signed/unsigned
@@ -51,7 +51,7 @@ anyway, tick the box, and note "not reproducible" in PROGRESS.md.
 - [ ] **V3 Signed/unsigned semantics:** `>>` arithmetic vs logical by type, `/ %` with negatives and unsigned, comparisons of mixed signedness, `i8..u64` truncation/extension on assign, args, returns, compound ops, `++/--` at type boundaries.
 - [ ] **V4 Type equality / pointer types:** `Type::operator==` on pointers from different arenas; `T**`; pointer-to-struct; pointer comparison; pointer diff scaling.
 - [ ] **V5 Array/struct stores:** `arr[i]=v` and `s.f=v` use 8-byte stores unconditionally — find any program where that corrupts neighbors (typed element/field once V-phase types exist); document and add tests.
-- [ ] **V6 Allocator:** allocations >2048 B leak on free; double-free/invalid-free behavior; alignment (16 B); zero-size; reuse after free; stress with random sizes (native C test + Cyan test). Implement mmap-backed large blocks and heap growth (`brk`/`mmap`) with real coalescing. Done when stress test cycles 1 GiB of alloc/free without growth.
+- [ ] **V6 Allocator:** allocations >2048 B leak on free; double-free/invalid-free behavior; alignment (16 B — T4e found payloads are only 8-byte aligned despite the `aligned(16)` comment); zero-size; reuse after free; stress with random sizes (native C test + Cyan test). Implement mmap-backed large blocks and heap growth (`brk`/`mmap`) with real coalescing. Done when stress test cycles 1 GiB of alloc/free without growth.
 - [ ] **V7 I/O:** `read()` EOF indistinguishable from 0 → add a way to detect EOF (e.g. `read_eof()` or return convention per D-decision; record in DECISIONS.md); `read(buf)` overflow safety (bound by buffer size); partial writes in `print`.
 - [ ] **V8 `#line` caret context** wrong source line in diagnostics for included files; test with include + error inside the include.
 - [ ] **V9 Scoping & shadowing, static/global init order, switch fall-through with declarations, `break` inside `switch` inside loop** — add tests for every combination found missing.
