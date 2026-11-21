@@ -1,0 +1,31 @@
+// EXPECT-EXIT: 0
+
+// V5: 8-byte array/struct stores must not corrupt neighbours. Today all
+// elements and fields are i64, so this is the correct width; typed narrower
+// elements/fields land with Phase 3 Y2/Y3.
+
+struct Pair { var a; var b; };
+
+function main() {
+    var arr[4];
+    arr[0] = 11;
+    arr[1] = 22;
+    arr[2] = 33;
+    arr[3] = 44;
+    if (arr[0] != 11) { return(1); }
+    if (arr[1] != 22) { return(2); }
+    if (arr[2] != 33) { return(3); }
+    if (arr[3] != 44) { return(4); }
+
+    var p: Pair;
+    p.a = 100;
+    p.b = 200;
+    if (p.a != 100) { return(5); }
+    if (p.b != 200) { return(6); }
+
+    p.a += 5;
+    if (p.a != 105) { return(7); }
+    if (p.b != 200) { return(8); }
+
+    return(0);
+}
