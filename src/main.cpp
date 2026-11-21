@@ -5,7 +5,10 @@
 #include <optional>
 #include <vector>
 #include <cstring>
+#include <cerrno>
+#include <filesystem>
 #include <unistd.h>
+#include <sys/wait.h>
 #include <climits>
 
 #include "arena.hpp"
@@ -20,11 +23,41 @@
 // Temp directory to clean up on exit (set after mkdtemp succeeds)
 static std::string g_tmp_dir;
 
-static void cleanup_temp_dir() {
-    if (!g_tmp_dir.empty()) {
-        system(("rm -rf " + g_tmp_dir).c_str());
-        g_tmp_dir.clear();
+// Run a child process with an argv array — no shell, so paths containing
+// spaces, semicolons or other shell metacharacters are passed literally.
+// Returns the child's exit code, or -1 if it could not be started.
+static int run_child(const std::vector<std::string>& args) {
+    std::vector<char*> argv;
+    argv.reserve(args.size() + 1);
+    for (const auto& arg : args) argv.push_back(const_cast<char*>(arg.c_str()));
+    argv.push_back(nullptr);
+
+    pid_t pid = fork();
+    if (pid < 0) return -1;
+    if (pid == 0) {
+        execvp(argv[0], argv.data());
+        std::cerr << "error: failed to execute " << argv[0] << std::endl;
+        _exit(127);
     }
+    int status = 0;
+    while (waitpid(pid, &status, 0) < 0) {
+        if (errno != EINTR) return -1;
+    }
+    if (WIFEXITED(status)) return WEXITSTATUS(status);
+    if (WIFSIGNALED(status)) return 128 + WTERMSIG(status);
+    return -1;
+}
+
+static void cleanup_temp_dir() {
+    if (g_tmp_dir.empty()) return;
+    // The temp directory contains only these three known files.
+    for (const char* name : {"out.asm", "out.o", "out"}) {
+        std::error_code ec;
+        std::filesystem::remove(g_tmp_dir + "/" + name, ec);
+    }
+    std::error_code ec;
+    std::filesystem::remove(g_tmp_dir, ec);
+    g_tmp_dir.clear();
 }
 
 int main(int argc, char* argv[]) {
@@ -166,7 +199,8 @@ int main(int argc, char* argv[]) {
     // Select backend and target info
     Backend* backend = nullptr;
     TargetRegisterInfo* tri = nullptr;
-    std::string asm_cmd, link_cmd, rt_dir;
+    std::vector<std::string> asm_argv, link_argv;
+    std::string rt_dir;
     std::string asm_file, obj_file, exe_file;
 
     if (emit_asm_only) {
@@ -191,16 +225,17 @@ int main(int argc, char* argv[]) {
         tri = new TargetRegisterInfo(TargetRegisterInfo::x86_64_systemv());
         rt_dir = resolve_rt_dir();
         if (!emit_asm_only) {
-            asm_cmd = "nasm -felf64 " + asm_file + " -o " + obj_file;
-            link_cmd = "ld -o " + exe_file + " " + obj_file + " " + rt_dir + "/sodium-rt.a";
+            asm_argv = {"nasm", "-felf64", asm_file, "-o", obj_file};
+            link_argv = {"ld", "-o", exe_file, obj_file, rt_dir + "/sodium-rt.a"};
         }
     } else if (target == "riscv64") {
         backend = new RISCV64Backend();
         tri = new TargetRegisterInfo(TargetRegisterInfo::riscv64_lp64());
         rt_dir = resolve_rt_dir();
         if (!emit_asm_only) {
-            asm_cmd = "riscv64-elf-as -march=rv64gc -mno-relax -o " + obj_file + " " + asm_file;
-            link_cmd = "riscv64-elf-gcc -nostdlib -static -Wl,--no-relax -o " + exe_file + " " + obj_file + " " + rt_dir + "/sodium-rt.a";
+            asm_argv = {"riscv64-elf-as", "-march=rv64gc", "-mno-relax", "-o", obj_file, asm_file};
+            link_argv = {"riscv64-elf-gcc", "-nostdlib", "-static", "-Wl,--no-relax",
+                         "-o", exe_file, obj_file, rt_dir + "/sodium-rt.a"};
         }
     } else {
         std::cerr << "Unsupported target: " << target << " (use x86_64 or riscv64)" << std::endl;
@@ -305,7 +340,12 @@ int main(int argc, char* argv[]) {
         if (emit_asm_only) {
             auto out_dir = get_dir(asm_file);
             if (out_dir != ".") {
-                system(("mkdir -p " + out_dir).c_str());
+                std::error_code ec;
+                std::filesystem::create_directories(out_dir, ec);
+                if (ec) {
+                    std::cerr << "error: cannot create output directory " << out_dir << std::endl;
+                    exit(EXIT_FAILURE);
+                }
             }
         }
         std::fstream file(asm_file, std::ios::out);
@@ -321,7 +361,7 @@ int main(int argc, char* argv[]) {
 
     // Assemble
     {
-        int ret = system(asm_cmd.c_str());
+        int ret = run_child(asm_argv);
         if (ret != 0) {
             std::cerr << "assembly failed (exit code " << ret << ")" << std::endl;
             exit(EXIT_FAILURE);
@@ -330,7 +370,7 @@ int main(int argc, char* argv[]) {
 
     // Link
     {
-        int ret = system(link_cmd.c_str());
+        int ret = run_child(link_argv);
         if (ret != 0) {
             std::cerr << "linking failed (exit code " << ret << ")" << std::endl;
             exit(EXIT_FAILURE);
@@ -339,13 +379,19 @@ int main(int argc, char* argv[]) {
 
     // Copy the final binary to the output path
     {
-        // Ensure parent directory exists
         auto out_dir = get_dir(output_path);
         if (out_dir != ".") {
-            system(("mkdir -p " + out_dir).c_str());
+            std::error_code ec;
+            std::filesystem::create_directories(out_dir, ec);
+            if (ec) {
+                std::cerr << "error: cannot create output directory " << out_dir << std::endl;
+                exit(EXIT_FAILURE);
+            }
         }
-        int ret = system(("cp " + exe_file + " " + output_path).c_str());
-        if (ret != 0) {
+        std::error_code ec;
+        std::filesystem::copy_file(exe_file, output_path,
+                                   std::filesystem::copy_options::overwrite_existing, ec);
+        if (ec) {
             std::cerr << "error: failed to write output binary to " << output_path << std::endl;
             exit(EXIT_FAILURE);
         }
