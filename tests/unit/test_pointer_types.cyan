@@ -1,0 +1,29 @@
+// EXPECT-EXIT: 0
+
+// V4: double pointers, pointer equality and element-scaled pointer difference.
+// Pointer-to-struct field access (-> / (*p).f) arrives in Phase 3 (Y7).
+
+function main() {
+    var value = 42;
+    var p = &value;
+    var pp = &p;
+    if ((**pp) != 42) { return(1); }
+
+    var other = 7;
+    var q = &other;
+    if (p == q) { return(2); }
+    if (p != p) { return(3); }
+    if (!(p == p)) { return(4); }
+
+    var x: i32 = 10;
+    var px = &x;
+    var px2 = px + 2;
+    if ((px2 - px) != 2) { return(5); }
+
+    var y: u8 = 7;
+    var py = &y;
+    var py3 = py + 3;
+    if ((py3 - py) != 3) { return(6); }
+
+    return(0);
+}
