@@ -1,0 +1,17 @@
+// STDIN: 5
+// EXPECT-EXIT: 0
+
+// V7: read() returns 0 both for a real zero and for EOF; read_eof() tells them apart.
+
+function main() {
+    var a = read();
+    var e1 = read_eof();
+    if (a != 5) { return(1); }
+    if (e1 != 0) { return(2); }
+
+    var b = read();       // no more input -> 0
+    var e2 = read_eof();
+    if (b != 0) { return(3); }
+    if (e2 != 1) { return(4); }
+    return(0);
+}

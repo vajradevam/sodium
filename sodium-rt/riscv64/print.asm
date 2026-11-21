@@ -66,13 +66,18 @@ _sodium_print_raw_int:
     addi t1, t1, -1
 
 4:  addi t1, t1, 1      # t1 = start of string
-    # write(1, t1, t3)
-    li a7, 64
-    li a0, 1
+    # write(1, t1, t3) — loop until every byte is written
     mv a1, t1
     mv a2, t3
+5:  beqz a2, 6f
+    li a7, 64
+    li a0, 1
     ecall
-    ret
+    blez a0, 6f
+    add a1, a1, a0
+    sub a2, a2, a0
+    j 5b
+6:  ret
 
 # ── _sodium_print_str: print null-terminated string + newline (legacy) ─────
 .globl _sodium_print_str
@@ -101,13 +106,18 @@ _sodium_print_raw_str:
     addi t1, t1, 1
     j 1b
 2:  sub t2, t1, t0      # t2 = strlen
-    # write(1, t0, t2)
-    li a7, 64
-    li a0, 1
+    # write(1, t0, t2) — loop until every byte is written
     mv a1, t0
     mv a2, t2
+3:  beqz a2, 4f
+    li a7, 64
+    li a0, 1
     ecall
-    ret
+    blez a0, 4f
+    add a1, a1, a0
+    sub a2, a2, a0
+    j 3b
+4:  ret
 
 # ── _sodium_print_nl: print just a newline ────────────────────────────────
 .globl _sodium_print_nl

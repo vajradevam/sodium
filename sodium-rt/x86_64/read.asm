@@ -9,6 +9,7 @@ section .bss
 global __sodium_read_buf
 global __sodium_read_buf_len
 global __sodium_read_buf_pos
+global __sodium_read_eof
 
 __sodium_read_buf:
     resb 256               ; shared input buffer (256 bytes)
@@ -16,6 +17,8 @@ __sodium_read_buf_len:
     resq 1                 ; total bytes in buffer from last syscall
 __sodium_read_buf_pos:
     resq 1                 ; current read position within buffer
+__sodium_read_eof:
+    resq 1                 ; 1 if the most recent read hit EOF, else 0
 
 section .text
 global _sodium_read_int
@@ -41,12 +44,19 @@ _sodium_read_int:
     mov rax, 0              ; SYS_read
     syscall
     test rax, rax
-    jle .done               ; EOF or error → return what we have
+    jle .eof                ; EOF or error → return what we have
 
+    mov qword [rel __sodium_read_eof], 0
     mov [rel __sodium_read_buf_len], rax
     mov qword [rel __sodium_read_buf_pos], 0
+    jmp .have_data
+
+.eof:
+    mov qword [rel __sodium_read_eof], 1
+    jmp .done
 
 .have_data:
+    mov qword [rel __sodium_read_eof], 0
     ; Load byte at current position
     mov rax, [rel __sodium_read_buf_pos]
     lea r12, [rel __sodium_read_buf]
@@ -111,4 +121,10 @@ _sodium_read_int:
     mov rax, r8
     pop r12
     pop rbx
+    ret
+
+; int64_t _sodium_read_eof(void)
+global _sodium_read_eof
+_sodium_read_eof:
+    mov rax, [rel __sodium_read_eof]
     ret

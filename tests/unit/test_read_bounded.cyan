@@ -1,0 +1,12 @@
+// STDIN: AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+// EXPECT-EXIT: 0
+
+// V7: read(buf) must bound writes by the buffer capacity (4 elements x 8 bytes).
+
+function main() {
+    var buf[4];
+    var n = read(buf);
+    if (n < 0) { return(1); }
+    if (n > 31) { return(2); }
+    return(0);
+}

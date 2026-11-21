@@ -42,15 +42,27 @@ _sodium_read_str:
     la a1, __sodium_read_buf
     li a2, 255
     ecall
-    blez a0, .Ldone        # EOF or error
+    blez a0, .Leof         # EOF or error
 
+    li t5, 0
+    la t6, __sodium_read_eof
+    sd t5, 0(t6)
     # Store new len and reset pos
     la t5, __sodium_read_buf_len
     sd a0, 0(t5)
     la t3, __sodium_read_buf_pos
     sd zero, 0(t3)         # pos = 0
+    j .Lhave_data
+
+.Leof:
+    li t5, 1
+    la t6, __sodium_read_eof
+    sd t5, 0(t6)
+    j .Ldone
 
 .Lhave_data:
+    la t6, __sodium_read_eof
+    sd zero, 0(t6)      # data available: not EOF
     # Load byte at current position (don't advance yet)
     la t3, __sodium_read_buf_pos
     ld t4, 0(t3)           # t4 = pos

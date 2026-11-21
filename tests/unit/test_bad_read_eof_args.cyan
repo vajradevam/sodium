@@ -1,0 +1,6 @@
+// EXPECT-ERROR: read_eof() takes no arguments
+
+function main() {
+    read_eof(1);
+    return 0;
+}

@@ -133,7 +133,12 @@ void Generator::gen_expr(const NodeExpr& expr)
                                 lsp_exit((*ident)->ident.loc,
                                     "read() requires an array variable, but '" + name + "' is a scalar");
                             }
-                            uint32_t addr = gen->m_ir.frame_addr(static_cast<int64_t>(var.stack_loc));
+                            // Local arrays grow downward from stack_loc: index 0
+                            // is the highest slot. read_str writes forward from
+                            // the pointer, so start at the lowest slot.
+                            int64_t bottom_byte = static_cast<int64_t>(var.stack_loc)
+                                + (static_cast<int64_t>(var.array_size) - 1) * 8;
+                            uint32_t addr = gen->m_ir.frame_addr(bottom_byte);
                             int64_t byte_size = static_cast<int64_t>(var.array_size) * 8;
                             uint32_t result = gen->m_ir.call("_sodium_read_str",
                                 {IRValue::vreg(addr), IRValue::imm_i64(byte_size)});
@@ -360,6 +365,16 @@ void Generator::gen_expr(const NodeExpr& expr)
                 }
                 uint32_t ptr = gen->pop_vreg();
                 gen->m_ir.call("_sodium_free", {IRValue::vreg(ptr)});
+                return;
+            }
+            if (fname == "read_eof") {
+                // read_eof() — 1 if the most recent read() hit EOF, else 0.
+                if (!expr_call->args.empty()) {
+                    lsp_exit(expr_call->name.loc, "read_eof() takes no arguments");
+                }
+                uint32_t v = gen->m_ir.call("_sodium_read_eof", {});
+                gen->push_vreg(v);
+                gen->m_tstack.back() = Type::make_int(IntType::i64);
                 return;
             }
             if (fname == "argc") {
