@@ -27,7 +27,29 @@ public:
 
     /// Rewrite the function in-place.
     void rewrite() {
-        replace_virtual_regs();
+        // Spill slots live BELOW the locals frame. Reserve room for them now
+        // so they cannot collide with local variables or array slots.
+        m_frame_base = static_cast<int>(m_func.stack_slots);
+        const int spill_bytes = static_cast<int>(m_alloc.total_stack_slots) * 8;
+        m_func.stack_slots = static_cast<uint32_t>(
+            (m_frame_base + spill_bytes + 15) & ~15);
+
+        // How many callee-save registers will be pushed at entry? The rewriter
+        // inserts those pushes after this pass, but call-site alignment needs
+        // the count now.
+        const auto cs = m_tri.callee_save_regs();
+        const std::set<int> cs_set(cs.begin(), cs.end());
+        std::set<int> used_cs;
+        for (const auto& [vreg, entry] : m_alloc.entries) {
+            (void)vreg;
+            if (entry.is_physical() && cs_set.count(entry.preg))
+                used_cs.insert(entry.preg);
+        }
+        m_callee_save_count = static_cast<int>(used_cs.size());
+
+        // Replacement and spill insertion must be one pass: doing replacement
+        // first turns vregs into physical register *numbers*, which can equal
+        // spilled vreg IDs and confuse a second lookup.
         insert_spill_code();
         insert_callee_save_code();
     }
@@ -36,38 +58,13 @@ private:
     const TargetRegisterInfo& m_tri;
     RegisterAllocation& m_alloc;
     IRFunction& m_func;
+    int m_callee_save_count = 0;
+    int m_frame_base = 0;   // byte offset where spill slots begin below fp
 
-    /// Replace all virtual register operands with physical register numbers
-    /// for vregs that got a physical register. Spilled vregs are left as-is
-    /// (insert_spill_code handles them next).
-    void replace_virtual_regs() {
-        for (auto& block : m_func.blocks) {
-            for (auto& insn : block.instructions) {
-                // Destination
-                if (insn.dst != IRInstruction::NONE_VREG) {
-                    auto it = m_alloc.entries.find(insn.dst);
-                    if (it != m_alloc.entries.end() && it->second.is_physical()) {
-                        insn.dst = static_cast<uint32_t>(it->second.preg);
-                    }
-                }
-
-                // Source operands
-                for (auto& op : insn.operands) {
-                    if (op.is_vreg()) {
-                        auto it = m_alloc.entries.find(op.vreg_id);
-                        if (it != m_alloc.entries.end() && it->second.is_physical()) {
-                            op.vreg_id = static_cast<uint32_t>(it->second.preg);
-                        }
-                    }
-                }
-            }
-        }
-    }
-
-    /// Compute the fp-relative offset for a given spill slot.
-    /// Slot 0 → offset -8, slot 1 → offset -16, etc.
+    /// Compute the fp-relative offset for a given spill slot. Slots start
+    /// below the locals frame so they never overlap local variables.
     int spill_offset(int slot) const {
-        return -(slot + 1) * 8;
+        return -(m_frame_base + (slot + 1) * 8);
     }
 
     /// Insert spill code for vregs that were spilled to stack slots.
@@ -91,17 +88,77 @@ private:
         for (auto& block : m_func.blocks) {
             std::vector<IRInstruction> new_insns;
             for (auto& insn : block.instructions) {
-                bool dst_spilled = (insn.dst != IRInstruction::NONE_VREG)
-                    && m_alloc.is_spilled(insn.dst);
+                // Stack-passed CALL arguments are pushed here, one at a time,
+                // so a spilled argument is loaded and immediately consumed.
+                // Loading them all into one scratch register first would let
+                // later loads overwrite earlier argument values.
+                if (insn.op == IROpcode::CALL) {
+                    const size_t n_arg_regs = m_tri.arg_regs.size();
+                    const int stack_args =
+                        static_cast<int>(insn.operands.size() - n_arg_regs);
+                    if (stack_args > 0) {
+                        // Padding (if any) is pushed FIRST so it sits above
+                        // the stack arguments in memory and does not shift
+                        // their [fp + offset] locations.
+                        int pad = ((m_callee_save_count + stack_args) & 1) ? 1 : 0;
+                        if (pad) {
+                            IRInstruction dummy;
+                            dummy.op = IROpcode::PUSH;
+                            dummy.operands.push_back(IRValue::vreg(static_cast<uint32_t>(scratch)));
+                            new_insns.push_back(dummy);
+                        }
+                        for (size_t i = insn.operands.size(); i-- > n_arg_regs;) {
+                            auto& op = insn.operands[i];
+                            if (op.is_vreg()) {
+                                auto it = m_alloc.entries.find(op.vreg_id);
+                                if (it != m_alloc.entries.end() && it->second.is_spilled()) {
+                                    IRInstruction push_frame;
+                                    push_frame.op = IROpcode::PUSH_FRAME;
+                                    push_frame.imm_arg = spill_offset(it->second.spill_slot);
+                                    new_insns.push_back(push_frame);
+                                    continue;
+                                }
+                                if (it != m_alloc.entries.end() && it->second.is_physical()) {
+                                    op.vreg_id = static_cast<uint32_t>(it->second.preg);
+                                }
+                            }
+                            IRInstruction push;
+                            push.op = IROpcode::PUSH;
+                            push.operands.push_back(op);
+                            new_insns.push_back(push);
+                        }
+                        // Keep SP 16-byte aligned at the call: the prologue
+                        // leaves it aligned and every push toggles parity.
+                        insn.imm_arg = (stack_args + pad) * 8;
+                        insn.operands.resize(n_arg_regs);
+                    }
+                }
+
                 uint32_t orig_dst = insn.dst;
+                bool dst_spilled = false;
+                if (insn.dst != IRInstruction::NONE_VREG) {
+                    auto it = m_alloc.entries.find(insn.dst);
+                    if (it != m_alloc.entries.end()) {
+                        if (it->second.is_physical()) {
+                            insn.dst = static_cast<uint32_t>(it->second.preg);
+                        } else if (it->second.is_spilled()) {
+                            dst_spilled = true;
+                            insn.dst = static_cast<uint32_t>(scratch);
+                        }
+                    }
+                }
 
                 // --- Emit loads for spilled source operands ---
                 int spilled_src_count = 0;
                 for (auto& op : insn.operands) {
                     if (!op.is_vreg()) continue;
                     auto it = m_alloc.entries.find(op.vreg_id);
-                    if (it == m_alloc.entries.end() || !it->second.is_spilled())
+                    if (it == m_alloc.entries.end()) continue;
+                    if (it->second.is_physical()) {
+                        op.vreg_id = static_cast<uint32_t>(it->second.preg);
                         continue;
+                    }
+                    if (!it->second.is_spilled()) continue;
 
                     int slot = it->second.spill_slot;
                     int offset = spill_offset(slot);
@@ -135,9 +192,7 @@ private:
 
                 // --- Handle spilled destination ---
                 if (dst_spilled) {
-                    // Set destination to scratch register
-                    insn.dst = static_cast<uint32_t>(scratch);
-
+                    // Destination was already switched to scratch above.
                     // Also fix up any source operand that happens to be the
                     // same spilled vreg — it was already loaded into scratch
                     // above (or would be, but the spilled-source check above

@@ -61,6 +61,7 @@ const char* ir_opcode_name(IROpcode op) {
         case IROpcode::RET_VOID:    return "ret_void";
         case IROpcode::SYSCALL:     return "syscall";
         case IROpcode::PUSH:        return "push";
+        case IROpcode::PUSH_FRAME:  return "push_frame";
         case IROpcode::POP:         return "pop";
     }
     return "???";
@@ -162,6 +163,10 @@ std::string IRInstruction::to_string() const {
             ss << " " << imm_arg;
             break;
 
+        case IROpcode::PUSH_FRAME:
+            ss << " " << imm_arg;
+            break;
+
         case IROpcode::PUSH:
         case IROpcode::POP:
             if (!operands.empty()) {
@@ -224,6 +229,7 @@ size_t IRInstruction::operand_count() const {
             return 0;
         case IROpcode::COPY:
         case IROpcode::PUSH:
+        case IROpcode::PUSH_FRAME:
         case IROpcode::POP:
         case IROpcode::NEG:
         case IROpcode::NOT_:

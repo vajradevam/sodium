@@ -47,6 +47,12 @@ void X8664Backend::emit_cqo() {
 
 // ---- stack ----
 
+void X8664Backend::push_frame_offset(int offset) {
+    std::string addr = "[rbp " + std::string(offset < 0 ? "- " : "+ ")
+                     + std::to_string(offset < 0 ? -offset : offset) + "]";
+    emit_insn("push", "qword " + addr);
+}
+
 void X8664Backend::push(const std::string& reg) {
     emit_insn("push", reg);
 }

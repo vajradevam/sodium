@@ -1,0 +1,27 @@
+// EXPECT-EXIT: 0
+
+// V2: 20+ live values across calls and in loops. Spill slots must not
+// collide with locals, parameters or each other.
+
+function sum20(a, b, c, d, e, f, g, h, i, j,
+               k, l, m, n, o, p, q, r, s, t) {
+    var total = 0;
+    total = total + a + b + c + d + e + f + g + h + i + j;
+    total = total + k + l + m + n + o + p + q + r + s + t;
+    return(total);
+}
+
+function main() {
+    var direct = sum20(1, 2, 3, 4, 5, 6, 7, 8, 9, 10,
+                       11, 12, 13, 14, 15, 16, 17, 18, 19, 20);
+    if (direct != 210) { return(1); }
+
+    var acc = 0;
+    for (var i = 0; i < 3; i = i + 1) {
+        acc = acc + sum20(1, 2, 3, 4, 5, 6, 7, 8, 9, 10,
+                          11, 12, 13, 14, 15, 16, 17, 18, 19, 20);
+    }
+    if (acc != 630) { return(2); }
+
+    return(0);
+}

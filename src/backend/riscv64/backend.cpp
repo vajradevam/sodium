@@ -54,6 +54,13 @@ static bool is_imm_str(const std::string& s) {
 // ---- stack ----
 // RISC-V has no push/pop; implement via sd/ld + addi
 
+void RISCV64Backend::push_frame_offset(int offset) {
+    std::string tmp = "t0";
+    emit_insn("ld", tmp + ", " + std::to_string(offset) + "(s0)");
+    emit_insn("addi", "sp, sp, -8");
+    emit_insn("sd", tmp + ", 0(sp)");
+}
+
 void RISCV64Backend::push(const std::string& reg) {
     emit_insn("addi", "sp, sp, -8");
     emit_insn("sd", reg + ", 0(sp)");

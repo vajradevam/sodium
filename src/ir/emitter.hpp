@@ -6,6 +6,7 @@
 #include "target_regs.hpp"
 #include "../backend/interface.hpp"
 #include <cstdint>
+#include <algorithm>
 #include <cassert>
 #include <string>
 #include <sstream>
@@ -24,14 +25,6 @@ public:
     /// Emit a complete function.
     void emit_function(const IRFunction& func) {
         m_func_name = func.name;
-        // Callee-save PUSHes are inserted in the entry block and POPs only
-        // before returns, so every call sees all of them active.
-        m_stack_push_words = 0;
-        for (const auto& block : func.blocks) {
-            for (const auto& insn : block.instructions) {
-                if (insn.op == IROpcode::PUSH) ++m_stack_push_words;
-            }
-        }
 
         // Function label
         m_backend.label(func.name);
@@ -135,20 +128,34 @@ public:
                 // The backend's truncate/extend methods handle this
                 break;
 
-            case IROpcode::ADD:
-                m_backend.mov(preg_name(insn.dst), operand_name(insn, 0));
-                m_backend.add(preg_name(insn.dst), operand_name(insn, 1));
+            case IROpcode::ADD: {
+                std::string dst = preg_name(insn.dst);
+                std::string a = operand_name(insn, 0);
+                std::string b = operand_name(insn, 1);
+                if (dst == b) std::swap(a, b); // dst aliases op1: swap (commutative)
+                m_backend.mov(dst, a);
+                m_backend.add(dst, b);
                 break;
+            }
 
-            case IROpcode::SUB:
-                m_backend.mov(preg_name(insn.dst), operand_name(insn, 0));
-                m_backend.sub(preg_name(insn.dst), operand_name(insn, 1));
+            case IROpcode::SUB: {
+                std::string dst = preg_name(insn.dst);
+                std::string a = operand_name(insn, 0);
+                std::string b = operand_name(insn, 1);
+                m_backend.mov(dst, a);
+                m_backend.sub(dst, b);
                 break;
+            }
 
-            case IROpcode::MUL:
-                m_backend.mov(preg_name(insn.dst), operand_name(insn, 0));
-                m_backend.mul(preg_name(insn.dst), operand_name(insn, 1));
+            case IROpcode::MUL: {
+                std::string dst = preg_name(insn.dst);
+                std::string a = operand_name(insn, 0);
+                std::string b = operand_name(insn, 1);
+                if (dst == b) std::swap(a, b);
+                m_backend.mov(dst, a);
+                m_backend.mul(dst, b);
                 break;
+            }
 
             case IROpcode::DIV:
                 // Use backend's signed_div which handles target-specific
@@ -298,37 +305,14 @@ public:
             }
 
             case IROpcode::CALL: {
-                // Target-agnostic register-based calling convention:
-                // args go in argument registers (per target ABI);
-                // overflow args (> n_arg_regs) are pushed on the stack.
+                // The rewriter has already emitted stack-argument pushes
+                // (including any alignment padding) immediately before this
+                // instruction and recorded their byte count in imm_arg.
+                // Only register arguments remain in operands.
                 size_t nargs = insn.operands.size();
                 size_t n_arg_regs = m_tri.arg_regs.size();
 
-                // CRITICAL: Save overflow args to the stack FIRST.
-                // The register setup below might clobber registers that
-                // hold values for overflow args (since the register
-                // allocator assigns vregs to physical regs without
-                // considering calling-convention constraints).
-                //
-                // Push right-to-left so the first stack argument ends up
-                // at the lowest address (closest to the return address),
-                // matching the LOAD_PARAM offset formula:
-                //   load_param(idx) = [fp + 16 + (idx - n_arg_regs) * 8]
-                const int stack_args = (nargs > n_arg_regs)
-                    ? static_cast<int>(nargs - n_arg_regs) : 0;
-                // Keep SP 16-byte aligned at the call: the prologue leaves it
-                // aligned, each callee-save PUSH toggles it, and each argument
-                // push toggles it again. One dummy word restores the parity.
-                const int pad = ((stack_args & 1) != (m_stack_push_words & 1)) ? 1 : 0;
-                if (pad) {
-                    m_backend.push(m_tri.name_of(m_tri.ret_reg));
-                }
-                for (int i = stack_args - 1; i >= 0; --i) {
-                    m_backend.push(operand_name(insn,
-                        static_cast<size_t>(n_arg_regs + static_cast<size_t>(i))));
-                }
-
-                // Now set up register arguments IN REVERSE ORDER
+                // Set up register arguments IN REVERSE ORDER
                 // (highest-indexed arg first). This avoids clobbering:
                 // a later arg register might be used as temporary storage
                 // for an earlier arg value, and moving higher-indexed
@@ -342,8 +326,8 @@ public:
 
                 m_backend.call(insn.call_target);
 
-                if (stack_args + pad != 0) {
-                    m_backend.adjust_stack(static_cast<int64_t>(stack_args + pad) * 8);
+                if (insn.imm_arg != 0) {
+                    m_backend.adjust_stack(static_cast<int64_t>(insn.imm_arg));
                 }
 
                 if (insn.dst != IRInstruction::NONE_VREG) {
@@ -401,6 +385,10 @@ public:
                 m_backend.push(operand_name(insn, 0));
                 break;
 
+            case IROpcode::PUSH_FRAME:
+                m_backend.push_frame_offset(static_cast<int>(insn.imm_arg));
+                break;
+
             case IROpcode::POP:
                 m_backend.pop(operand_name(insn, 0));
                 break;
@@ -442,11 +430,6 @@ private:
     Backend& m_backend;
     const TargetRegisterInfo& m_tri;
     std::string m_func_name;
-
-    // Net number of callee-save PUSH IR instructions seen in this function.
-    // The prologue leaves SP 16-byte aligned; each push toggles it, so this
-    // parity is needed to keep stacks aligned at call sites.
-    int m_stack_push_words = 0;
 
     std::string mangle_label(const std::string& label) const {
         if (label.empty()) return label;

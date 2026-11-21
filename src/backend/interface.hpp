@@ -33,6 +33,9 @@ public:
     /// Push register value onto stack.
     virtual void push(const std::string& reg) = 0;
 
+    /// Push the 8-byte value at [frame pointer + offset] onto the stack.
+    virtual void push_frame_offset(int offset) = 0;
+
     /// Pop register value from stack.
     virtual void pop(const std::string& reg) = 0;
 
