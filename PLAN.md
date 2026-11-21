@@ -17,7 +17,7 @@ anyway, tick the box, and note "not reproducible" in PROGRESS.md.
   is green with ≥318 run-equivalents.
 - [x] **T0c Harness self-check (split from T0).** Add a `--self-test` mode proving a deliberately wrong expectation
   fails. Verify both targets/counts and record results in PROGRESS.md.
-- [ ] **V12 riscv64 `print(0)` emits NUL byte (discovered during T0).** `print(0)` outputs byte `0x00` instead of `'0'`
+- [x] **V12 riscv64 `print(0)` emits NUL byte (discovered during T0).** `print(0)` outputs byte `0x00` instead of `'0'`
   on riscv64 (x86_64 correct); `test_print.cyan` and `test_print_all.cyan` cannot carry `EXPECT-STDOUT` until fixed.
   Reproduce with a focused test, fix the riscv64 int→string path, then enable stdout checks on both tests.
 - [x] **T1 Strict build.** Add `-Wall -Wextra -Wshadow -Wconversion`-class warnings (choose the strictest set that you

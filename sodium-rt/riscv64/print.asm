@@ -37,6 +37,7 @@ _sodium_print_raw_int:
     bnez t0, 1f
     li t2, '0'
     sb t2, 0(t1)
+    addi t1, t1, -1     # label 4 advances t1; keep it pointing at this digit
     li t3, 1            # digit count = 1
     j 4f
 

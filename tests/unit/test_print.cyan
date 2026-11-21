@@ -1,4 +1,8 @@
 // EXPECT-EXIT: 0
+// EXPECT-STDOUT: 0
+// EXPECT-STDOUT: 42
+// EXPECT-STDOUT: -7
+// EXPECT-STDOUT: 12345
 
 
 function main() {
