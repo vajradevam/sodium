@@ -141,6 +141,9 @@ public:
     {
     }
 
+    /// Diagnostics collected while tokenizing. Owned by this tokenizer.
+    const DiagnosticEngine& diagnostics() const { return m_diag; }
+
     std::vector<Token> tokenize();
 
 private:
@@ -165,4 +168,5 @@ private:
     size_t m_line = 1;
     size_t m_col = 1;
     bool m_at_line_start = true;
+    DiagnosticEngine m_diag;
 };

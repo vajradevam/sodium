@@ -137,11 +137,9 @@ void Tokenizer::handle_line_directive() {
             m_at_line_start = true;
             // Report the error
             SourceLoc loc = current_loc();
-            if (g_lsp_mode) {
-                g_lsp_errors.push_back({loc, err_msg});
-                throw LSPAbort();
-            }
-            std::cerr << format_err(loc, err_msg) << std::endl;
+            m_diag.error(loc, err_msg);
+            if (g_lsp_mode) throw LSPAbort();
+            std::cerr << DiagnosticEngine::render(m_diag.diagnostics().back());
             exit(EXIT_FAILURE);
         } else {
             // Unknown directive, skip rest of line
@@ -378,13 +376,9 @@ std::vector<Token> Tokenizer::tokenize() {
                 // Must have at least one hex digit
                 if (!peek().has_value() ||
                     !std::isxdigit(static_cast<unsigned char>(peek().value()))) {
-                    if (g_lsp_mode) {
-                        g_lsp_errors.push_back({current_loc(),
-                            "Expected hexadecimal digit after '0x'"});
-                        throw LSPAbort();
-                    }
-                    std::cerr << format_err(current_loc(),
-                        "Expected hexadecimal digit after '0x'") << std::endl;
+                    m_diag.error(current_loc(), "Expected hexadecimal digit after '0x'");
+                    if (g_lsp_mode) throw LSPAbort();
+                    std::cerr << DiagnosticEngine::render(m_diag.diagnostics().back());
                     exit(EXIT_FAILURE);
                 }
                 // Collect hex digits
@@ -684,11 +678,9 @@ std::vector<Token> Tokenizer::tokenize() {
         }
         
         else {
-            if (g_lsp_mode) {
-                g_lsp_errors.push_back({current_loc(), "Unexpected character: '" + std::string(1, peek().value()) + "'"});
-                throw LSPAbort();
-            }
-            std::cerr << format_err(current_loc(), "Unexpected character: '" + std::string(1, peek().value()) + "'") << std::endl;
+            m_diag.error(current_loc(), "Unexpected character: '" + std::string(1, peek().value()) + "'");
+            if (g_lsp_mode) throw LSPAbort();
+            std::cerr << DiagnosticEngine::render(m_diag.diagnostics().back());
             exit(EXIT_FAILURE);
         }
     }

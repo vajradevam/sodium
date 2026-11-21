@@ -15,11 +15,9 @@ Token Parser::consume() {
 
 void Parser::error(const std::string& msg) {
     SourceLoc loc = peek().has_value() ? peek().value().loc : SourceLoc{};
-    if (g_lsp_mode) {
-        g_lsp_errors.push_back({loc, msg});
-        throw LSPAbort();
-    }
-    std::cerr << format_err(loc, msg) << std::endl;
+    m_diag.error(loc, msg);
+    if (g_lsp_mode) throw LSPAbort();
+    std::cerr << DiagnosticEngine::render(m_diag.diagnostics().back());
     print_code_context(loc);
     exit(EXIT_FAILURE);
 }
@@ -387,7 +385,7 @@ std::optional<NodeExpr*> Parser::parse_primary_expr()
             if (auto inner = parse_primary_expr()) {
                 deref->expr = inner.value();
             } else {
-                if (g_lsp_mode) { g_lsp_errors.push_back({deref->star.loc, "Expected expression after '*'"}); throw LSPAbort(); }
+                if (g_lsp_mode) { m_diag.error(deref->star.loc, "Expected expression after '*'"); throw LSPAbort(); }
                 lsp_exit(deref->star.loc, "Expected expression after '*'");
             }
             auto expr = m_allocator.alloc<NodeExpr>();
@@ -402,7 +400,7 @@ std::optional<NodeExpr*> Parser::parse_primary_expr()
             if (auto inner = parse_primary_expr()) {
                 addr->expr = inner.value();
             } else {
-                if (g_lsp_mode) { g_lsp_errors.push_back({addr->ampersand.loc, "Expected expression after '&'"}); throw LSPAbort(); }
+                if (g_lsp_mode) { m_diag.error(addr->ampersand.loc, "Expected expression after '&'"); throw LSPAbort(); }
                 lsp_exit(addr->ampersand.loc, "Expected expression after '&'");
             }
             auto expr = m_allocator.alloc<NodeExpr>();
@@ -1162,7 +1160,7 @@ std::optional<NodeStmt> Parser::parse_return_stmt()
                 stmt_ret->expr = expr.value();
             } else {
                 if (g_lsp_mode) {
-                    g_lsp_errors.push_back({ret_loc, "Invalid expression in return"});
+                    m_diag.error(ret_loc, "Invalid expression in return");
                     throw LSPAbort();
                 }
                 lsp_exit(ret_loc, "Invalid expression in return");
@@ -1174,7 +1172,7 @@ std::optional<NodeStmt> Parser::parse_return_stmt()
         }
         if (!peek().has_value() || peek().value().type != TokenType::semi) {
             if (g_lsp_mode) {
-                g_lsp_errors.push_back({ret_loc, "Expected ';' after return"});
+                m_diag.error(ret_loc, "Expected ';' after return");
                 throw LSPAbort();
             }
             lsp_exit(ret_loc, "Expected ';' after return");
@@ -1212,14 +1210,14 @@ std::optional<NodeStmt> Parser::parse_stmt() {
                     stmt_arr->size = sz.value();
                 } else {
                     if (g_lsp_mode) {
-                        g_lsp_errors.push_back({arr_loc, "Expected array size"});
+                        m_diag.error(arr_loc, "Expected array size");
                         throw LSPAbort();
                     }
                     lsp_exit(arr_loc, "Expected array size");
                 }
                 if (!peek().has_value() || peek().value().type != TokenType::close_square) {
                     if (g_lsp_mode) {
-                        g_lsp_errors.push_back({arr_loc, "Expected ']'"});
+                        m_diag.error(arr_loc, "Expected ']'");
                         throw LSPAbort();
                     }
                     lsp_exit(arr_loc, "Expected ']'");
@@ -1227,7 +1225,7 @@ std::optional<NodeStmt> Parser::parse_stmt() {
                 consume(); // ]
                 if (!peek().has_value() || peek().value().type != TokenType::semi) {
                     if (g_lsp_mode) {
-                        g_lsp_errors.push_back({arr_loc, "Expected ';'"});
+                        m_diag.error(arr_loc, "Expected ';'");
                         throw LSPAbort();
                     }
                     lsp_exit(arr_loc, "Expected ';'");
@@ -1449,7 +1447,7 @@ std::optional<NodeStmt> Parser::parse_stmt() {
             consume();
             if (!peek().has_value() || peek().value().type != TokenType::semi) {
                 if (g_lsp_mode) {
-                    g_lsp_errors.push_back({brk_loc, "Expected ';' after break"});
+                    m_diag.error(brk_loc, "Expected ';' after break");
                     throw LSPAbort();
                 }
                 lsp_exit(brk_loc, "Expected ';' after break");
@@ -1463,7 +1461,7 @@ std::optional<NodeStmt> Parser::parse_stmt() {
             consume();
             if (!peek().has_value() || peek().value().type != TokenType::semi) {
                 if (g_lsp_mode) {
-                    g_lsp_errors.push_back({cont_loc, "Expected ';' after continue"});
+                    m_diag.error(cont_loc, "Expected ';' after continue");
                     throw LSPAbort();
                 }
                 lsp_exit(cont_loc, "Expected ';' after continue");
@@ -1540,7 +1538,7 @@ std::optional<NodeStmt> Parser::parse_stmt() {
                 bool is_inc = consume().type == TokenType::plusplus;
                 if (!peek().has_value() || peek().value().type != TokenType::semi) {
                     if (g_lsp_mode) {
-                        g_lsp_errors.push_back({ident.loc, "Expected ';' after " + std::string(is_inc ? "i++" : "i--")});
+                        m_diag.error(ident.loc, "Expected ';' after " + std::string(is_inc ? "i++" : "i--"));
                         throw LSPAbort();
                     }
                     lsp_exit(ident.loc, "Expected ';' after " + std::string(is_inc ? "i++" : "i--"));
@@ -1646,13 +1644,13 @@ std::optional<NodeStmt> Parser::parse_stmt() {
             if (auto ptr_expr = parse_primary_expr()) {
                 stmt_deref->ptr_expr = ptr_expr.value();
             } else {
-                if (g_lsp_mode) { g_lsp_errors.push_back({stmt_deref->star.loc, "Expected pointer expression after '*'"}); throw LSPAbort(); }
+                if (g_lsp_mode) { m_diag.error(stmt_deref->star.loc, "Expected pointer expression after '*'"); throw LSPAbort(); }
                 lsp_exit(stmt_deref->star.loc, "Expected pointer expression after '*'");
             }
 
             // Check for assignment operator
             if (!peek().has_value() || !is_assign_op(peek().value().type)) {
-                if (g_lsp_mode) { g_lsp_errors.push_back({stmt_deref->star.loc, "Expected '=' or compound assignment after pointer dereference"}); throw LSPAbort(); }
+                if (g_lsp_mode) { m_diag.error(stmt_deref->star.loc, "Expected '=' or compound assignment after pointer dereference"); throw LSPAbort(); }
                 lsp_exit(stmt_deref->star.loc, "Expected '=' or compound assignment after pointer dereference");
             }
 
@@ -1662,12 +1660,12 @@ std::optional<NodeStmt> Parser::parse_stmt() {
             if (auto expr = parse_expr()) {
                 stmt_deref->expr = expr.value();
             } else {
-                if (g_lsp_mode) { g_lsp_errors.push_back({stmt_deref->star.loc, "Invalid expression in pointer dereference assignment"}); throw LSPAbort(); }
+                if (g_lsp_mode) { m_diag.error(stmt_deref->star.loc, "Invalid expression in pointer dereference assignment"); throw LSPAbort(); }
                 lsp_exit(stmt_deref->star.loc, "Invalid expression in pointer dereference assignment");
             }
 
             if (!peek().has_value() || peek().value().type != TokenType::semi) {
-                if (g_lsp_mode) { g_lsp_errors.push_back({stmt_deref->star.loc, "Expected ';' after pointer dereference assignment"}); throw LSPAbort(); }
+                if (g_lsp_mode) { m_diag.error(stmt_deref->star.loc, "Expected ';' after pointer dereference assignment"); throw LSPAbort(); }
                 lsp_exit(stmt_deref->star.loc, "Expected ';' after pointer dereference assignment");
             }
             consume();

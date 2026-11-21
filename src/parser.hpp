@@ -322,6 +322,9 @@ class Parser {
 public:
     explicit Parser(std::vector<Token> tokens);
 
+    /// Diagnostics collected while parsing. Owned by this parser, not global.
+    const DiagnosticEngine& diagnostics() const { return m_diag; }
+
     std::optional<NodeProg> parse_prog();
 
     std::optional<NodeExpr*> parse_expr();
@@ -371,6 +374,7 @@ private:
     const std::vector<Token> m_tokens;
     size_t m_index = 0;
     ArenaAllocator m_allocator;
+    DiagnosticEngine m_diag;
 
     // Struct type registry: struct name -> field info
     // Populated during parsing so type annotations can be resolved.
