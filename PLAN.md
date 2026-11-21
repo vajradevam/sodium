@@ -27,9 +27,17 @@ anyway, tick the box, and note "not reproducible" in PROGRESS.md.
   from the existing code (don't mass-reformat).
 - [x] **T3 Fuzz/smoke harness.** `scripts/fuzz_smoke.sh`: feed mutated/truncated test files (deterministic seed) to the
   compiler; it must never crash/hang (timeout 5 s) — it may only exit 0 or 1 with a diagnostic. Fix crashes found (one commit each, with a regression test).
-- [ ] **T4 C++ unit tests.** `tests/cpp/` + CMake target `unit_tests` (plain asserts or a vendored single-header
-  framework — no network): tokenizer, preprocessor, parser (AST shape), const-eval, arena, liveness, linear-scan, allocator
-  (`sodium-rt/allocator.c` compiled natively). Wire into `check.sh`. Done when ≥ 60 cases and they run in <10 s.
+- [ ] **T4a Unit-test scaffold (split from T4).** `tests/cpp/` with a tiny no-network assert framework + runner,
+  CMake `unit_tests` target linking the compiler sources, first cases (arena), and a `check.sh` step. Gate green before
+  adding the rest.
+- [ ] **T4b Tokenizer + preprocessor cases (split from T4).** Token kinds/locations/escapes/numbers, reset-after-tokenize,
+  `#line` markers, `#include`, `#pragma once`, `#error`. ≥16 cases.
+- [ ] **T4c Parser AST shape + const-eval cases (split from T4).** AST node shapes for expressions/statements, precedence,
+  and `Generator::eval_const_expr` over literals/operators/overflow/div-zero. ≥16 cases.
+- [ ] **T4d IR liveness + linear-scan cases (split from T4).** Live intervals, overlap, call-spanning, allocation of
+  non-overlapping ranges, spills under pressure, sorted output. ≥16 cases.
+- [ ] **T4e Allocator cases + finalise T4 (split from T4).** Compile `sodium-rt/allocator.c` natively; alignment, reuse,
+  sizes, zero-size, free-list recycling, stress. Verify ≥60 cases in <10 s and tick T4.
 - [ ] **T5 Differential oracle.** Add `scripts/oracle.sh` + a corpus of small Cyan programs with a hand-written C
   twin; compile both and diff stdout/exit code. Start with ≥ 25 programs (arith edge cases, shifts, signed/unsigned
   division, truncation, pointer math, recursion). Any mismatch is a bug → fix.
