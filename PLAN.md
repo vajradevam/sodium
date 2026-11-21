@@ -25,7 +25,7 @@ anyway, tick the box, and note "not reproducible" in PROGRESS.md.
 - [x] **T2 CI-equivalent script.** `scripts/check.sh` additionally: `--emit-ir`/`-S` sweep over every test on both targets
   (no crash), and rejects trailing whitespace/tab-vs-space drift in changed files. Add `.clang-format` or document style
   from the existing code (don't mass-reformat).
-- [ ] **T3 Fuzz/smoke harness.** `scripts/fuzz_smoke.sh`: feed mutated/truncated test files (deterministic seed) to the
+- [x] **T3 Fuzz/smoke harness.** `scripts/fuzz_smoke.sh`: feed mutated/truncated test files (deterministic seed) to the
   compiler; it must never crash/hang (timeout 5 s) — it may only exit 0 or 1 with a diagnostic. Fix crashes found (one commit each, with a regression test).
 - [ ] **T4 C++ unit tests.** `tests/cpp/` + CMake target `unit_tests` (plain asserts or a vendored single-header
   framework — no network): tokenizer, preprocessor, parser (AST shape), const-eval, arena, liveness, linear-scan, allocator
