@@ -6,23 +6,23 @@ passes, it is committed, and its box is ticked. Add sub-tasks freely (commit the
 anyway, tick the box, and note "not reproducible" in PROGRESS.md.
 
 ## Phase 0 — Harness (do this before any feature work)
-- [ ] **T0a Migrate test headers (split from T0).** Add `EXPECT-*` headers to every `tests/**/*.cyan`: `EXPECT-EXIT`
+- [x] **T0a Migrate test headers (split from T0).** Add `EXPECT-*` headers to every `tests/**/*.cyan`: `EXPECT-EXIT`
   from the old hardcoded map, `EXPECT-ERROR` substrings from captured diagnostics (no `file:line:col` prefix),
   `STDIN`/`ARGS` where applicable, `EXPECT-STDOUT` from reviewed current output, `SKIP-TEST` for `helper.cyan`, and
   `EXPECT-EXIT: 26` for the previously-unrun `test_comprehensive.cyan`. Append the `SKIP-TEST` directive to D-005.
   The old runner must still pass (comments only).
-- [ ] **T0b Rewrite test runner (split from T0).** Auto-discover `tests/**/*.cyan`, parse headers, check exit code +
+- [x] **T0b Rewrite test runner (split from T0).** Auto-discover `tests/**/*.cyan`, parse headers, check exit code +
   stdout + error substring, per-target, `mktemp -d`, summary by category, `--filter`, `--target`, `-j`. No hardcoded
   map. Honour `COMPILER` env var and keep the `RISC-V backend: SKIPPED` marker for `check.sh`. Done when `check.sh`
   is green with ≥318 run-equivalents.
-- [ ] **T0c Harness self-check (split from T0).** Add a `--self-test` mode proving a deliberately wrong expectation
+- [x] **T0c Harness self-check (split from T0).** Add a `--self-test` mode proving a deliberately wrong expectation
   fails. Verify both targets/counts and record results in PROGRESS.md.
 - [ ] **V12 riscv64 `print(0)` emits NUL byte (discovered during T0).** `print(0)` outputs byte `0x00` instead of `'0'`
   on riscv64 (x86_64 correct); `test_print.cyan` and `test_print_all.cyan` cannot carry `EXPECT-STDOUT` until fixed.
   Reproduce with a focused test, fix the riscv64 int→string path, then enable stdout checks on both tests.
-- [ ] **T1 Strict build.** Add `-Wall -Wextra -Wshadow -Wconversion`-class warnings (choose the strictest set that you
+- [x] **T1 Strict build.** Add `-Wall -Wextra -Wshadow -Wconversion`-class warnings (choose the strictest set that you
   can make clean) and make warnings fatal in `check.sh`. Fix all. Done when: zero warnings from a clean rebuild.
-- [ ] **T2 CI-equivalent script.** `scripts/check.sh` additionally: `--emit-ir`/`-S` sweep over every test on both targets
+- [x] **T2 CI-equivalent script.** `scripts/check.sh` additionally: `--emit-ir`/`-S` sweep over every test on both targets
   (no crash), and rejects trailing whitespace/tab-vs-space drift in changed files. Add `.clang-format` or document style
   from the existing code (don't mass-reformat).
 - [ ] **T3 Fuzz/smoke harness.** `scripts/fuzz_smoke.sh`: feed mutated/truncated test files (deterministic seed) to the

@@ -14,6 +14,13 @@ cmake --build build -j"$(nproc)" 2>&1 | tee build/last_build.log | tail -3
 [ "${PIPESTATUS[0]}" -eq 0 ] || die "build"
 grep -q "warning:" build/last_build.log && die "build produced warnings (see build/last_build.log)"
 
+step "style check (changed files; see docs/STYLE.md)"
+./scripts/check_style.sh || die "style (trailing whitespace / tab indentation)"
+
+step "IR/assembly regression sweep (both targets)"
+./scripts/sweep.sh > build/last_sweep.log 2>&1 || die "sweep (see build/last_sweep.log)"
+tail -2 build/last_sweep.log
+
 step "test suite"
 ./scripts/run_tests.sh > build/last_tests.log 2>&1; rc=$?
 tail -4 build/last_tests.log
