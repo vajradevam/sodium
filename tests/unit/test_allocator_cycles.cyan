@@ -1,0 +1,17 @@
+// EXPECT-EXIT: 0
+
+// V6: repeated large allocations must be recycled by the runtime allocator.
+// The 1 GiB native stress test lives in tests/cpp/test_allocator.cpp.
+
+function main() {
+    var i = 0;
+    while (i < 16) {
+        var p = malloc(65536);
+        if (p == 0) { return(1); }
+        *p = i;
+        if (*p != i) { return(2); }
+        free(p);
+        i = i + 1;
+    }
+    return(0);
+}

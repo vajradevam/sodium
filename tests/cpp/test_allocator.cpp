@@ -24,9 +24,7 @@ TEST(allocator_small_allocation_is_16_byte_aligned) {
     for (size_t n : {1u, 7u, 8u, 16u, 24u, 63u, 64u, 300u, 2040u}) {
         void* p = _sodium_malloc(n);
         CHECK(p != nullptr);
-        // 8-byte payload alignment is guaranteed (8-byte header on a 16-byte heap base).
-        // 16-byte alignment is a planned improvement (V6).
-        CHECK_EQ(reinterpret_cast<uintptr_t>(p) % 8, 0u);
+        CHECK_EQ(reinterpret_cast<uintptr_t>(p) % 16, 0u);
         _sodium_free(p);
     }
 }
@@ -65,7 +63,7 @@ TEST(allocator_free_null_is_safe) {
 TEST(allocator_large_allocation_is_non_null) {
     void* p = _sodium_malloc(4096);
     CHECK(p != nullptr);
-    CHECK_EQ(reinterpret_cast<uintptr_t>(p) % 8, 0u);
+    CHECK_EQ(reinterpret_cast<uintptr_t>(p) % 16, 0u);
     _sodium_free(p);
 }
 
@@ -105,12 +103,12 @@ TEST(allocator_allocations_do_not_overlap) {
 }
 
 TEST(allocator_class_boundaries_are_usable) {
-    const size_t boundaries[] = {16, 24, 32, 48, 64, 96, 128, 192, 256,
-                                 384, 512, 768, 1024, 1536, 2048};
+    const size_t boundaries[] = {32, 48, 64, 80, 112, 144, 192, 256, 320,
+                                 448, 576, 832, 1088, 1600, 2064};
     for (size_t n : boundaries) {
-        void* p = _sodium_malloc(n - 8); // header is 8 bytes
+        void* p = _sodium_malloc(n - 16); // header is 16 bytes
         CHECK(p != nullptr);
-        if (p) std::memset(p, 0x5A, n - 8);
+        if (p) std::memset(p, 0x5A, n - 16);
         _sodium_free(p);
     }
 }
@@ -118,7 +116,7 @@ TEST(allocator_class_boundaries_are_usable) {
 TEST(allocator_one_past_largest_class_is_large_path) {
     void* p = _sodium_malloc(2050);
     CHECK(p != nullptr);
-    CHECK_EQ(reinterpret_cast<uintptr_t>(p) % 8, 0u);
+    CHECK_EQ(reinterpret_cast<uintptr_t>(p) % 16, 0u);
     _sodium_free(p);
 }
 
@@ -174,6 +172,18 @@ TEST(allocator_growth_without_free) {
         ps.push_back(p);
     }
     for (void* p : ps) _sodium_free(p);
+}
+
+TEST(allocator_one_gib_stress_without_growth) {
+    // 1024 x 1 MiB alloc/write/free cycles through the fixed 2 MiB heap.
+    for (int i = 0; i < 1024; ++i) {
+        auto* p = static_cast<long*>(_sodium_malloc(1024 * 1024));
+        CHECK(p != nullptr);
+        if (!p) return;
+        *p = i;
+        CHECK_EQ(*p, static_cast<long>(i));
+        _sodium_free(p);
+    }
 }
 
 TEST(allocator_mixed_small_and_large) {

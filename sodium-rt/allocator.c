@@ -13,7 +13,9 @@
 //   - Lazy coalescing: free just pushes back to the same class list.
 //     The bump backend never reclaims, but same-size reuse means freed blocks
 //     get recycled immediately — fragmentation is bounded.
-//   - Header: 8 bytes per block (class_idx : 4, magic_or_size : 4)
+//   - Header: 16 bytes per block (class_idx : 4, magic_or_size : 4, 8 padding).
+//     Payloads start 16 bytes into a 16-byte-aligned block, so every returned
+//     pointer is 16-byte aligned.
 //     For small blocks: magic_or_size = MAGIC.
 //     For large blocks: magic_or_size = total block size (fits in 32 bits on 2 MB heap).
 //   - Large-block free list: first-fit search, nodes store {next_ptr, block_size}
@@ -28,16 +30,16 @@
 // ── Configuration ───────────────────────────────────────────────────────
 
 #define HEAP_SIZE           (2UL * 1024 * 1024)   // 2 MB
-#define HEADER_SIZE         8UL                    // 4 bytes class + 4 bytes magic/size
-#define MIN_ALIGN           8UL                    // minimum alignment
+#define HEADER_SIZE         16UL                   // 8 bytes header + 8 bytes padding
+#define MIN_ALIGN           16UL                   // 16-byte alignment for payloads
 #define MAGIC               0x534F4449UL           // "SODI" in hex
 
 // Total block sizes (header + payload). The user gets (class_size - HEADER_SIZE)
-// usable bytes. All sizes are multiples of 8 so payloads are naturally aligned.
+// usable bytes. All sizes are multiples of 16 so payloads stay 16-byte aligned.
 #define NUM_CLASSES         15
 
 static const unsigned int class_sizes[NUM_CLASSES] = {
-    16, 24, 32, 48, 64, 96, 128, 192, 256, 384, 512, 768, 1024, 1536, 2048
+    32, 48, 64, 80, 112, 144, 192, 256, 320, 448, 576, 832, 1088, 1600, 2064
 };
 
 // Sentinel for large allocations (fall through to bump)
