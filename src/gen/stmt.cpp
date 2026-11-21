@@ -25,7 +25,7 @@ void Generator::gen_stmt(const NodeStmt& stmt)
             if (!stmt_let->struct_type_name.empty()) {
                 auto struct_info = gen->get_struct_info(stmt_let->struct_type_name);
                 if (!struct_info.has_value()) {
-                    lsp_exit(stmt_let->ident.loc, "Unknown struct type: " + stmt_let->struct_type_name);
+                    gen->fail(stmt_let->ident.loc, "Unknown struct type: " + stmt_let->struct_type_name);
                 }
                 auto& scope = gen->m_scopes.back();
                 uint32_t struct_bytes = static_cast<uint32_t>(struct_info.value().size * 8);
@@ -130,7 +130,7 @@ void Generator::gen_stmt(const NodeStmt& stmt)
                     if (var.array_size > 0 && stmt_assign->op == AssignOp::assign) {
                         if (auto arr_lit = std::get_if<NodeExprArrLit*>(&stmt_assign->expr->var)) {
                             if ((*arr_lit)->elements.size() != var.array_size) {
-                                lsp_exit(stmt_assign->ident.loc, "Array size mismatch");
+                                gen->fail(stmt_assign->ident.loc, "Array size mismatch");
                             }
                             for (size_t i = 0; i < var.array_size; i++) {
                                 gen->gen_expr(*(*arr_lit)->elements[i]);
@@ -143,7 +143,7 @@ void Generator::gen_stmt(const NodeStmt& stmt)
                             }
                             return;
                         }
-                        lsp_exit(stmt_assign->ident.loc, "Array assignment requires an array literal");
+                        gen->fail(stmt_assign->ident.loc, "Array assignment requires an array literal");
                     }
                     // Regular assignment (handled by store_var_from_vstack)
                     gen->gen_expr(*stmt_assign->expr);
@@ -294,7 +294,7 @@ void Generator::gen_stmt(const NodeStmt& stmt)
         {
             auto const_size = gen->eval_const_expr(stmt_arr->size);
             if (!const_size.has_value()) {
-                lsp_exit(stmt_arr->loc, "Array size must be a compile-time constant expression");
+                gen->fail(stmt_arr->loc, "Array size must be a compile-time constant expression");
             }
             size_t size = static_cast<size_t>(const_size.value());
             auto& scope = gen->m_scopes.back();
@@ -337,9 +337,9 @@ void Generator::gen_stmt(const NodeStmt& stmt)
             }
             std::string suggestion = gen->did_you_mean(name);
             if (!suggestion.empty()) {
-                lsp_exit(stmt_arr_assign->name.loc, "Undeclared identifier: " + name + " (did you mean '" + suggestion + "'?)");
+                gen->fail(stmt_arr_assign->name.loc, "Undeclared identifier: " + name + " (did you mean '" + suggestion + "'?)");
             } else {
-                lsp_exit(stmt_arr_assign->name.loc, "Undeclared identifier: " + name);
+                gen->fail(stmt_arr_assign->name.loc, "Undeclared identifier: " + name);
             }
         }
 
@@ -355,7 +355,7 @@ void Generator::gen_stmt(const NodeStmt& stmt)
                 }
             } else {
                 if (!stmt_ret->expr) {
-                    lsp_exit(stmt_ret->loc, "return with no value at top level");
+                    gen->fail(stmt_ret->loc, "return with no value at top level");
                 }
                 gen->gen_expr(*stmt_ret->expr);
                 uint32_t code = gen->pop_vreg();
@@ -468,7 +468,7 @@ void Generator::gen_stmt(const NodeStmt& stmt)
         void operator()(const NodeStmtBreak* stmt_break) const
         {
             if (gen->m_break_stack.empty()) {
-                lsp_exit(stmt_break->loc, "break outside loop or switch");
+                gen->fail(stmt_break->loc, "break outside loop or switch");
             }
             gen->m_ir.jmp(gen->m_break_stack.back());
         }
@@ -481,7 +481,7 @@ void Generator::gen_stmt(const NodeStmt& stmt)
                     return;
                 }
             }
-            lsp_exit(stmt_continue->loc, "continue outside loop");
+            gen->fail(stmt_continue->loc, "continue outside loop");
         }
 
         void operator()(const NodeStmtFieldAssign* stmt_field) const
@@ -490,15 +490,15 @@ void Generator::gen_stmt(const NodeStmt& stmt)
             const auto& field_name = stmt_field->field_name.value.value();
             auto var = gen->lookup_var(obj_name, stmt_field->obj_name.loc);
             if (var.struct_type.empty()) {
-                lsp_exit(stmt_field->obj_name.loc, "Not a struct variable: " + obj_name);
+                gen->fail(stmt_field->obj_name.loc, "Not a struct variable: " + obj_name);
             }
             auto struct_info = gen->get_struct_info(var.struct_type);
             if (!struct_info.has_value()) {
-                lsp_exit(stmt_field->field_name.loc, "Unknown struct type: " + var.struct_type);
+                gen->fail(stmt_field->field_name.loc, "Unknown struct type: " + var.struct_type);
             }
             auto offset_it = struct_info.value().field_offsets.find(field_name);
             if (offset_it == struct_info.value().field_offsets.end()) {
-                lsp_exit(stmt_field->field_name.loc, "Unknown field '" + field_name + "' in struct '" + var.struct_type + "'");
+                gen->fail(stmt_field->field_name.loc, "Unknown field '" + field_name + "' in struct '" + var.struct_type + "'");
             }
             size_t field_offset = offset_it->second;
             uint32_t base_addr = gen->m_ir.frame_addr(static_cast<int64_t>(var.stack_loc));

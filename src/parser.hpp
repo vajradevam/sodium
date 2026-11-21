@@ -325,6 +325,9 @@ public:
     /// Diagnostics collected while parsing. Owned by this parser, not global.
     const DiagnosticEngine& diagnostics() const { return m_diag; }
 
+    /// Record an error at an explicit location and report it.
+    [[noreturn]] void fail_at(const SourceLoc& loc, const std::string& msg);
+
     std::optional<NodeProg> parse_prog();
 
     std::optional<NodeExpr*> parse_expr();

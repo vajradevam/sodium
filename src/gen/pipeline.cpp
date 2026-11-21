@@ -122,7 +122,7 @@ void Generator::collect_globals(const std::vector<NodeStmt>& stmts)
             if ((*global)->array_size) {
                 auto const_size = eval_const_expr((*global)->array_size);
                 if (!const_size.has_value()) {
-                    lsp_exit((*global)->name.loc, "Global array size must be a compile-time constant expression");
+                    fail((*global)->name.loc, "Global array size must be a compile-time constant expression");
                 }
                 arr_size = static_cast<size_t>(const_size.value());
             }
@@ -144,7 +144,7 @@ void Generator::collect_globals(const std::vector<NodeStmt>& stmts)
             const auto& name = (*const_stmt)->name.value.value();
             auto val = eval_const_expr((*const_stmt)->expr);
             if (!val.has_value()) {
-                lsp_exit((*const_stmt)->name.loc, "Const initializer is not a compile-time constant expression");
+                fail((*const_stmt)->name.loc, "Const initializer is not a compile-time constant expression");
             }
             m_constants[name] = val.value();
         } else if (auto* block_stmt = std::get_if<NodeStmtBlock*>(&stmt.var)) {
@@ -220,10 +220,10 @@ void Generator::collect_globals(const std::vector<NodeStmt>& stmts)
         }
     }
     if (!main_func) {
-        lsp_exit({}, "No main function found. Define 'function main() { ... }' as the entry point.");
+        fail({}, "No main function found. Define 'function main() { ... }' as the entry point.");
     }
     if (!main_func->params.empty()) {
-        lsp_exit(main_func->name.loc, "main function must not take parameters");
+        fail(main_func->name.loc, "main function must not take parameters");
     }
 
     // Infer parameter types from call sites

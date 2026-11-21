@@ -23,6 +23,11 @@ void Parser::error(const std::string& msg) {
 }
 
 
+[[noreturn]] void Parser::fail_at(const SourceLoc& loc, const std::string& msg) {
+    m_diag.error(loc, msg);
+    lsp_exit(loc, msg);
+}
+
 std::optional<NodeExpr*> Parser::parse_expr()
     {
         auto lhs = parse_or_expr();
@@ -386,7 +391,7 @@ std::optional<NodeExpr*> Parser::parse_primary_expr()
                 deref->expr = inner.value();
             } else {
                 if (g_lsp_mode) { m_diag.error(deref->star.loc, "Expected expression after '*'"); throw LSPAbort(); }
-                lsp_exit(deref->star.loc, "Expected expression after '*'");
+                fail_at(deref->star.loc, "Expected expression after '*'");
             }
             auto expr = m_allocator.alloc<NodeExpr>();
             expr->var = deref;
@@ -401,7 +406,7 @@ std::optional<NodeExpr*> Parser::parse_primary_expr()
                 addr->expr = inner.value();
             } else {
                 if (g_lsp_mode) { m_diag.error(addr->ampersand.loc, "Expected expression after '&'"); throw LSPAbort(); }
-                lsp_exit(addr->ampersand.loc, "Expected expression after '&'");
+                fail_at(addr->ampersand.loc, "Expected expression after '&'");
             }
             auto expr = m_allocator.alloc<NodeExpr>();
             expr->var = addr;
@@ -1163,7 +1168,7 @@ std::optional<NodeStmt> Parser::parse_return_stmt()
                     m_diag.error(ret_loc, "Invalid expression in return");
                     throw LSPAbort();
                 }
-                lsp_exit(ret_loc, "Invalid expression in return");
+                fail_at(ret_loc, "Invalid expression in return");
             }
         } else {
             stmt_ret = m_allocator.alloc<NodeStmtReturn>();
@@ -1175,7 +1180,7 @@ std::optional<NodeStmt> Parser::parse_return_stmt()
                 m_diag.error(ret_loc, "Expected ';' after return");
                 throw LSPAbort();
             }
-            lsp_exit(ret_loc, "Expected ';' after return");
+            fail_at(ret_loc, "Expected ';' after return");
         }
         consume(); // ;
         return NodeStmt { .var = stmt_ret };
@@ -1213,14 +1218,14 @@ std::optional<NodeStmt> Parser::parse_stmt() {
                         m_diag.error(arr_loc, "Expected array size");
                         throw LSPAbort();
                     }
-                    lsp_exit(arr_loc, "Expected array size");
+                    fail_at(arr_loc, "Expected array size");
                 }
                 if (!peek().has_value() || peek().value().type != TokenType::close_square) {
                     if (g_lsp_mode) {
                         m_diag.error(arr_loc, "Expected ']'");
                         throw LSPAbort();
                     }
-                    lsp_exit(arr_loc, "Expected ']'");
+                    fail_at(arr_loc, "Expected ']'");
                 }
                 consume(); // ]
                 if (!peek().has_value() || peek().value().type != TokenType::semi) {
@@ -1228,7 +1233,7 @@ std::optional<NodeStmt> Parser::parse_stmt() {
                         m_diag.error(arr_loc, "Expected ';'");
                         throw LSPAbort();
                     }
-                    lsp_exit(arr_loc, "Expected ';'");
+                    fail_at(arr_loc, "Expected ';'");
                 }
                 consume(); // ;
                 return NodeStmt { .var = stmt_arr };
@@ -1450,7 +1455,7 @@ std::optional<NodeStmt> Parser::parse_stmt() {
                     m_diag.error(brk_loc, "Expected ';' after break");
                     throw LSPAbort();
                 }
-                lsp_exit(brk_loc, "Expected ';' after break");
+                fail_at(brk_loc, "Expected ';' after break");
             }
             consume();
             auto stmt_break = m_allocator.alloc<NodeStmtBreak>();
@@ -1464,7 +1469,7 @@ std::optional<NodeStmt> Parser::parse_stmt() {
                     m_diag.error(cont_loc, "Expected ';' after continue");
                     throw LSPAbort();
                 }
-                lsp_exit(cont_loc, "Expected ';' after continue");
+                fail_at(cont_loc, "Expected ';' after continue");
             }
             consume();
             auto stmt_continue = m_allocator.alloc<NodeStmtContinue>();
@@ -1541,7 +1546,7 @@ std::optional<NodeStmt> Parser::parse_stmt() {
                         m_diag.error(ident.loc, "Expected ';' after " + std::string(is_inc ? "i++" : "i--"));
                         throw LSPAbort();
                     }
-                    lsp_exit(ident.loc, "Expected ';' after " + std::string(is_inc ? "i++" : "i--"));
+                    fail_at(ident.loc, "Expected ';' after " + std::string(is_inc ? "i++" : "i--"));
                 }
                 consume();
                 auto stmt = m_allocator.alloc<NodeStmtAssign>();
@@ -1645,13 +1650,13 @@ std::optional<NodeStmt> Parser::parse_stmt() {
                 stmt_deref->ptr_expr = ptr_expr.value();
             } else {
                 if (g_lsp_mode) { m_diag.error(stmt_deref->star.loc, "Expected pointer expression after '*'"); throw LSPAbort(); }
-                lsp_exit(stmt_deref->star.loc, "Expected pointer expression after '*'");
+                fail_at(stmt_deref->star.loc, "Expected pointer expression after '*'");
             }
 
             // Check for assignment operator
             if (!peek().has_value() || !is_assign_op(peek().value().type)) {
                 if (g_lsp_mode) { m_diag.error(stmt_deref->star.loc, "Expected '=' or compound assignment after pointer dereference"); throw LSPAbort(); }
-                lsp_exit(stmt_deref->star.loc, "Expected '=' or compound assignment after pointer dereference");
+                fail_at(stmt_deref->star.loc, "Expected '=' or compound assignment after pointer dereference");
             }
 
             auto op_token = consume();
@@ -1661,12 +1666,12 @@ std::optional<NodeStmt> Parser::parse_stmt() {
                 stmt_deref->expr = expr.value();
             } else {
                 if (g_lsp_mode) { m_diag.error(stmt_deref->star.loc, "Invalid expression in pointer dereference assignment"); throw LSPAbort(); }
-                lsp_exit(stmt_deref->star.loc, "Invalid expression in pointer dereference assignment");
+                fail_at(stmt_deref->star.loc, "Invalid expression in pointer dereference assignment");
             }
 
             if (!peek().has_value() || peek().value().type != TokenType::semi) {
                 if (g_lsp_mode) { m_diag.error(stmt_deref->star.loc, "Expected ';' after pointer dereference assignment"); throw LSPAbort(); }
-                lsp_exit(stmt_deref->star.loc, "Expected ';' after pointer dereference assignment");
+                fail_at(stmt_deref->star.loc, "Expected ';' after pointer dereference assignment");
             }
             consume();
             return NodeStmt { .var = stmt_deref };

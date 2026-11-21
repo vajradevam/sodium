@@ -10,7 +10,7 @@ void Generator::gen_expr(const NodeExpr& expr)
             try {
                 val = std::stoll(expr_int_lit->int_lit.value.value());
             } catch (const std::out_of_range&) {
-                lsp_exit(expr_int_lit->int_lit.loc,
+                gen->fail(expr_int_lit->int_lit.loc,
                     "Integer literal '" + expr_int_lit->int_lit.value.value() +
                     "' out of range for 64-bit signed integer");
             }
@@ -65,9 +65,9 @@ void Generator::gen_expr(const NodeExpr& expr)
             }
             std::string suggestion = gen->did_you_mean(name);
             if (!suggestion.empty()) {
-                lsp_exit(expr_index->name.loc, "Undeclared identifier: " + name + " (did you mean '" + suggestion + "'?)");
+                gen->fail(expr_index->name.loc, "Undeclared identifier: " + name + " (did you mean '" + suggestion + "'?)");
             } else {
-                lsp_exit(expr_index->name.loc, "Undeclared identifier: " + name);
+                gen->fail(expr_index->name.loc, "Undeclared identifier: " + name);
             }
         }
 
@@ -130,7 +130,7 @@ void Generator::gen_expr(const NodeExpr& expr)
                         if (it->vars.contains(name)) {
                             const auto& var = it->vars.at(name);
                             if (var.array_size == 0) {
-                                lsp_exit((*ident)->ident.loc,
+                                gen->fail((*ident)->ident.loc,
                                     "read() requires an array variable, but '" + name + "' is a scalar");
                             }
                             // Local arrays grow downward from stack_loc: index 0
@@ -151,7 +151,7 @@ void Generator::gen_expr(const NodeExpr& expr)
                     if (gen->m_global_var_info.contains(name)) {
                         const auto& var = gen->m_global_var_info.at(name);
                         if (var.array_size == 0) {
-                            lsp_exit((*ident)->ident.loc,
+                            gen->fail((*ident)->ident.loc,
                                 "read() requires an array variable, but '" + name + "' is a global scalar");
                         }
                         uint32_t addr = gen->m_ir.lea_label(name);
@@ -164,12 +164,12 @@ void Generator::gen_expr(const NodeExpr& expr)
                     }
                     std::string suggestion = gen->did_you_mean(name);
                     if (!suggestion.empty()) {
-                        lsp_exit((*ident)->ident.loc, "Undeclared identifier: " + name + " (did you mean '" + suggestion + "'?)");
+                        gen->fail((*ident)->ident.loc, "Undeclared identifier: " + name + " (did you mean '" + suggestion + "'?)");
                     } else {
-                        lsp_exit((*ident)->ident.loc, "Undeclared identifier: " + name);
+                        gen->fail((*ident)->ident.loc, "Undeclared identifier: " + name);
                     }
                 } else {
-                    lsp_exit(read_expr->loc,
+                    gen->fail(read_expr->loc,
                         "read() argument must be an array variable");
                 }
             }
@@ -188,15 +188,15 @@ void Generator::gen_expr(const NodeExpr& expr)
             const auto& field_name = field_access->field_name.value.value();
             auto var = gen->lookup_var(obj_name, field_access->obj_name.loc);
             if (var.struct_type.empty()) {
-                lsp_exit(field_access->obj_name.loc, "Not a struct variable: " + obj_name);
+                gen->fail(field_access->obj_name.loc, "Not a struct variable: " + obj_name);
             }
             auto struct_info = gen->get_struct_info(var.struct_type);
             if (!struct_info.has_value()) {
-                lsp_exit(field_access->field_name.loc, "Unknown struct type: " + var.struct_type);
+                gen->fail(field_access->field_name.loc, "Unknown struct type: " + var.struct_type);
             }
             auto offset_it = struct_info.value().field_offsets.find(field_name);
             if (offset_it == struct_info.value().field_offsets.end()) {
-                lsp_exit(field_access->field_name.loc, "Unknown field '" + field_name + "' in struct '" + var.struct_type + "'");
+                gen->fail(field_access->field_name.loc, "Unknown field '" + field_name + "' in struct '" + var.struct_type + "'");
             }
             size_t field_offset = offset_it->second;
             // struct fields are stored after the base variable: slot - field_offset
@@ -237,9 +237,9 @@ void Generator::gen_expr(const NodeExpr& expr)
                 }
                 std::string suggestion = gen->did_you_mean(name);
                 if (!suggestion.empty()) {
-                    lsp_exit(addr_of->ampersand.loc, "Undeclared identifier: " + name + " (did you mean '" + suggestion + "'?)");
+                    gen->fail(addr_of->ampersand.loc, "Undeclared identifier: " + name + " (did you mean '" + suggestion + "'?)");
                 } else {
-                    lsp_exit(addr_of->ampersand.loc, "Undeclared identifier: " + name);
+                    gen->fail(addr_of->ampersand.loc, "Undeclared identifier: " + name);
                 }
             } else if (auto* arr_idx = std::get_if<NodeExprIndex*>(&inner->var)) {
                 // &arr[i] — address of array element
@@ -272,9 +272,9 @@ void Generator::gen_expr(const NodeExpr& expr)
                 }
                 std::string suggestion = gen->did_you_mean(name);
                 if (!suggestion.empty()) {
-                    lsp_exit((*arr_idx)->name.loc, "Undeclared identifier: " + name + " (did you mean '" + suggestion + "'?)");
+                    gen->fail((*arr_idx)->name.loc, "Undeclared identifier: " + name + " (did you mean '" + suggestion + "'?)");
                 } else {
-                    lsp_exit((*arr_idx)->name.loc, "Undeclared identifier: " + name);
+                    gen->fail((*arr_idx)->name.loc, "Undeclared identifier: " + name);
                 }
             } else if (auto* field = std::get_if<NodeExprFieldAccess*>(&inner->var)) {
                 // &obj.field
@@ -282,15 +282,15 @@ void Generator::gen_expr(const NodeExpr& expr)
                 const auto& field_name = (*field)->field_name.value.value();
                 auto var = gen->lookup_var(obj_name, (*field)->obj_name.loc);
                 if (var.struct_type.empty()) {
-                    lsp_exit((*field)->obj_name.loc, "Not a struct variable: " + obj_name);
+                    gen->fail((*field)->obj_name.loc, "Not a struct variable: " + obj_name);
                 }
                 auto struct_info = gen->get_struct_info(var.struct_type);
                 if (!struct_info.has_value()) {
-                    lsp_exit((*field)->field_name.loc, "Unknown struct type: " + var.struct_type);
+                    gen->fail((*field)->field_name.loc, "Unknown struct type: " + var.struct_type);
                 }
                 auto offset_it = struct_info.value().field_offsets.find(field_name);
                 if (offset_it == struct_info.value().field_offsets.end()) {
-                    lsp_exit((*field)->field_name.loc, "Unknown field '" + field_name + "' in struct '" + var.struct_type + "'");
+                    gen->fail((*field)->field_name.loc, "Unknown field '" + field_name + "' in struct '" + var.struct_type + "'");
                 }
                 size_t field_offset = offset_it->second;
                 uint32_t base_addr = gen->m_ir.frame_addr(static_cast<int64_t>(var.stack_loc));
@@ -300,7 +300,7 @@ void Generator::gen_expr(const NodeExpr& expr)
                 Type* pointee = gen->alloc_type(Type::make_int(IntType::i64));
                 gen->m_tstack.back() = Type::make_ptr(pointee);
             } else {
-                lsp_exit(addr_of->ampersand.loc, "Cannot take address of this expression");
+                gen->fail(addr_of->ampersand.loc, "Cannot take address of this expression");
             }
         }
 
@@ -370,7 +370,7 @@ void Generator::gen_expr(const NodeExpr& expr)
             if (fname == "read_eof") {
                 // read_eof() — 1 if the most recent read() hit EOF, else 0.
                 if (!expr_call->args.empty()) {
-                    lsp_exit(expr_call->name.loc, "read_eof() takes no arguments");
+                    gen->fail(expr_call->name.loc, "read_eof() takes no arguments");
                 }
                 uint32_t v = gen->m_ir.call("_sodium_read_eof", {});
                 gen->push_vreg(v);
@@ -380,7 +380,7 @@ void Generator::gen_expr(const NodeExpr& expr)
             if (fname == "argc") {
                 // argc() — return number of command-line arguments
                 if (!expr_call->args.empty()) {
-                    lsp_exit(expr_call->name.loc, "argc() takes no arguments");
+                    gen->fail(expr_call->name.loc, "argc() takes no arguments");
                 }
                 uint32_t addr = gen->m_ir.lea_label("__sodium_argc");
                 uint32_t val = gen->m_ir.load(IRValue::vreg(addr), 0);
@@ -390,7 +390,7 @@ void Generator::gen_expr(const NodeExpr& expr)
             if (fname == "argv") {
                 // argv(i) — return pointer to the i-th argument string
                 if (expr_call->args.size() != 1) {
-                    lsp_exit(expr_call->name.loc, "argv() takes exactly one argument (the index)");
+                    gen->fail(expr_call->name.loc, "argv() takes exactly one argument (the index)");
                 }
                 gen->gen_expr(*expr_call->args[0]);
                 uint32_t idx = gen->pop_vreg();
@@ -408,9 +408,9 @@ void Generator::gen_expr(const NodeExpr& expr)
             if (!gen->m_func_names.contains(fname)) {
                 std::string suggestion = gen->did_you_mean(fname);
                 if (!suggestion.empty()) {
-                    lsp_exit(expr_call->name.loc, "Undefined function: " + fname + " (did you mean '" + suggestion + "'?)");
+                    gen->fail(expr_call->name.loc, "Undefined function: " + fname + " (did you mean '" + suggestion + "'?)");
                 } else {
-                    lsp_exit(expr_call->name.loc, "Undefined function: " + fname);
+                    gen->fail(expr_call->name.loc, "Undefined function: " + fname);
                 }
             }
 

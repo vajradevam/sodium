@@ -10,6 +10,11 @@ Generator::Generator(NodeProg root, Backend& backend, const TargetRegisterInfo& 
     m_scopes.push_back({0, {}});
 }
 
+[[noreturn]] void Generator::fail(const SourceLoc& loc, const std::string& msg) const {
+    m_diag.error(loc, msg);
+    lsp_exit(loc, msg);
+}
+
 // ==========================================================================
 // IR virtual register stack helpers
 // ==========================================================================

@@ -64,9 +64,9 @@ void Generator::load_var_to_vstack(const std::string& name) {
     }
     std::string suggestion = did_you_mean(name);
     if (!suggestion.empty()) {
-        lsp_exit({}, "Undeclared identifier: " + name + " (did you mean '" + suggestion + "'?)");
+        fail({}, "Undeclared identifier: " + name + " (did you mean '" + suggestion + "'?)");
     } else {
-        lsp_exit({}, "Undeclared identifier: " + name);
+        fail({}, "Undeclared identifier: " + name);
     }
 }
 
@@ -76,7 +76,7 @@ void Generator::store_var_from_vstack(const std::string& name, AssignOp op) {
         if (it->vars.contains(name)) {
             const auto& var = it->vars.at(name);
             if (var.array_size > 0) {
-                lsp_exit({}, "Cannot assign to array variable directly (use arr = [a,b,c] or arr[i] = val)");
+                fail({}, "Cannot assign to array variable directly (use arr = [a,b,c] or arr[i] = val)");
             }
 
             bool is_ptr_type = (var.type.kind == Type::Ptr);
@@ -178,12 +178,12 @@ void Generator::store_var_from_vstack(const std::string& name, AssignOp op) {
         return;
     }
     if (m_constants.contains(name)) {
-        lsp_exit({}, "Cannot assign to constant '" + name + "'");
+        fail({}, "Cannot assign to constant '" + name + "'");
     }
     std::string suggestion = did_you_mean(name);
     if (!suggestion.empty()) {
-        lsp_exit({}, "Undeclared identifier: " + name + " (did you mean '" + suggestion + "'?)");
+        fail({}, "Undeclared identifier: " + name + " (did you mean '" + suggestion + "'?)");
     } else {
-        lsp_exit({}, "Undeclared identifier: " + name);
+        fail({}, "Undeclared identifier: " + name);
     }
 }

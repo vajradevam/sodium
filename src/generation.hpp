@@ -63,6 +63,12 @@ public:
     explicit Generator(NodeProg root, Backend& backend, const TargetRegisterInfo& tri,
                        std::unique_ptr<Backend> owned_backend = nullptr);
 
+    /// Diagnostics collected during code generation. Owned by this generator.
+    const DiagnosticEngine& diagnostics() const { return m_diag; }
+
+    /// Record an error in the engine and report it through the CLI/LSP path.
+    [[noreturn]] void fail(const SourceLoc& loc, const std::string& msg) const;
+
     void set_no_alloc(bool v) { m_no_alloc = v; }
     void set_emit_ir(bool v) { m_emit_ir = v; }
 
@@ -130,6 +136,7 @@ private:
     Backend* m_backend_ptr;
     std::unique_ptr<Backend> m_owned_backend;  // owned only if we created it
     const TargetRegisterInfo* m_tri_ptr;
+    mutable DiagnosticEngine m_diag;
     std::ostringstream m_output;
     size_t m_label_count = 0;
     size_t m_string_count = 0;

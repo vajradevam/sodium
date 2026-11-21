@@ -563,7 +563,7 @@ void Generator::collect_call_types()
             try {
                 result = static_cast<int64_t>(std::stoll(lit->int_lit.value.value()));
             } catch (const std::out_of_range&) {
-                lsp_exit(lit->int_lit.loc,
+                gen->fail(lit->int_lit.loc,
                     "Integer literal '" + lit->int_lit.value.value() +
                     "' out of range for 64-bit signed integer");
             }
@@ -588,7 +588,7 @@ void Generator::collect_call_types()
                         int64_t a = lhs.value(), bv = rhs.value();
                         int64_t res;
                         if (__builtin_add_overflow(a, bv, &res)) {
-                            lsp_exit({}, "Integer overflow in constant expression");
+                            gen->fail({}, "Integer overflow in constant expression");
                         }
                         result = res;
                     }
@@ -600,7 +600,7 @@ void Generator::collect_call_types()
                         int64_t a = lhs.value(), bv = rhs.value();
                         int64_t res;
                         if (__builtin_sub_overflow(a, bv, &res)) {
-                            lsp_exit({}, "Integer overflow in constant expression");
+                            gen->fail({}, "Integer overflow in constant expression");
                         }
                         result = res;
                     }
@@ -612,7 +612,7 @@ void Generator::collect_call_types()
                         int64_t a = lhs.value(), bv = rhs.value();
                         int64_t res;
                         if (__builtin_mul_overflow(a, bv, &res)) {
-                            lsp_exit({}, "Integer overflow in constant expression");
+                            gen->fail({}, "Integer overflow in constant expression");
                         }
                         result = res;
                     }
@@ -622,7 +622,7 @@ void Generator::collect_call_types()
                     auto rhs = gen->eval_const_expr(b->rhs);
                     if (lhs && rhs) {
                         if (rhs.value() == 0) {
-                            lsp_exit({}, "Division by zero in constant expression");
+                            gen->fail({}, "Division by zero in constant expression");
                         }
                         result = lhs.value() / rhs.value();
                     }
@@ -632,7 +632,7 @@ void Generator::collect_call_types()
                     auto rhs = gen->eval_const_expr(b->rhs);
                     if (lhs && rhs) {
                         if (rhs.value() == 0) {
-                            lsp_exit({}, "Division by zero in constant expression");
+                            gen->fail({}, "Division by zero in constant expression");
                         }
                         result = lhs.value() % rhs.value();
                     }
