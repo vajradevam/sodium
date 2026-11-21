@@ -6,11 +6,20 @@ passes, it is committed, and its box is ticked. Add sub-tasks freely (commit the
 anyway, tick the box, and note "not reproducible" in PROGRESS.md.
 
 ## Phase 0 — Harness (do this before any feature work)
-- [ ] **T0 Discoverable tests.** Rewrite `scripts/run_tests.sh` per D-005: auto-discover `tests/**/*.cyan`, read
-  `EXPECT-*` headers, check exit code *and* stdout, run per-target, use `mktemp -d` (no fixed `/tmp` names), print a
-  summary by category, `--filter <substr>`, `--target <t>`, `-j` parallelism. Migrate all 150+ existing tests (move the
-  hardcoded exit-code map into headers; derive stdout expectations by running current output **and reviewing it by
-  hand**). Done when: no hardcoded test map remains; count of tests ≥ 318 run-equivalents; a deliberately wrong expectation fails.
+- [ ] **T0a Migrate test headers (split from T0).** Add `EXPECT-*` headers to every `tests/**/*.cyan`: `EXPECT-EXIT`
+  from the old hardcoded map, `EXPECT-ERROR` substrings from captured diagnostics (no `file:line:col` prefix),
+  `STDIN`/`ARGS` where applicable, `EXPECT-STDOUT` from reviewed current output, `SKIP-TEST` for `helper.cyan`, and
+  `EXPECT-EXIT: 26` for the previously-unrun `test_comprehensive.cyan`. Append the `SKIP-TEST` directive to D-005.
+  The old runner must still pass (comments only).
+- [ ] **T0b Rewrite test runner (split from T0).** Auto-discover `tests/**/*.cyan`, parse headers, check exit code +
+  stdout + error substring, per-target, `mktemp -d`, summary by category, `--filter`, `--target`, `-j`. No hardcoded
+  map. Honour `COMPILER` env var and keep the `RISC-V backend: SKIPPED` marker for `check.sh`. Done when `check.sh`
+  is green with ≥318 run-equivalents.
+- [ ] **T0c Harness self-check (split from T0).** Add a `--self-test` mode proving a deliberately wrong expectation
+  fails. Verify both targets/counts and record results in PROGRESS.md.
+- [ ] **V12 riscv64 `print(0)` emits NUL byte (discovered during T0).** `print(0)` outputs byte `0x00` instead of `'0'`
+  on riscv64 (x86_64 correct); `test_print.cyan` and `test_print_all.cyan` cannot carry `EXPECT-STDOUT` until fixed.
+  Reproduce with a focused test, fix the riscv64 int→string path, then enable stdout checks on both tests.
 - [ ] **T1 Strict build.** Add `-Wall -Wextra -Wshadow -Wconversion`-class warnings (choose the strictest set that you
   can make clean) and make warnings fatal in `check.sh`. Fix all. Done when: zero warnings from a clean rebuild.
 - [ ] **T2 CI-equivalent script.** `scripts/check.sh` additionally: `--emit-ir`/`-S` sweep over every test on both targets
