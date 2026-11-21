@@ -7,6 +7,9 @@ Parser::Parser(std::vector<Token> tokens)
 }
 
 Token Parser::consume() {
+    if (m_index >= m_tokens.size()) {
+        error("Unexpected end of input");
+    }
     return m_tokens.at(m_index++);
 }
 
