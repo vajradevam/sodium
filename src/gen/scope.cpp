@@ -86,7 +86,6 @@ void Generator::enter_scope()
 
 void Generator::exit_scope()
 {
-    auto& scope = m_scopes.back();
     // var_count counts the number of *variables*, not bytes.
     // Stack size is tracked separately in m_stack_size (bytes).
     m_scopes.pop_back();
@@ -106,7 +105,7 @@ void Generator::declare_var(const std::string& name, Type type, SourceLoc loc) {
     size_t align = size < 8 ? size : 8;  // natural alignment, capped at 8
     uint32_t offset = static_cast<uint32_t>(align_up(m_next_frame_offset, align));
     m_next_frame_offset = offset + static_cast<uint32_t>(size);
-    scope.vars[name] = Var { .stack_loc = offset, .type = type };
+    scope.vars[name] = Var { .stack_loc = offset, .type = type, .struct_type = "" };
     scope.var_count++;
     m_stack_size += size;
 }

@@ -46,7 +46,7 @@ void Generator::gen_stmt(const NodeStmt& stmt)
                 uint32_t arr_bytes = static_cast<uint32_t>((*arr_lit)->elements.size() * 8);
                 uint32_t slot = gen->m_next_frame_offset;
                 gen->m_next_frame_offset += arr_bytes;
-                scope.vars[stmt_let->ident.value.value()] = Var { .stack_loc = slot, .array_size = (*arr_lit)->elements.size(), .type = var_type };
+                scope.vars[stmt_let->ident.value.value()] = Var { .stack_loc = slot, .array_size = (*arr_lit)->elements.size(), .type = var_type, .struct_type = "" };
                 scope.var_count += (*arr_lit)->elements.size();
                 // Evaluate array literal elements
                 gen->gen_expr(*stmt_let->expr);
@@ -69,7 +69,7 @@ void Generator::gen_stmt(const NodeStmt& stmt)
                     auto& scope = gen->m_scopes.back();
                     scope.vars[stmt_let->ident.value.value()] = 
                         Var { .stack_loc = scope.vars.at(stmt_let->ident.value.value()).stack_loc,
-                              .type = expr_type };
+                              .type = expr_type, .struct_type = "" };
                     uint32_t addr = gen->m_ir.frame_addr(static_cast<int64_t>(scope.vars.at(stmt_let->ident.value.value()).stack_loc));
                     gen->m_ir.store(IRValue::vreg(addr), 0, IRValue::vreg(val));
                 } else {
@@ -108,7 +108,7 @@ void Generator::gen_stmt(const NodeStmt& stmt)
             gen->m_globals[stmt_global->name.value.value()] = true;
         }
 
-        void operator()(const NodeStmtConst* stmt_const) const
+        void operator()(const NodeStmtConst*) const
         {
             // Already handled by collect_globals; no runtime code needed.
         }
@@ -301,7 +301,7 @@ void Generator::gen_stmt(const NodeStmt& stmt)
             uint32_t slot = gen->m_next_frame_offset;
             uint32_t arr_bytes = static_cast<uint32_t>(size * 8);
             gen->m_next_frame_offset += arr_bytes;
-            scope.vars[stmt_arr->name.value.value()] = Var { .stack_loc = slot, .array_size = size };
+            scope.vars[stmt_arr->name.value.value()] = Var { .stack_loc = slot, .array_size = size, .struct_type = "" };
             scope.var_count += size;
             // Zero-initialize array elements linearly
             for (size_t i = 0; i < size; i++) {

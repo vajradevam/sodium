@@ -12,9 +12,7 @@ step "build (build/)"
 cmake -S . -B build -DCMAKE_BUILD_TYPE=Release >/dev/null || die "cmake configure"
 cmake --build build -j"$(nproc)" 2>&1 | tee build/last_build.log | tail -3
 [ "${PIPESTATUS[0]}" -eq 0 ] || die "build"
-if grep -q "warning:" build/last_build.log; then
-    echo "note: build produced warnings (see build/last_build.log); Phase 0 makes this fatal"
-fi
+grep -q "warning:" build/last_build.log && die "build produced warnings (see build/last_build.log)"
 
 step "test suite"
 ./scripts/run_tests.sh > build/last_tests.log 2>&1; rc=$?

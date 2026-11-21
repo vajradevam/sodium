@@ -18,9 +18,8 @@
 /// architecture-specific assembly emission.
 class IREmitter {
 public:
-    IREmitter(Backend& backend, const TargetRegisterInfo& tri,
-              const RegisterAllocation& alloc)
-        : m_backend(backend), m_tri(tri), m_alloc(alloc) {}
+    IREmitter(Backend& backend, const TargetRegisterInfo& tri)
+        : m_backend(backend), m_tri(tri) {}
 
     /// Emit a complete function.
     void emit_function(const IRFunction& func) {
@@ -426,7 +425,6 @@ private:
 
     Backend& m_backend;
     const TargetRegisterInfo& m_tri;
-    const RegisterAllocation& m_alloc;
     std::string m_func_name;
 
     std::string mangle_label(const std::string& label) const {

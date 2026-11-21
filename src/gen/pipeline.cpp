@@ -16,7 +16,6 @@ void Generator::flush_function() {
     // Run the pipeline: liveness → allocator → rewriter → emitter
     std::string func_name = func->name;
     auto blocks = func->blocks; // copy blocks
-    uint32_t slot_count = func->stack_slots;
 
     // Dump IR before allocation if requested
     if (m_emit_ir) {
@@ -34,7 +33,7 @@ void Generator::flush_function() {
     rewriter.rewrite();
 
     // Emit to backend
-    IREmitter emitter(*m_backend_ptr, *m_tri_ptr, allocation);
+    IREmitter emitter(*m_backend_ptr, *m_tri_ptr);
     emitter.emit_function(*func);
 
     // Reset IR state for next function
@@ -77,7 +76,7 @@ void Generator::gen_func_def(const NodeFuncDef& func)
         if (inferred_it != m_inferred_param_types.end() && i < inferred_it->second.size()) {
             param_type = inferred_it->second[i];
         }
-        scope.vars[param_name] = Var { .stack_loc = offset, .type = param_type };
+        scope.vars[param_name] = Var { .stack_loc = offset, .type = param_type, .struct_type = "" };
         scope.var_count++;
 
         // Load parameter from ABI-defined location (argument register or stack)
@@ -129,7 +128,7 @@ void Generator::collect_globals(const std::vector<NodeStmt>& stmts)
             }
             m_globals[name] = true;
             if (arr_size > 0) {
-                m_global_var_info[name] = Var { .stack_loc = 0, .array_size = arr_size };
+                m_global_var_info[name] = Var { .stack_loc = 0, .array_size = arr_size, .struct_type = "" };
                 m_bss_entries.push_back({name, arr_size});
             } else if ((*global)->expr) {
                 if (auto* int_lit = std::get_if<NodeExprIntLit*>(&(*global)->expr->var)) {

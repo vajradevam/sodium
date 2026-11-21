@@ -56,7 +56,6 @@ void Generator::gen_expr(const NodeExpr& expr)
             }
             // Try global
             if (gen->m_global_var_info.contains(name)) {
-                const auto& var = gen->m_global_var_info.at(name);
                 uint32_t base_addr = gen->m_ir.lea_label(name);
                 uint32_t offset = gen->m_ir.mul(IRValue::vreg(idx), IRValue::imm_i64(8));
                 uint32_t elem_addr = gen->m_ir.add(IRValue::vreg(base_addr), IRValue::vreg(offset));
