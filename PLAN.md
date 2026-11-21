@@ -38,9 +38,9 @@ anyway, tick the box, and note "not reproducible" in PROGRESS.md.
   non-overlapping ranges, spills under pressure, sorted output. ≥16 cases.
 - [x] **T4e Allocator cases + finalise T4 (split from T4).** Compile `sodium-rt/allocator.c` natively; alignment, reuse,
   sizes, zero-size, free-list recycling, stress. Verify ≥60 cases in <10 s and tick T4.
-- [ ] **T5 Differential oracle.** Add `scripts/oracle.sh` + a corpus of small Cyan programs with a hand-written C
-  twin; compile both and diff stdout/exit code. Start with ≥ 25 programs (arith edge cases, shifts, signed/unsigned
-  division, truncation, pointer math, recursion). Any mismatch is a bug → fix.
+- [ ] **T5a Oracle harness + arithmetic corpus (split from T5).** `scripts/oracle.sh` compiles `tests/oracle/<name>.cyan` with sodium and `<name>.c` with gcc, then diffs stdout and exit code. Add ≥10 arithmetic/edge-case pairs. Not yet in the gate.
+- [ ] **T5b Oracle corpus: shifts, division, truncation (split from T5).** ≥8 more pairs covering shifts, signed division/modulo, i8/u8/i16/u32 truncation and comparisons. Fix any mismatch found, each with a regression test.
+- [ ] **T5c Oracle corpus: pointers/recursion/control flow + gate (split from T5).** ≥7 more pairs (pointer math, pointer diff, recursion, loops, switch). Fix mismatches (notably V12: riscv64 print(0) emits NUL), run the oracle on both targets, wire into `check.sh`, tick T5, reach ≥25 pairs total.
 - [ ] **T6 Cleanup of build hygiene.** `.gitignore` covers all outputs; `git status` is clean after `check.sh`; remove `system()`
   shell-outs in `main.cpp` in favor of `fork/execvp` with argv arrays (fixes shell injection via `-o` paths); test with a path containing spaces and `;`.
 - [ ] **P0-END** `check.sh --full`, tag `phase-0-done`.
