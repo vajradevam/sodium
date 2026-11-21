@@ -1,3 +1,5 @@
+// EXPECT-EXIT: 20
+
 
 function main() {
     var x = 2;

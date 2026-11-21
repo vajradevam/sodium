@@ -1,3 +1,5 @@
+// EXPECT-ERROR: Expected '(' after print
+
 // Compile-fail: print without '('
 // Expected: Expected '(' after print
 

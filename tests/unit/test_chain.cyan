@@ -1,3 +1,5 @@
+// EXPECT-EXIT: 47
+
 
 function main() {
     var x = (1 + 2) * (5 - 1) / 3;

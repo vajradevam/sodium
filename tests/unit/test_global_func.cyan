@@ -1,3 +1,5 @@
+// EXPECT-EXIT: 3
+
 global var counter = 0;
 
 function increment() {

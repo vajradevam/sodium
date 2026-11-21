@@ -1,3 +1,5 @@
+// EXPECT-ERROR: Expected '(' after function name
+
 // Compile-fail: function without '(' after name
 // Expected: Expected '(' after function name
 function foo { }

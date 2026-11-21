@@ -1,3 +1,5 @@
+// EXPECT-EXIT: 0
+
 // Test type-aware pointer arithmetic
 // ptr + n should advance by n * sizeof(*ptr) bytes
 // ptr - ptr should give element difference based on the pointer type

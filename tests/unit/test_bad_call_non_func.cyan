@@ -1,3 +1,5 @@
+// EXPECT-ERROR: Undefined function: x (did you mean 'x'?)
+
 // Compile-fail: calling a non-function variable
 // Expected: Undefined function (or invalid call)
 

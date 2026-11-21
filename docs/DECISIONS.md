@@ -38,7 +38,9 @@ missing return, conflicting inferred pointer types.
 Tests are discovered, not registered: every `tests/**/*.cyan` is run. Header comments declare expectations:
 `// EXPECT-EXIT: N`, `// EXPECT-STDOUT: <line>` (repeatable, ordered), `// EXPECT-ERROR: <substring>`,
 `// ARGS: ...`, `// STDIN: ...`, `// TARGETS: x86_64 riscv64` (default both). Files named `test_bad_*`
-must declare `EXPECT-ERROR`.
+must declare `EXPECT-ERROR`. `// SKIP-TEST: <reason>` marks a file that is included by other tests and
+is not a standalone test (currently `tests/include/helper.cyan`). An `EXPECT-STDOUT` header declares an
+exact, ordered line of stdout; when any are present the full stdout must match them line for line.
 
 ## D-006 Optimization policy
 Correctness first. `-O0` (default for now) must remain a straightforward translation; optimizations

@@ -1,3 +1,5 @@
+// EXPECT-EXIT: 5
+
 // pre and post increment/decrement
 // x == 6
 // x == 7

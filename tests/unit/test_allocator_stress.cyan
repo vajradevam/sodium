@@ -1,3 +1,5 @@
+// EXPECT-EXIT: 1
+
 // SFL Allocator stress test
 // The new segregated-free-list allocator has 15 size classes
 // covering 16..2048 bytes total (8..2040 payload).

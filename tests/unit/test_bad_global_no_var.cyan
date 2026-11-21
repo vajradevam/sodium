@@ -1,3 +1,5 @@
+// EXPECT-ERROR: Expected 'var' after 'global'
+
 // Compile-fail: global without 'var'
 // Expected: Expected 'var' after 'global'
 global x = 10;

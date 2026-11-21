@@ -1,3 +1,5 @@
+// EXPECT-EXIT: 56
+
 function f1() {
     static var x = 0;
     x = x + 2;

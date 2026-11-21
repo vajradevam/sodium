@@ -1,3 +1,5 @@
+// EXPECT-ERROR: Invalid for update (must be assignment)
+
 // Compile-fail: for with invalid update expression
 // Expected: Invalid for update (must be assignment)
 

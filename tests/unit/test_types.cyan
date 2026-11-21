@@ -1,3 +1,5 @@
+// EXPECT-EXIT: 44
+
 
 function main() {
     var x: i32 = 100;

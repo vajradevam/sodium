@@ -1,3 +1,5 @@
+// EXPECT-ERROR: Undefined function: foo (did you mean 'free'?)
+
 // Compile-fail: calling undefined function
 // Expected: Undefined function
 

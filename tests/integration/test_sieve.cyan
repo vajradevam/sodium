@@ -1,3 +1,5 @@
+// EXPECT-EXIT: 1
+
 // Sieve of Eratosthenes - find all primes up to N
 // Uses arrays, loops, if/else, and basic arithmetic
 // This exercises the full pipeline

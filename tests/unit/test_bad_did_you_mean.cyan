@@ -1,3 +1,5 @@
+// EXPECT-ERROR: Undeclared identifier: coutn (did you mean 'count'?)
+
 function main() {
     var count = 10;
     var y = coutn + 1;

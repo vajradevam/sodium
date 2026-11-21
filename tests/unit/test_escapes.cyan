@@ -1,3 +1,5 @@
+// EXPECT-EXIT: 0
+
 // Test escape sequence processing in string literals
 // All tests pass if the program runs to completion and prints expected output.
 

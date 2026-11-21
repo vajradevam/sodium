@@ -1,3 +1,5 @@
+// EXPECT-EXIT: 10
+
 // break out of a for loop early
 
 function main() {

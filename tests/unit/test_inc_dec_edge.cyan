@@ -1,3 +1,5 @@
+// EXPECT-EXIT: 1
+
 // Test: increment/decrement edge cases
 // ++ and -- are statement-level constructs in Cyan (desugared to x = x + 1)
 

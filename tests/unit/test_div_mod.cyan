@@ -1,3 +1,5 @@
+// EXPECT-EXIT: 1
+
 // Test: division and modulo edge cases
 // Tests signed division and modulo behavior
 

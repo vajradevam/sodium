@@ -1,3 +1,5 @@
+// EXPECT-EXIT: 1
+
 // Stress test: many function calls, deep call stack
 // Exercises register save/restore, stack frames, calling convention
 

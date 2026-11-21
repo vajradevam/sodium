@@ -1,3 +1,5 @@
+// EXPECT-EXIT: 1
+
 // Test: deeply nested control flow — exercises block scoping,
 // register pressure, and branch label generation.
 

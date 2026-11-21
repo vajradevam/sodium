@@ -1,3 +1,5 @@
+// EXPECT-ERROR: continue outside loop
+
 // Compile-fail: continue outside loop
 // Expected: continue outside loop
 

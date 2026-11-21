@@ -1,3 +1,5 @@
+// EXPECT-EXIT: 55
+
 // compound assignment in a loop
 // sum = 55
 

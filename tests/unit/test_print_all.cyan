@@ -1,3 +1,5 @@
+// EXPECT-EXIT: 0
+
 // Comprehensive test for unified print with C-style format strings
 // Run this and visually verify the output.
 

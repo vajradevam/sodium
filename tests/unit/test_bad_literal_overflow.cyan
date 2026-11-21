@@ -1,3 +1,5 @@
+// EXPECT-ERROR: Integer literal '99999999999999999999' out of range for 64-bit signed integer
+
 // Test: integer literal out of range causes compile error
 // Expected: compile error
 // "Integer literal '99999999999999999999' out of range for 64-bit signed integer"

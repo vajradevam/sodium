@@ -1,3 +1,5 @@
+// EXPECT-EXIT: 0
+
 // String literal edge cases
 // Test that various string contents compile and run without crash
 

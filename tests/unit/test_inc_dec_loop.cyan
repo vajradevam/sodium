@@ -1,3 +1,5 @@
+// EXPECT-EXIT: 55
+
 // increment in a loop
 // sum = 55
 

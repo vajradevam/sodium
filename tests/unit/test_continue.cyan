@@ -1,3 +1,5 @@
+// EXPECT-EXIT: 43
+
 // continue in a while loop: sum 1..10 skipping 5 and 7
 // 1+2+3+4+6+8+9+10 = 43
 

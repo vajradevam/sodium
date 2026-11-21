@@ -1,3 +1,5 @@
+// EXPECT-ERROR: Cannot assign to constant 'X'
+
 // Compile-fail: cannot assign to a constant
 const X = 10;
 

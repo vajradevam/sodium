@@ -1,3 +1,5 @@
+// EXPECT-EXIT: 0
+
 // else if chain, take first
 
 function main() {

@@ -1,3 +1,5 @@
+// EXPECT-ERROR: Unterminated string literal
+
 // Compile-fail: unterminated string literal
 // Expected: Unterminated string literal
 

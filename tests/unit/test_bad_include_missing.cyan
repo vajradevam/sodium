@@ -1,3 +1,5 @@
+// EXPECT-ERROR: include file not found: nonexistent_test_file.cyan
+
 // Compile-fail: missing include file
 // Expected: include file not found
 #include "nonexistent_test_file.cyan"

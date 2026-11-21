@@ -1,3 +1,5 @@
+// EXPECT-ERROR: read() requires an array variable, but 'x' is a scalar
+
 // Compile-fail: read() with a scalar variable (must be array)
 // Expected: read() requires an array variable
 

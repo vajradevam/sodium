@@ -1,3 +1,5 @@
+// EXPECT-EXIT: 10
+
 // Test global variable in for-loop update expression
 global var g;
     // body is empty, loop just increments g

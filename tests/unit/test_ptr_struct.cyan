@@ -1,3 +1,8 @@
+// EXPECT-EXIT: 50
+// EXPECT-STDOUT: 10
+// EXPECT-STDOUT: 20
+// EXPECT-STDOUT: 30
+
 // Test: address-of struct fields
 struct Point {
     var x;

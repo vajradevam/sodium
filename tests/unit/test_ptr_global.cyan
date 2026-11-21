@@ -1,3 +1,7 @@
+// EXPECT-EXIT: 250
+// EXPECT-STDOUT: 100
+// EXPECT-STDOUT: 250
+
 // Test: pointer to global variable
 global var g = 100;
 

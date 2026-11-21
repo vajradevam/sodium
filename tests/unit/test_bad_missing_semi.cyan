@@ -1,3 +1,5 @@
+// EXPECT-ERROR: Expected `;`
+
 // Compile-fail: missing semicolon
 // Expected: Expected `;`
 

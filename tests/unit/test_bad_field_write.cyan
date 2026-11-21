@@ -1,3 +1,5 @@
+// EXPECT-ERROR: Not a struct variable: x
+
 // Compile-fail: writing field on non-struct
 // Expected: Not a struct variable
 

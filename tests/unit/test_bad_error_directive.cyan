@@ -1,3 +1,5 @@
+// EXPECT-ERROR: this is a deliberate compile error
+
 // Compile-fail: #error directive
 // Expected: (user-defined error message)
 #error "this is a deliberate compile error"

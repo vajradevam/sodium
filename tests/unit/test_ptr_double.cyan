@@ -1,3 +1,7 @@
+// EXPECT-EXIT: 14
+// EXPECT-STDOUT: 7
+// EXPECT-STDOUT: 14
+
 // Test: pointer to pointer (double deref)
 
 function main() {

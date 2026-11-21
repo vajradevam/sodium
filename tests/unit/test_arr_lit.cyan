@@ -1,3 +1,5 @@
+// EXPECT-EXIT: 150
+
 
 function main() {
     var x = [10, 20, 30];

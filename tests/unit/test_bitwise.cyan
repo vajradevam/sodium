@@ -1,3 +1,5 @@
+// EXPECT-EXIT: 26
+
 // bitwise AND, OR, XOR, shift, NOT
 // a == 2 (110 & 011 = 010)
 // b == 7 (110 | 011 = 111)

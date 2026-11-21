@@ -1,3 +1,5 @@
+// EXPECT-EXIT: 80
+
 // Test: unary bitwise NOT (~)
 // Also test XOR and shifts as standalone expressions
 // a == -1 (all bits set)

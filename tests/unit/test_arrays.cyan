@@ -1,3 +1,5 @@
+// EXPECT-EXIT: 29
+
 
 function main() {
     var arr[10];

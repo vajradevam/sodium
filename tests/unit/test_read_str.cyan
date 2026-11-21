@@ -1,3 +1,6 @@
+// EXPECT-EXIT: 11
+// STDIN: hello world
+
 // Test: read(buf) — read a line of input into a buffer
 // Input: "hello world\n" → read yields "hello world" (11 bytes, no newline)
 // Expected: n = 11

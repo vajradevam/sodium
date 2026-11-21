@@ -1,3 +1,5 @@
+// SKIP-TEST: helper included by include tests, not standalone
+
 #pragma once
 
 function add(a, b) {

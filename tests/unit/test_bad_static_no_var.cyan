@@ -1,3 +1,5 @@
+// EXPECT-ERROR: Expected 'var' after 'static'
+
 // Compile-fail: static without 'var'
 // Expected: Expected 'var' after 'static'
 static x = 10;

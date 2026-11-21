@@ -1,3 +1,5 @@
+// EXPECT-EXIT: 45
+
 
 function main() {
     var sum = 0;

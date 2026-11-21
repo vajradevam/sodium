@@ -1,3 +1,5 @@
+// EXPECT-ERROR: Expected hexadecimal digit after '0x'
+
 // Should fail: 0x requires at least one hex digit
 
 function main() {

@@ -1,3 +1,6 @@
+// EXPECT-EXIT: 123
+// EXPECT-STDOUT: 123
+
 // Test: malloc and free
 // free(ptr);  // free is a no-op for now
 

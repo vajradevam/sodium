@@ -1,3 +1,5 @@
+// EXPECT-ERROR: Expected '(' after switch
+
 // Compile-fail: switch without '('
 // Expected: Expected '(' after switch
 
