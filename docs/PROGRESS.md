@@ -37,3 +37,5 @@ Format: `YYYY-MM-DD  TASK-ID  summary  (tests A→B)`
 - Remaining work: all of Phases 1–9 are unchecked. Noted for Phase 1: V3 still covers signed/unsigned
   semantics beyond shifts, and V6 covers allocator 16-byte alignment (payloads are currently 8-aligned).
   README.md is still unverified (D1).
+
+2026-11-22  V1  Stack-passed arguments: added integration test with 9/11 args, nested calls as args and recursion with stack args — passes both targets. Assembly inspection found a real ABI bug: with an even number of stack args the stack was 8-byte misaligned at call sites (callee-save pushes toggled parity). IREmitter now pads call sites based on the number of entry PUSHes; verified 50 x86_64 and 20 riscv64 call sites aligned, with four new unit tests checking emitted parity. Also found that >=13 args on x86_64 produce wrong results from spill-slot collisions across calls — that is V2 territory and is left for that task.  (388→390 passed, 0 failed; unit 94→98)
