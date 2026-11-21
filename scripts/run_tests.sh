@@ -1,496 +1,261 @@
 #!/bin/bash
+# Discoverable test runner — see D-005 in docs/DECISIONS.md.
+# Every tests/**/*.cyan is a test; expectations come from // EXPECT-* headers.
+# Usage: scripts/run_tests.sh [--filter SUBSTR] [--target NAME] [-j N] [-h]
 
 COMPILER="${COMPILER:-./build/sodium}"
-PASS=0
-FAIL=0
+FILTER=""
+TARGET="all"
+JOBS=1
 
 GREEN='\033[0;32m'
 RED='\033[0;31m'
+DIM='\033[2m'
 NC='\033[0m'
 
+usage() {
+    cat <<'EOF'
+Usage: scripts/run_tests.sh [options]
+  --filter SUBSTR     run only tests whose path contains SUBSTR
+  --target NAME       x86_64, riscv64, or all (default: all)
+  -j N                run up to N cases in parallel (default: 1)
+  -h, --help          show this help
+
+Tests are discovered under tests/**/*.cyan. Expectations are declared in
+// EXPECT-* header comments (docs/DECISIONS.md, D-005).
+EOF
+}
+
+need_arg() {
+    if [ "$#" -lt 2 ]; then
+        echo "error: $1 requires an argument" >&2
+        usage >&2
+        exit 2
+    fi
+}
+
+while [ "$#" -gt 0 ]; do
+    case "$1" in
+        --filter) need_arg "$@"; FILTER="$2"; shift 2 ;;
+        --target) need_arg "$@"; TARGET="$2"; shift 2 ;;
+        -j)       need_arg "$@"; JOBS="$2"; shift 2 ;;
+        -h|--help) usage; exit 0 ;;
+        *) echo "error: unknown option '$1'" >&2; usage >&2; exit 2 ;;
+    esac
+done
+
+case "$TARGET" in
+    all|x86_64|riscv64) ;;
+    *) echo "error: invalid --target '$TARGET' (want all, x86_64, riscv64)" >&2; exit 2 ;;
+esac
+case "$JOBS" in
+    ''|*[!0-9]*) echo "error: -j must be a positive integer" >&2; exit 2 ;;
+esac
+[ "$JOBS" -ge 1 ] || { echo "error: -j must be a positive integer" >&2; exit 2; }
+
+RV_OK=1
+if [ "$TARGET" != "x86_64" ]; then
+    if ! command -v qemu-riscv64 >/dev/null 2>&1 || \
+       ! command -v riscv64-elf-gcc >/dev/null 2>&1; then
+        RV_OK=0
+        echo "  --- RISC-V backend: SKIPPED (qemu-riscv64 / riscv64-elf-gcc not found) ---"
+    fi
+fi
+
+TMPBASE="${TMPDIR:-/tmp/opencode}"
+WORK=$(mktemp -d "$TMPBASE/cyan_tests.XXXXXX" 2>/dev/null) || WORK=$(mktemp -d /tmp/cyan_tests.XXXXXX)
+mkdir -p "$WORK/results"
+trap 'rm -rf "$WORK"' EXIT
+
+# ── header parsing ─────────────────────────────────────────────────
+EXPECT_EXIT=""
+EXPECT_ERROR=""
+STDIN_VAL=""
+ARGS_VAL=""
+TARGETS_VAL=""
+SKIP_REASON=""
+STDOUT_LINES=()
+
+parse_headers() {
+    EXPECT_EXIT=""; EXPECT_ERROR=""; STDIN_VAL=""; ARGS_VAL=""
+    TARGETS_VAL=""; SKIP_REASON=""; STDOUT_LINES=()
+    local line
+    while IFS= read -r line || [ -n "$line" ]; do
+        case "$line" in
+            "// EXPECT-EXIT: "*)   EXPECT_EXIT="${line#// EXPECT-EXIT: }" ;;
+            "// EXPECT-EXIT:")     EXPECT_EXIT="0" ;;
+            "// EXPECT-ERROR: "*)  EXPECT_ERROR="${line#// EXPECT-ERROR: }" ;;
+            "// STDIN: "*)         STDIN_VAL="${line#// STDIN: }" ;;
+            "// ARGS: "*)          ARGS_VAL="${line#// ARGS: }" ;;
+            "// TARGETS: "*)       TARGETS_VAL="${line#// TARGETS: }" ;;
+            "// SKIP-TEST: "*)     SKIP_REASON="${line#// SKIP-TEST: }" ;;
+            "// EXPECT-STDOUT: "*) STDOUT_LINES+=("${line#// EXPECT-STDOUT: }") ;;
+            "// EXPECT-STDOUT:")   STDOUT_LINES+=("") ;;
+        esac
+    done < "$1"
+}
+
+# ── one case ───────────────────────────────────────────────────────
+CASES=()
+
+run_case() {
+    trap - EXIT
+    local idx="$1"
+    local spec="${CASES[$idx]}"
+    local cat target path
+    IFS='|' read -r cat target path <<< "$spec"
+
+    local base="$WORK/case_$idx"
+    local result="$WORK/results/$idx"
+    local emit
+    emit() {
+        local reason="${2//|//}"
+        reason="${reason//$'\n'/ }"
+        printf '%s|%s|%s|%s|%s\n' "$1" "$cat" "$target" "$path" "$reason" > "$result"
+    }
+
+    parse_headers "$path"
+
+    if [ -n "$SKIP_REASON" ]; then
+        emit SKIP "$SKIP_REASON"
+        return
+    fi
+    if [ -z "$EXPECT_ERROR" ] && [ -z "$EXPECT_EXIT" ]; then
+        emit FAIL "no EXPECT-EXIT or EXPECT-ERROR header"
+        return
+    fi
+    case "${path##*/}" in
+        test_bad_*)
+            if [ -z "$EXPECT_ERROR" ]; then
+                emit FAIL "test_bad_* must declare EXPECT-ERROR"
+                return
+            fi ;;
+    esac
+
+    local tflag=()
+    [ "$target" = "riscv64" ] && tflag=(--target riscv64)
+
+    "$COMPILER" "${tflag[@]}" -I tests/include -o "$base.bin" "$path" \
+        > "$base.compile.log" 2>&1
+    local cc=$?
+
+    if [ -n "$EXPECT_ERROR" ]; then
+        if [ "$cc" -eq 0 ]; then
+            emit FAIL "compiled successfully (expected error)"
+            return
+        fi
+        if ! grep -Fq -- "$EXPECT_ERROR" "$base.compile.log"; then
+            emit FAIL "diagnostic did not contain: $EXPECT_ERROR"
+            return
+        fi
+        emit PASS ""
+        return
+    fi
+
+    if [ "$cc" -ne 0 ]; then
+        emit FAIL "compile failed: $(head -1 "$base.compile.log")"
+        return
+    fi
+
+    local runner=("$base.bin")
+    [ "$target" = "riscv64" ] && runner=(qemu-riscv64 "$base.bin")
+    local args=()
+    [ -n "$ARGS_VAL" ] && read -r -a args <<< "$ARGS_VAL"
+
+    if [ -n "$STDIN_VAL" ]; then
+        printf '%s\n' "$STDIN_VAL" > "$base.stdin"
+        "${runner[@]}" "${args[@]}" < "$base.stdin" > "$base.stdout" 2> "$base.stderr"
+    else
+        "${runner[@]}" "${args[@]}" < /dev/null > "$base.stdout" 2> "$base.stderr"
+    fi
+    local actual_exit=$?
+
+    local want_exit="$EXPECT_EXIT"
+    [ -z "$want_exit" ] && want_exit=0
+    if [ "$actual_exit" -ne "$want_exit" ]; then
+        emit FAIL "exit $actual_exit, expected $want_exit"
+        return
+    fi
+
+    if [ "${#STDOUT_LINES[@]}" -gt 0 ]; then
+        printf '%s\n' "${STDOUT_LINES[@]}" > "$base.expected"
+        if ! cmp -s "$base.expected" "$base.stdout"; then
+            emit FAIL "stdout mismatch: $(diff -u "$base.expected" "$base.stdout" | tail -1)"
+            return
+        fi
+    fi
+    emit PASS ""
+}
+
+# ── discover ───────────────────────────────────────────────────────
+while IFS= read -r path; do
+    [ -n "$FILTER" ] && [[ "$path" != *"$FILTER"* ]] && continue
+    parse_headers "$path"
+    local_targets="${TARGETS_VAL:-x86_64 riscv64}"
+    for t in $local_targets; do
+        case "$TARGET" in
+            all) ;;
+            *) [ "$t" = "$TARGET" ] || continue ;;
+        esac
+        if [ "$t" = "riscv64" ] && [ "$RV_OK" -eq 0 ]; then
+            continue
+        fi
+        cat="${path#tests/}"; cat="${cat%%/*}"
+        CASES+=("$cat|$t|$path")
+    done
+done < <(find tests -type f -name '*.cyan' | sort)
+
 echo "========================================"
-echo "  Cyan Compiler Test Suite"
+echo "  Cyan Compiler Test Suite (discovered)"
 echo "========================================"
 echo ""
 
-# ── Unit tests (tests/unit/) ───────────────────────────────────────
-declare -A UNIT_TESTS
-UNIT_TESTS["test.cyan"]=10
-UNIT_TESTS["test_arith.cyan"]=11
-UNIT_TESTS["test_arith2.cyan"]=7
-UNIT_TESTS["test_chain.cyan"]=47
-UNIT_TESTS["test_cmp.cyan"]=2
-UNIT_TESTS["test_if.cyan"]=100
-UNIT_TESTS["test_nested_if.cyan"]=2
-UNIT_TESTS["test_paren.cyan"]=16
-UNIT_TESTS["test_while.cyan"]=5
-UNIT_TESTS["test_logical.cyan"]=7
-UNIT_TESTS["test_for.cyan"]=45
-UNIT_TESTS["test_scoping.cyan"]=15
-UNIT_TESTS["test_spill.cyan"]=36
-UNIT_TESTS["test_large_free.cyan"]=0
-UNIT_TESTS["test_ptr_arith.cyan"]=0
-UNIT_TESTS["test_func_basic.cyan"]=10
-UNIT_TESTS["test_func_multi.cyan"]=20
-UNIT_TESTS["test_func_rec.cyan"]=176
-UNIT_TESTS["test_arrays.cyan"]=29
-UNIT_TESTS["test_lte_gte.cyan"]=4
-UNIT_TESTS["test_unary.cyan"]=5
-UNIT_TESTS["test_strings.cyan"]=0
-UNIT_TESTS["test_standalone_block.cyan"]=6
-UNIT_TESTS["test_else_if.cyan"]=0
-UNIT_TESTS["test_else_if2.cyan"]=0
-UNIT_TESTS["test_else_if3.cyan"]=0
-UNIT_TESTS["test_else_if4.cyan"]=0
-UNIT_TESTS["test_break.cyan"]=3
-UNIT_TESTS["test_continue.cyan"]=43
-UNIT_TESTS["test_break_for.cyan"]=10
-UNIT_TESTS["test_continue_for.cyan"]=46
-UNIT_TESTS["test_nested_break.cyan"]=9
-UNIT_TESTS["test_compound_assign.cyan"]=6
-UNIT_TESTS["test_compound_assign2.cyan"]=55
-UNIT_TESTS["test_inc_dec.cyan"]=5
-UNIT_TESTS["test_inc_dec_loop.cyan"]=55
-UNIT_TESTS["test_inc_dec_loop2.cyan"]=55
-UNIT_TESTS["test_mod.cyan"]=3
-UNIT_TESTS["test_mod_loop.cyan"]=25
-UNIT_TESTS["test_bitwise.cyan"]=26
-UNIT_TESTS["test_bitwise2.cyan"]=6
-UNIT_TESTS["test_ternary.cyan"]=30
-UNIT_TESTS["test_ternary2.cyan"]=50
-UNIT_TESTS["test_print_all.cyan"]=0
-UNIT_TESTS["test_mod_assign.cyan"]=1
-UNIT_TESTS["test_bitwise_assign.cyan"]=30
-UNIT_TESTS["test_do_while.cyan"]=10
-UNIT_TESTS["test_do_while_break.cyan"]=5
-UNIT_TESTS["test_do_while_continue.cyan"]=12
-UNIT_TESTS["test_switch.cyan"]=30
-UNIT_TESTS["test_switch_break.cyan"]=20
-UNIT_TESTS["test_switch_default.cyan"]=99
-UNIT_TESTS["test_switch_continue.cyan"]=12
-UNIT_TESTS["test_global.cyan"]=15
-UNIT_TESTS["test_global_func.cyan"]=3
-UNIT_TESTS["test_hex.cyan"]=14
-UNIT_TESTS["test_not.cyan"]=14
-UNIT_TESTS["test_argc.cyan"]=0
-UNIT_TESTS["test_argv_basic.cyan"]=0
-UNIT_TESTS["test_no_explicit_return.cyan"]=0
-UNIT_TESTS["test_string.cyan"]=0
-UNIT_TESTS["test_escapes.cyan"]=0
-UNIT_TESTS["test_arr_lit.cyan"]=150
-UNIT_TESTS["test_types.cyan"]=44
-UNIT_TESTS["test_types_compound.cyan"]=15
-UNIT_TESTS["test_static.cyan"]=123
-UNIT_TESTS["test_for_compound_update.cyan"]=55
-UNIT_TESTS["test_for_global_update.cyan"]=10
-UNIT_TESTS["test_print.cyan"]=0
-UNIT_TESTS["test_const_arr.cyan"]=55
-UNIT_TESTS["test_static2.cyan"]=56
-UNIT_TESTS["test_struct.cyan"]=91
-UNIT_TESTS["test_struct_fields.cyan"]=91
-UNIT_TESTS["test_struct_scope.cyan"]=20
-UNIT_TESTS["test_ptr_basic.cyan"]=42
-UNIT_TESTS["test_ptr_assign.cyan"]=94
-UNIT_TESTS["test_malloc.cyan"]=123
-UNIT_TESTS["test_ptr_global.cyan"]=250
-UNIT_TESTS["test_ptr_double.cyan"]=14
-UNIT_TESTS["test_ptr_struct.cyan"]=50
-UNIT_TESTS["test_ptr_expr.cyan"]=15
-UNIT_TESTS["test_ptr_func.cyan"]=42
-UNIT_TESTS["test_allocator_stress.cyan"]=1
-UNIT_TESTS["test_bitwise_not.cyan"]=80
-UNIT_TESTS["test_deref_compound.cyan"]=1
-UNIT_TESTS["test_div_mod.cyan"]=1
-UNIT_TESTS["test_div0_runtime.cyan"]=1
-UNIT_TESTS["test_empty_blocks.cyan"]=1
-UNIT_TESTS["test_forward_func.cyan"]=1
-UNIT_TESTS["test_global_complex.cyan"]=1
-UNIT_TESTS["test_inc_dec_edge.cyan"]=1
-UNIT_TESTS["test_many_args.cyan"]=1
-UNIT_TESTS["test_nested_control.cyan"]=1
-UNIT_TESTS["test_string_escape.cyan"]=0
-UNIT_TESTS["test_struct_compound.cyan"]=1
-UNIT_TESTS["test_type_conv.cyan"]=1
-
-# Unit tests that should fail to compile
-declare -a COMPILE_FAIL_UNIT
-COMPILE_FAIL_UNIT+=("test_arr_scalar_assign.cyan")
-COMPILE_FAIL_UNIT+=("test_bad_argc_args.cyan")
-COMPILE_FAIL_UNIT+=("test_bad_argv_args.cyan")
-COMPILE_FAIL_UNIT+=("test_bad_assign_rvalue.cyan")
-COMPILE_FAIL_UNIT+=("test_bad_break_outside.cyan")
-COMPILE_FAIL_UNIT+=("test_bad_call_missing_paren.cyan")
-COMPILE_FAIL_UNIT+=("test_bad_call_undefined.cyan")
-COMPILE_FAIL_UNIT+=("test_bad_case_no_value.cyan")
-COMPILE_FAIL_UNIT+=("test_bad_const_assign.cyan")
-COMPILE_FAIL_UNIT+=("test_bad_continue_outside.cyan")
-COMPILE_FAIL_UNIT+=("test_bad_div0_const.cyan")
-COMPILE_FAIL_UNIT+=("test_bad_do_no_while.cyan")
-COMPILE_FAIL_UNIT+=("test_bad_dot_no_field.cyan")
-COMPILE_FAIL_UNIT+=("test_bad_error_directive.cyan")
-COMPILE_FAIL_UNIT+=("test_bad_field_write.cyan")
-COMPILE_FAIL_UNIT+=("test_bad_for_invalid_update.cyan")
-COMPILE_FAIL_UNIT+=("test_bad_for_no_semi.cyan")
-COMPILE_FAIL_UNIT+=("test_bad_func_no_name.cyan")
-COMPILE_FAIL_UNIT+=("test_bad_func_no_paren.cyan")
-COMPILE_FAIL_UNIT+=("test_bad_call_non_func.cyan")
-COMPILE_FAIL_UNIT+=("test_bad_const_non_const.cyan")
-COMPILE_FAIL_UNIT+=("test_bad_arr_size_mismatch.cyan")
-COMPILE_FAIL_UNIT+=("test_bad_global_no_var.cyan")
-COMPILE_FAIL_UNIT+=("test_bad_hex.cyan")
-COMPILE_FAIL_UNIT+=("test_bad_hex_overflow.cyan")
-COMPILE_FAIL_UNIT+=("test_bad_if_no_paren.cyan")
-COMPILE_FAIL_UNIT+=("test_bad_literal_overflow.cyan")
-COMPILE_FAIL_UNIT+=("test_bad_inc_dec_non_lvalue.cyan")
-COMPILE_FAIL_UNIT+=("test_bad_include_missing.cyan")
-COMPILE_FAIL_UNIT+=("test_bad_index_empty.cyan")
-COMPILE_FAIL_UNIT+=("test_bad_missing_paren.cyan")
-COMPILE_FAIL_UNIT+=("test_bad_missing_semi.cyan")
-COMPILE_FAIL_UNIT+=("test_bad_ops.cyan")
-COMPILE_FAIL_UNIT+=("test_bad_prefix_op.cyan")
-COMPILE_FAIL_UNIT+=("test_bad_print_no_paren.cyan")
-COMPILE_FAIL_UNIT+=("test_bad_print_str_args.cyan")
-COMPILE_FAIL_UNIT+=("test_bad_read_args.cyan")
-COMPILE_FAIL_UNIT+=("test_bad_read_scalar.cyan")
-COMPILE_FAIL_UNIT+=("test_bad_redeclare_var.cyan")
-COMPILE_FAIL_UNIT+=("test_bad_static_no_var.cyan")
-COMPILE_FAIL_UNIT+=("test_bad_switch_no_paren.cyan")
-COMPILE_FAIL_UNIT+=("test_bad_ternary.cyan")
-COMPILE_FAIL_UNIT+=("test_bad_unknown_type.cyan")
-COMPILE_FAIL_UNIT+=("test_bad_unterminated_str.cyan")
-COMPILE_FAIL_UNIT+=("test_bad_var_no_init.cyan")
-COMPILE_FAIL_UNIT+=("test_bad_did_you_mean.cyan")
-COMPILE_FAIL_UNIT+=("test_bad_trailing_pct.cyan")
-COMPILE_FAIL_UNIT+=("test_bad_while_no_paren.cyan")
-COMPILE_FAIL_UNIT+=("test_struct_bad_field.cyan")
-COMPILE_FAIL_UNIT+=("test_struct_bad_read.cyan")
-COMPILE_FAIL_UNIT+=("test_struct_not_struct.cyan")
-COMPILE_FAIL_UNIT+=("test_struct_unknown_type.cyan")
-COMPILE_FAIL_UNIT+=("test_ptr_bad_addr.cyan")
-
-# Unit tests that check stdout
-declare -A STDOUT_TESTS
-STDOUT_TESTS["test_print.cyan"]=0
-
-# Unit tests requiring stdin
-declare -A STDIN_TESTS
-STDIN_TESTS["test_read.cyan|42"]=42
-STDIN_TESTS["test_read_str.cyan|hello world"]=11
-
-for test_file in "${!UNIT_TESTS[@]}"; do
-    filepath="tests/unit/$test_file"
-    expected_exit=${UNIT_TESTS[$test_file]}
-
-    if [ ! -f "$filepath" ]; then
-        echo -e "${RED}[SKIP]${NC} unit/$test_file (not found)"
-        continue
-    fi
-
-    echo -n "Testing unit/$test_file... "
-
-    out_name="/tmp/cyan_test_$(basename "$test_file" .cyan)"
-
-    if ! $COMPILER -o "$out_name" "$filepath" > /tmp/cyan_compile.log 2>&1; then
-        echo -e "${RED}COMPILE FAIL${NC}"
-        cat /tmp/cyan_compile.log
-        FAIL=$((FAIL + 1))
-        continue
-    fi
-
-    "$out_name" > /tmp/cyan_stdout.txt 2>&1; actual_exit=$?
-
-    exit_ok=0
-    [ "$actual_exit" -eq "$expected_exit" ] && exit_ok=1
-
-    stdout_ok=1
-    if [ "${STDOUT_TESTS[$test_file]}" = "0" ]; then
-        [ -s /tmp/cyan_stdout.txt ] && stdout_ok=1 || stdout_ok=0
-    fi
-
-    if [ "$exit_ok" -eq 1 ] && [ "$stdout_ok" -eq 1 ]; then
-        echo -e "${GREEN}PASS${NC} (exit: $actual_exit)"
-        PASS=$((PASS + 1))
-    else
-        echo -e "${RED}FAIL${NC}"
-        [ "$exit_ok" -ne 1 ] && echo "  Expected exit: $expected_exit, got: $actual_exit"
-        [ "$stdout_ok" -ne 1 ] && echo "  Expected stdout non-empty, got: $(cat /tmp/cyan_stdout.txt)"
-        FAIL=$((FAIL + 1))
+# ── execute ────────────────────────────────────────────────────────
+running=0
+for idx in "${!CASES[@]}"; do
+    run_case "$idx" &
+    running=$((running + 1))
+    if [ "$running" -ge "$JOBS" ]; then
+        wait -n 2>/dev/null
+        running=$((running - 1))
     fi
 done
+wait
 
-# ── Unit compile-failure tests ─────────────────────────────────────
-for test_file in "${COMPILE_FAIL_UNIT[@]}"; do
-    filepath="tests/unit/$test_file"
-    if [ ! -f "$filepath" ]; then
-        echo -e "${RED}[SKIP]${NC} unit/$test_file (not found)"
-        continue
-    fi
-    echo -n "Testing unit/$test_file (expect compile error)... "
-    if $COMPILER -o /dev/null "$filepath" > /tmp/cyan_compile.log 2>&1; then
-        echo -e "${RED}FAIL — compiled successfully (expected error)${NC}"
-        cat /tmp/cyan_compile.log
-        FAIL=$((FAIL + 1))
-    else
-        echo -e "${GREEN}PASS${NC} (correctly rejected)"
-        PASS=$((PASS + 1))
-    fi
+# ── aggregate ──────────────────────────────────────────────────────
+declare -A pass fail skip
+CATS=()
+TOTAL_PASS=0; TOTAL_FAIL=0; TOTAL_SKIP=0
+for idx in "${!CASES[@]}"; do
+    IFS='|' read -r st cat target path reason < "$WORK/results/$idx"
+    case "$st" in
+        PASS) TOTAL_PASS=$((TOTAL_PASS + 1)); pass[$cat]=$(( ${pass[$cat]:-0} + 1 )) ;;
+        FAIL) TOTAL_FAIL=$((TOTAL_FAIL + 1)); fail[$cat]=$(( ${fail[$cat]:-0} + 1 )) ;;
+        SKIP) TOTAL_SKIP=$((TOTAL_SKIP + 1)); skip[$cat]=$(( ${skip[$cat]:-0} + 1 )) ;;
+    esac
+    case " ${CATS[*]} " in
+        *" $cat "*) ;;
+        *) CATS+=("$cat") ;;
+    esac
+    case "$st" in
+        PASS) echo -e "${GREEN}[PASS]${NC} $cat/$target: $path" ;;
+        FAIL) echo -e "${RED}[FAIL]${NC} $cat/$target: $path — $reason" ;;
+        SKIP) echo -e "${DIM}[skip]${NC} $cat/$target: $path ($reason)" ;;
+    esac
 done
 
-# ── Unit stdin tests ───────────────────────────────────────────────
-for stdin_entry in "${!STDIN_TESTS[@]}"; do
-    IFS='|' read -r test_file stdin_value <<< "$stdin_entry"
-    filepath="tests/unit/$test_file"
-    expected_exit=${STDIN_TESTS["$stdin_entry"]}
-
-    if [ ! -f "$filepath" ]; then
-        echo -e "${RED}[SKIP]${NC} unit/$test_file (not found)"
-        continue
-    fi
-    echo -n "Testing unit/$test_file (stdin: $stdin_value)... "
-    out_name="/tmp/cyan_test_$(basename "$test_file" .cyan)"
-    if ! $COMPILER -o "$out_name" "$filepath" > /tmp/cyan_compile.log 2>&1; then
-        echo -e "${RED}COMPILE FAIL${NC}"
-        cat /tmp/cyan_compile.log
-        FAIL=$((FAIL + 1))
-        continue
-    fi
-    echo "$stdin_value" | "$out_name" > /tmp/cyan_stdout.txt 2>&1; actual_exit=$?
-    if [ "$actual_exit" -eq "$expected_exit" ]; then
-        echo -e "${GREEN}PASS${NC} (exit: $actual_exit)"
-        PASS=$((PASS + 1))
-    else
-        echo -e "${RED}FAIL${NC}"
-        echo "  Expected exit: $expected_exit, got: $actual_exit"
-        FAIL=$((FAIL + 1))
-    fi
-done
-
-# ── Integration tests (tests/integration/) ─────────────────────────
-declare -A INTEGRATION_TESTS
-INTEGRATION_TESTS["test_nested_loops.cyan"]=225
-INTEGRATION_TESTS["test_nested_if_while.cyan"]=15
-INTEGRATION_TESTS["test_complex.cyan"]=120
-INTEGRATION_TESTS["test_func_stress.cyan"]=1
-INTEGRATION_TESTS["test_gcd.cyan"]=1
-INTEGRATION_TESTS["test_sieve.cyan"]=1
-
-for test_file in "${!INTEGRATION_TESTS[@]}"; do
-    filepath="tests/integration/$test_file"
-    expected_exit=${INTEGRATION_TESTS[$test_file]}
-
-    if [ ! -f "$filepath" ]; then
-        echo -e "${RED}[SKIP]${NC} integration/$test_file (not found)"
-        continue
-    fi
-    echo -n "Testing integration/$test_file... "
-    out_name="/tmp/cyan_test_$(basename "$test_file" .cyan)"
-    if ! $COMPILER -o "$out_name" "$filepath" > /tmp/cyan_compile.log 2>&1; then
-        echo -e "${RED}COMPILE FAIL${NC}"
-        cat /tmp/cyan_compile.log
-        FAIL=$((FAIL + 1))
-        continue
-    fi
-    "$out_name" > /tmp/cyan_stdout.txt 2>&1; actual_exit=$?
-    if [ "$actual_exit" -eq "$expected_exit" ]; then
-        echo -e "${GREEN}PASS${NC} (exit: $actual_exit)"
-        PASS=$((PASS + 1))
-    else
-        echo -e "${RED}FAIL${NC}"
-        echo "  Expected exit: $expected_exit, got: $actual_exit"
-        FAIL=$((FAIL + 1))
-    fi
-done
-
-# ── Include tests (tests/include/) ─────────────────────────────────
-declare -A INCLUDE_TESTS
-INCLUDE_TESTS["test_include_basic.cyan"]=30
-INCLUDE_TESTS["test_pragma_once.cyan"]=70
-
-for test_file in "${!INCLUDE_TESTS[@]}"; do
-    filepath="tests/include/$test_file"
-    expected_exit=${INCLUDE_TESTS[$test_file]}
-
-    if [ ! -f "$filepath" ]; then
-        echo -e "${RED}[SKIP]${NC} include/$test_file (not found)"
-        continue
-    fi
-    echo -n "Testing include/$test_file... "
-    out_name="/tmp/cyan_test_$(basename "$test_file" .cyan)"
-    if ! $COMPILER -o "$out_name" "$filepath" -I "tests/include" > /tmp/cyan_compile.log 2>&1; then
-        echo -e "${RED}COMPILE FAIL${NC}"
-        cat /tmp/cyan_compile.log
-        FAIL=$((FAIL + 1))
-        continue
-    fi
-    "$out_name" > /tmp/cyan_stdout.txt 2>&1; actual_exit=$?
-    if [ "$actual_exit" -eq "$expected_exit" ]; then
-        echo -e "${GREEN}PASS${NC} (exit: $actual_exit)"
-        PASS=$((PASS + 1))
-    else
-        echo -e "${RED}FAIL${NC}"
-        echo "  Expected exit: $expected_exit, got: $actual_exit"
-        FAIL=$((FAIL + 1))
-    fi
-done
-
-# Include compile-failure test
-for test_file in "test_include_missing.cyan"; do
-    filepath="tests/include/$test_file"
-    if [ ! -f "$filepath" ]; then
-        echo -e "${RED}[SKIP]${NC} include/$test_file (not found)"
-        continue
-    fi
-    echo -n "Testing include/$test_file (expect compile error)... "
-    if $COMPILER -o /dev/null "$filepath" -I "tests/include" > /tmp/cyan_compile.log 2>&1; then
-        echo -e "${RED}FAIL — compiled successfully (expected error)${NC}"
-        cat /tmp/cyan_compile.log
-        FAIL=$((FAIL + 1))
-    else
-        echo -e "${GREEN}PASS${NC} (correctly rejected)"
-        PASS=$((PASS + 1))
-    fi
-done
-
-# ── RISC-V tests ──────────────────────────────────────────────────
-if command -v qemu-riscv64 &>/dev/null && command -v riscv64-elf-gcc &>/dev/null; then
-    echo ""
-    echo "  --- RISC-V backend ---"
-    echo ""
-
-    # Unit tests (all except stdin/stdout-checks)
-    for test_file in "${!UNIT_TESTS[@]}"; do
-        filepath="tests/unit/$test_file"
-        expected_exit=${UNIT_TESTS[$test_file]}
-
-        if [ ! -f "$filepath" ]; then
-            echo -e "${RED}[SKIP]${NC} RV64 unit/$test_file (not found)"
-            continue
-        fi
-
-        echo -n "Testing RV64 unit/$test_file... "
-
-        out_name="/tmp/cyan_rv64_$(basename "$test_file" .cyan)"
-
-        if ! $COMPILER --target riscv64 -o "$out_name" "$filepath" > /tmp/cyan_compile.log 2>&1; then
-            echo -e "${RED}COMPILE FAIL${NC}"
-            cat /tmp/cyan_compile.log
-            FAIL=$((FAIL + 1))
-            continue
-        fi
-
-        qemu-riscv64 "$out_name" > /tmp/cyan_stdout.txt 2>&1; actual_exit=$?
-
-        if [ "$actual_exit" -eq "$expected_exit" ]; then
-            echo -e "${GREEN}PASS${NC} (exit: $actual_exit)"
-            PASS=$((PASS + 1))
-        else
-            echo -e "${RED}FAIL${NC}"
-            echo "  Expected exit: $expected_exit, got: $actual_exit"
-            FAIL=$((FAIL + 1))
-        fi
-    done
-
-    # Unit compile-failure tests
-    for test_file in "${COMPILE_FAIL_UNIT[@]}"; do
-        filepath="tests/unit/$test_file"
-        if [ ! -f "$filepath" ]; then
-            echo -e "${RED}[SKIP]${NC} RV64 unit/$test_file (not found)"
-            continue
-        fi
-        echo -n "Testing RV64 unit/$test_file (expect compile error)... "
-        if $COMPILER --target riscv64 -o /dev/null "$filepath" > /tmp/cyan_compile.log 2>&1; then
-            echo -e "${RED}FAIL — compiled successfully (expected error)${NC}"
-            cat /tmp/cyan_compile.log
-            FAIL=$((FAIL + 1))
-        else
-            echo -e "${GREEN}PASS${NC} (correctly rejected)"
-            PASS=$((PASS + 1))
-        fi
-    done
-
-    # Integration tests
-    for test_file in "${!INTEGRATION_TESTS[@]}"; do
-        filepath="tests/integration/$test_file"
-        expected_exit=${INTEGRATION_TESTS[$test_file]}
-
-        if [ ! -f "$filepath" ]; then
-            echo -e "${RED}[SKIP]${NC} RV64 integration/$test_file (not found)"
-            continue
-        fi
-        echo -n "Testing RV64 integration/$test_file... "
-        out_name="/tmp/cyan_rv64_$(basename "$test_file" .cyan)"
-        if ! $COMPILER --target riscv64 -o "$out_name" "$filepath" > /tmp/cyan_compile.log 2>&1; then
-            echo -e "${RED}COMPILE FAIL${NC}"
-            cat /tmp/cyan_compile.log
-            FAIL=$((FAIL + 1))
-            continue
-        fi
-        qemu-riscv64 "$out_name" > /tmp/cyan_stdout.txt 2>&1; actual_exit=$?
-        if [ "$actual_exit" -eq "$expected_exit" ]; then
-            echo -e "${GREEN}PASS${NC} (exit: $actual_exit)"
-            PASS=$((PASS + 1))
-        else
-            echo -e "${RED}FAIL${NC}"
-            echo "  Expected exit: $expected_exit, got: $actual_exit"
-            FAIL=$((FAIL + 1))
-        fi
-    done
-
-    # Include tests
-    for test_file in "${!INCLUDE_TESTS[@]}"; do
-        filepath="tests/include/$test_file"
-        expected_exit=${INCLUDE_TESTS[$test_file]}
-
-        if [ ! -f "$filepath" ]; then
-            echo -e "${RED}[SKIP]${NC} RV64 include/$test_file (not found)"
-            continue
-        fi
-        echo -n "Testing RV64 include/$test_file... "
-        out_name="/tmp/cyan_rv64_$(basename "$test_file" .cyan)"
-        if ! $COMPILER --target riscv64 -o "$out_name" "$filepath" -I "tests/include" > /tmp/cyan_compile.log 2>&1; then
-            echo -e "${RED}COMPILE FAIL${NC}"
-            cat /tmp/cyan_compile.log
-            FAIL=$((FAIL + 1))
-            continue
-        fi
-        qemu-riscv64 "$out_name" > /tmp/cyan_stdout.txt 2>&1; actual_exit=$?
-        if [ "$actual_exit" -eq "$expected_exit" ]; then
-            echo -e "${GREEN}PASS${NC} (exit: $actual_exit)"
-            PASS=$((PASS + 1))
-        else
-            echo -e "${RED}FAIL${NC}"
-            echo "  Expected exit: $expected_exit, got: $actual_exit"
-            FAIL=$((FAIL + 1))
-        fi
-    done
-
-    # Include compile-failure test
-    for test_file in "test_include_missing.cyan"; do
-        filepath="tests/include/$test_file"
-        if [ ! -f "$filepath" ]; then
-            continue
-        fi
-        echo -n "Testing RV64 include/$test_file (expect compile error)... "
-        if $COMPILER --target riscv64 -o /dev/null "$filepath" -I "tests/include" > /tmp/cyan_compile.log 2>&1; then
-            echo -e "${RED}FAIL — compiled successfully (expected error)${NC}"
-            cat /tmp/cyan_compile.log
-            FAIL=$((FAIL + 1))
-        else
-            echo -e "${GREEN}PASS${NC} (correctly rejected)"
-            PASS=$((PASS + 1))
-        fi
-    done
-else
-    echo ""
-    echo "  --- RISC-V backend: SKIPPED (qemu-riscv64 not found) ---"
-fi
-
-# ── Summary ────────────────────────────────────────────────────────
 echo ""
 echo "========================================"
-echo -e "Results: ${GREEN}$PASS passed${NC}, ${RED}$FAIL failed${NC}"
+echo "Summary by category:"
+for cat in "${CATS[@]}"; do
+    printf '  %-12s %4d passed, %d failed, %d skipped\n' \
+        "$cat" "${pass[$cat]:-0}" "${fail[$cat]:-0}" "${skip[$cat]:-0}"
+done
+printf '  %-12s %4d passed, %d failed, %d skipped\n' \
+    "TOTAL" "$TOTAL_PASS" "$TOTAL_FAIL" "$TOTAL_SKIP"
+echo "Run-equivalents: ${#CASES[@]}"
+echo -e "Results: ${GREEN}$TOTAL_PASS passed${NC}, ${RED}$TOTAL_FAIL failed${NC}"
 echo "========================================"
 
-if [ "$FAIL" -gt 0 ]; then
-    exit 1
-fi
+[ "$TOTAL_FAIL" -gt 0 ] && exit 1
+exit 0
