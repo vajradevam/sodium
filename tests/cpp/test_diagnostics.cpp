@@ -1,0 +1,89 @@
+#include "test_framework.hpp"
+#include "diagnostic.hpp"
+
+TEST(diagnostics_error_renders_d004_format) {
+    DiagnosticEngine engine;
+    engine.error({2, 7, "a.cyan"}, "expected ';'");
+    CHECK_EQ(engine.size(), size_t(1));
+    CHECK(engine.has_errors());
+    CHECK_EQ(engine.render_all(), std::string("a.cyan:2:7: error: expected ';'\n"));
+}
+
+TEST(diagnostics_location_without_file) {
+    DiagnosticEngine engine;
+    engine.error({0, 0, ""}, "no main");
+    CHECK_EQ(engine.render_all(), std::string("0:0: error: no main\n"));
+}
+
+TEST(diagnostics_severity_names) {
+    DiagnosticEngine engine;
+    engine.note({1, 1, "f"}, "previous declaration here");
+    engine.warning({2, 1, "f"}, "unused variable");
+    engine.fatal({3, 1, "f"}, "broken");
+    const auto rendered = engine.render_all();
+    CHECK(rendered.find("f:1:1: note: previous declaration here") != std::string::npos);
+    CHECK(rendered.find("f:2:1: warning: unused variable") != std::string::npos);
+    CHECK(rendered.find("f:3:1: error: broken") != std::string::npos);
+}
+
+TEST(diagnostics_warning_is_not_an_error) {
+    DiagnosticEngine engine;
+    engine.warning({1, 1, "f"}, "careful");
+    CHECK(!engine.has_errors());
+    CHECK_EQ(engine.error_count(), size_t(0));
+}
+
+TEST(diagnostics_error_counting) {
+    DiagnosticEngine engine;
+    engine.error({1, 1, "f"}, "one");
+    engine.fatal({2, 1, "f"}, "two");
+    engine.warning({3, 1, "f"}, "three");
+    CHECK_EQ(engine.error_count(), size_t(2));
+}
+
+TEST(diagnostics_notes_and_fixits) {
+    DiagnosticEngine engine;
+    engine.error({4, 9, "f"}, "undeclared identifier");
+    CHECK(engine.add_note("declared here"));
+    CHECK(engine.add_fixit({{4, 9, "f"}, "count"}));
+    const auto rendered = engine.render_all();
+    CHECK(rendered.find("f:4:9: note: declared here") != std::string::npos);
+    CHECK(rendered.find("f:4:9: fix-it: count") != std::string::npos);
+}
+
+TEST(diagnostics_add_note_without_diagnostic_fails) {
+    DiagnosticEngine engine;
+    CHECK(!engine.add_note("orphan"));
+    CHECK(!engine.add_fixit({{1, 1, "f"}, "x"}));
+    CHECK_EQ(engine.size(), size_t(0));
+}
+
+TEST(diagnostics_clear) {
+    DiagnosticEngine engine;
+    engine.error({1, 1, "f"}, "bad");
+    CHECK(engine.has_errors());
+    engine.clear();
+    CHECK(engine.empty());
+    CHECK(!engine.has_errors());
+}
+
+TEST(diagnostics_instances_are_independent) {
+    DiagnosticEngine a;
+    DiagnosticEngine b;
+    a.error({1, 1, "a.cyan"}, "only in a");
+    CHECK_EQ(a.size(), size_t(1));
+    CHECK(b.empty());
+    CHECK(b.render_all().empty());
+}
+
+TEST(diagnostics_preserve_insertion_order) {
+    DiagnosticEngine engine;
+    engine.error({1, 1, "f"}, "first");
+    engine.warning({2, 1, "f"}, "second");
+    engine.note({3, 1, "f"}, "third");
+    const auto& diags = engine.diagnostics();
+    CHECK_EQ(diags.size(), size_t(3));
+    CHECK_EQ(diags[0].message, std::string("first"));
+    CHECK_EQ(diags[1].message, std::string("second"));
+    CHECK_EQ(diags[2].message, std::string("third"));
+}

@@ -64,7 +64,7 @@ anyway, tick the box, and note "not reproducible" in PROGRESS.md.
 - [x] **P1-END** `check.sh --full`, tag `phase-1-done`, update PROGRESS.md with true state.
 
 ## Phase 2 — Diagnostics (makes everything after faster to debug)
-- [ ] **E0a Diagnostic engine core (split from E0).** `DiagnosticEngine` + `Diagnostic` (severity, loc, message, notes, fix-it), D-004 rendering, filtering; no global state in the class. Add C++ unit tests. Route `format_err` through it.
+- [x] **E0a Diagnostic engine core (split from E0).** `DiagnosticEngine` + `Diagnostic` (severity, loc, message, notes, fix-it), D-004 rendering, filtering; no global state in the class. Add C++ unit tests. Route `format_err` through it.
 - [ ] **E0b Thread the engine into tokenizer/parser (split from E0).** Pass `DiagnosticEngine&` to Tokenizer and Parser, migrate their error sites off `lsp_exit`/globals; keep CLI/LSP behavior identical.
 - [ ] **E0c Migrate codegen to the engine (split from E0).** Pass the engine to Generator, migrate gen/* error sites, remove the remaining global diagnostic state; tick E0.
 - [ ] **E1 Parser error recovery** (sync on `;` `}` keywords); report up to N errors, no cascades. Tests with 3 independent errors in one file.

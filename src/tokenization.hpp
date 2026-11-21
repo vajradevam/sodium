@@ -9,18 +9,9 @@
 #include <optional>
 #include <unordered_map>
 
-struct SourceLoc {
-    size_t line = 0;
-    size_t col = 0;
-    std::string file = "";
+#include "source_loc.hpp"
+#include "diagnostic.hpp"
 
-    [[nodiscard]] inline std::string to_string() const {
-        if (file.empty()) {
-            return std::to_string(line) + ":" + std::to_string(col);
-        }
-        return file + ":" + std::to_string(line) + ":" + std::to_string(col);
-    }
-};
 
 enum class TokenType {
     exit, 
@@ -107,7 +98,10 @@ struct Token {
 
 // Format an error message with source location.
 inline std::string format_err(const SourceLoc& loc, const std::string& msg) {
-    return "error: " + loc.to_string() + ": " + msg;
+    DiagnosticEngine engine;
+    engine.error(loc, msg);
+    const std::string rendered = engine.render_all();
+    return rendered.substr(0, rendered.size() - 1); // drop trailing newline
 }
 
 // Globals for --show-code source annotations.
