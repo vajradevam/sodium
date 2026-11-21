@@ -1,0 +1,10 @@
+// EXPECT-EXIT: 0
+
+function main() {
+    var x: i64 = 42;
+    var p = &x;
+    var q = p + 2;
+    print(q - p);
+    print(*p);
+    return 0;
+}
