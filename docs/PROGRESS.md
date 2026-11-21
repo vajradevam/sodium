@@ -38,6 +38,27 @@ Format: `YYYY-MM-DD  TASK-ID  summary  (tests A→B)`
   semantics beyond shifts, and V6 covers allocator 16-byte alignment (payloads are currently 8-aligned).
   README.md is still unverified (D1).
 
+## State of the project — end of Phase 1 (re-verified against code, 2026-11-22)
+
+- Gate: `scripts/check.sh --full` passes with strict `-Werror` build and ASan/UBSan. 416 integration
+  tests passed / 0 failed / 2 skipped across x86_64 and riscv64; 209 discovered `tests/**/*.cyan`
+  files (418 run-equivalents). `git status` is clean after the gate.
+- C++ unit tests: 106 cases / 3813 checks (<0.01 s). Oracle: 29 C/Cyan twin pairs, 58 comparisons on
+  both targets, 0 mismatches. Sweep: 836 `--emit-ir`/`-S` invocations, 0 crashes. Fuzz: 1000 seeded
+  mutants per gate, >50k in ad-hoc campaigns. Harness self-test, path-injection test and oracle all
+  run in the gate.
+- Phase 1 fixes, all with tests: V1 call-site stack alignment; V2 four spill/codegen bugs (vreg vs
+  physical-reg confusion, shared scratch for spilled args, spill slots overlapping locals, ADD/MUL
+  source clobber); V6 16-byte allocator alignment; V7 `read_eof()` builtin + bounded `read(buf)` +
+  write-all in print; V8 included-file caret context; V11 riscv64 auipc+jalr calls. V12 and the signed
+  `>>` bug were found by the oracle and fixed earlier. V3/V4/V9 verified with no further bugs.
+- Verified but not reproducible with current syntax: V5 (typed array/struct element stores need Phase 3
+  Y2/Y3) and parts of V3 (typed params/returns, u64 literals).
+- Known open items: V2b (nested/recursive calls with ~20 live values clobber caller-save registers) is
+  documented in docs/BLOCKED.md after three unsuccessful fixes. riscv64 still requires `--no-relax`:
+  relaxation corrupts label-address computations used by pointer arithmetic (oracle mismatches when
+  disabled); the older JAL range limit is gone. README.md remains unverified (D1).
+
 2026-11-22  V1  Stack-passed arguments: added integration test with 9/11 args, nested calls as args and recursion with stack args — passes both targets. Assembly inspection found a real ABI bug: with an even number of stack args the stack was 8-byte misaligned at call sites (callee-save pushes toggled parity). IREmitter now pads call sites based on the number of entry PUSHes; verified 50 x86_64 and 20 riscv64 call sites aligned, with four new unit tests checking emitted parity. Also found that >=13 args on x86_64 produce wrong results from spill-slot collisions across calls — that is V2 territory and is left for that task.  (388→390 passed, 0 failed; unit 94→98)
 2026-11-22  V2  Register pressure/spills: fixed four distinct bugs. (1) replace_virtual_regs + insert_spill_code were separate passes, so physical register numbers were looked up as spilled vreg IDs; merged into one pass. (2) All spilled CALL arguments were loaded into one scratch register before pushing; added PUSH_FRAME so each is pushed directly from its slot, with cleanup bytes carried on CALL.imm_arg and alignment padding emitted before the args. (3) Spill slots started at [fp-8], colliding with locals/params; they now begin below the locals frame and the frame is enlarged. (4) ADD/MUL emitted `mov dst,op0; add dst,op1`, clobbering op1 when dst aliased it; commutative operands are now swapped. Verified 6..24 args on both targets; new test_spill_pressure.cyan covers 20 values in calls and loops. Remaining nested/recursion caller-save clobber recorded as V2b.  (390→392 passed, 0 failed)
 2026-11-22  V11  riscv64 call range / relax: replaced `jal ra, target` with the `call` pseudo (auipc+jalr), removing the +-1 MiB R_RISCV_JAL limit; the 300000-element stack array now links and runs on riscv64, and test_large_array.cyan runs on both targets. Tested dropping --no-relax: the oracle then fails ptr_diff and ptr_malloc_store because relaxation rewrites label-address computations. Restored and documented --no-relax as a real remaining constraint (assembler and linker flags).  (415→416 passed, 0 failed)
