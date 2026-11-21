@@ -523,7 +523,7 @@ void Generator::gen_stmt(const NodeStmt& stmt)
                     case AssignOp::bitor_assign:   result = gen->m_ir.or_(IRValue::vreg(old_val), IRValue::vreg(rhs)); break;
                     case AssignOp::bitxor_assign:  result = gen->m_ir.xor_(IRValue::vreg(old_val), IRValue::vreg(rhs)); break;
                     case AssignOp::shl_assign:     result = gen->m_ir.shl(IRValue::vreg(old_val), IRValue::vreg(rhs)); break;
-                    case AssignOp::shr_assign:     result = gen->m_ir.shr(IRValue::vreg(old_val), IRValue::vreg(rhs)); break;
+                    case AssignOp::shr_assign:     result = gen->m_ir.ashr(IRValue::vreg(old_val), IRValue::vreg(rhs)); break;
                     default: break;
                 }
                 gen->m_ir.store(IRValue::vreg(field_addr), 0, IRValue::vreg(result));
@@ -586,7 +586,7 @@ void Generator::gen_stmt(const NodeStmt& stmt)
                     case AssignOp::bitor_assign:   result = gen->m_ir.or_(IRValue::vreg(old_val), IRValue::vreg(rhs)); break;
                     case AssignOp::bitxor_assign:  result = gen->m_ir.xor_(IRValue::vreg(old_val), IRValue::vreg(rhs)); break;
                     case AssignOp::shl_assign:     result = gen->m_ir.shl(IRValue::vreg(old_val), IRValue::vreg(rhs)); break;
-                    case AssignOp::shr_assign:     result = gen->m_ir.shr(IRValue::vreg(old_val), IRValue::vreg(rhs)); break;
+                    case AssignOp::shr_assign:     result = gen->m_ir.ashr(IRValue::vreg(old_val), IRValue::vreg(rhs)); break;
                     default: break;
                 }
                 typed_store(ptr, result, elem_size);
