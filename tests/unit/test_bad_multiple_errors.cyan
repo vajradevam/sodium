@@ -1,0 +1,8 @@
+// EXPECT-ERROR: Invalid expression in variable declaration
+
+function main() {
+    var a = ;
+    var b = ;
+    var c = ;
+    return 0;
+}

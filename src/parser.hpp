@@ -318,6 +318,9 @@ struct StructTypeInfo {
 
 // ── Parser ─────────────────────────────────────────────────────────────────
 
+/// Thrown by error/fail_at to unwind to parse_prog's recovery loop.
+struct ParseAbort {};
+
 class Parser {
 public:
     explicit Parser(std::vector<Token> tokens);
@@ -327,6 +330,9 @@ public:
 
     /// Record an error at an explicit location and report it.
     [[noreturn]] void fail_at(const SourceLoc& loc, const std::string& msg);
+
+    /// Skip to the next statement/declaration boundary after an error.
+    void synchronize();
 
     std::optional<NodeProg> parse_prog();
 

@@ -17,15 +17,38 @@ void Parser::error(const std::string& msg) {
     SourceLoc loc = peek().has_value() ? peek().value().loc : SourceLoc{};
     m_diag.error(loc, msg);
     if (g_lsp_mode) throw LSPAbort();
-    std::cerr << DiagnosticEngine::render(m_diag.diagnostics().back());
-    print_code_context(loc);
-    exit(EXIT_FAILURE);
+    throw ParseAbort{};
 }
-
 
 [[noreturn]] void Parser::fail_at(const SourceLoc& loc, const std::string& msg) {
     m_diag.error(loc, msg);
-    lsp_exit(loc, msg);
+    if (g_lsp_mode) throw LSPAbort();
+    throw ParseAbort{};
+}
+
+/// Skip tokens until a statement/declaration boundary so parsing can
+/// continue after an error. Always consumes at least one token.
+void Parser::synchronize() {
+    if (!peek().has_value()) return;
+    consume(); // guarantee progress
+    while (peek().has_value()) {
+        TokenType t = peek().value().type;
+        if (t == TokenType::semi || t == TokenType::close_brace) {
+            consume();
+            return;
+        }
+        if (t == TokenType::_function || t == TokenType::_struct ||
+            t == TokenType::_global || t == TokenType::_static ||
+            t == TokenType::_const || t == TokenType::let ||
+            t == TokenType::_if || t == TokenType::_while ||
+            t == TokenType::_for || t == TokenType::_return ||
+            t == TokenType::_print || t == TokenType::_switch ||
+            t == TokenType::_do || t == TokenType::_break ||
+            t == TokenType::_continue) {
+            return;
+        }
+        consume();
+    }
 }
 
 std::optional<NodeExpr*> Parser::parse_expr()
@@ -606,10 +629,21 @@ NodeBlock* Parser::parse_block()
         if (peek().has_value() && peek().value().type == TokenType::open_brace) {
             consume();
             while (peek().has_value() && peek().value().type != TokenType::close_brace) {
-                if (auto stmt = parse_stmt()) {
-                    block->stmts.push_back(stmt.value());
-                } else {
-                    error("Invalid statement");
+                try {
+                    if (auto stmt = parse_stmt()) {
+                        block->stmts.push_back(stmt.value());
+                    } else {
+                        error("Invalid statement");
+                    }
+                } catch (const ParseAbort&) {
+                    // Recover inside the block so the rest of the function
+                    // (and subsequent functions) are still parsed.
+                    while (peek().has_value() &&
+                           peek().value().type != TokenType::semi &&
+                           peek().value().type != TokenType::close_brace) {
+                        consume();
+                    }
+                    if (peek().has_value() && peek().value().type == TokenType::semi) consume();
                 }
             }
             if (!peek().has_value() || peek().value().type != TokenType::close_brace) {
@@ -1681,13 +1715,14 @@ std::optional<NodeStmt> Parser::parse_stmt() {
 }
 
 std::optional<NodeProg> Parser::parse_prog() {
-        NodeProg prog;
-        while (peek().has_value()) {
+    NodeProg prog;
+    const size_t max_errors = 20; // D-004 error limit
+    while (peek().has_value() && m_diag.error_count() < max_errors) {
+        try {
             if (peek().value().type == TokenType::_function) {
                 prog.funcs.push_back(parse_func_def());
             } else if (peek().value().type == TokenType::_struct) {
                 auto struct_def = parse_struct_def();
-                // Register the struct type for type resolution
                 StructTypeInfo info;
                 for (const auto& f : struct_def->fields) {
                     info.field_names.push_back(f.value.value());
@@ -1696,17 +1731,14 @@ std::optional<NodeProg> Parser::parse_prog() {
                 m_struct_types[struct_def->name.value.value()] = info;
                 prog.structs.push_back(struct_def);
             } else if (auto stmt = parse_stmt()) {
-                // Only allow global var, const, and empty ; at top level
                 const auto& var = stmt.value().var;
                 bool allowed = false;
                 if (std::holds_alternative<NodeStmtGlobal*>(var)) {
-                    allowed = true; // global var or static var
+                    allowed = true;
                 } else if (std::holds_alternative<NodeStmtConst*>(var)) {
-                    allowed = true; // const declaration
+                    allowed = true;
                 } else if (auto* expr_stmt = std::get_if<NodeStmtExpr*>(&var)) {
-                    if ((*expr_stmt)->expr == nullptr) {
-                        allowed = true; // empty statement (just ';')
-                    }
+                    if ((*expr_stmt)->expr == nullptr) allowed = true;
                 }
                 if (!allowed) {
                     error("Top-level statements are not allowed. Use function main() as the entry point.");
@@ -1715,8 +1747,19 @@ std::optional<NodeProg> Parser::parse_prog() {
             } else {
                 error("Invalid statement at top level");
             }
+        } catch (const ParseAbort&) {
+            synchronize();
         }
-        return prog;
+    }
+
+    if (!g_lsp_mode && m_diag.has_errors()) {
+        for (const auto& d : m_diag.diagnostics()) {
+            std::cerr << DiagnosticEngine::render(d);
+            if (d.loc.line != 0 && d.loc.col != 0) print_code_context(d.loc);
+        }
+        exit(EXIT_FAILURE);
+    }
+    return prog;
 }
 
 NodeStructDef* Parser::parse_struct_def() {

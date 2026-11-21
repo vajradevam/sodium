@@ -40,6 +40,10 @@ step "harness self-test (wrong EXPECT-* must fail)"
 ./scripts/run_tests.sh --self-test > build/last_selftest.log 2>&1 || die "harness self-test (see build/last_selftest.log)"
 tail -6 build/last_selftest.log
 
+step "parser error recovery (multiple independent errors)"
+./scripts/test_error_recovery.sh > build/last_errors.log 2>&1 || die "error recovery (see build/last_errors.log)"
+tail -1 build/last_errors.log
+
 step "output path handling (spaces, semicolons, injection)"
 ./scripts/test_paths.sh > build/last_paths.log 2>&1 || die "path handling (see build/last_paths.log)"
 tail -1 build/last_paths.log
