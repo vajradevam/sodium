@@ -87,7 +87,13 @@ void Generator::gen_func_def(const NodeFuncDef& func)
     }
 
     for (const auto& s : func.body->stmts) {
-        gen_stmt(s);
+        try {
+            gen_stmt(s);
+        } catch (const GenAbort&) {
+            // Keep checking the remaining statements in this function.
+            m_vstack.clear();
+            m_tstack.clear();
+        }
     }
 
     // If main() has no explicit return, default to exit(0)
@@ -172,7 +178,30 @@ void Generator::collect_globals(const std::vector<NodeStmt>& stmts)
 // gen_prog — emit complete program
 // ==========================================================================
 
-[[nodiscard]] std::string Generator::gen_prog()
+std::string Generator::gen_prog() {
+    try {
+        std::string out = gen_prog_impl();
+        if (m_diag.has_errors() && !g_lsp_mode) {
+            for (const auto& d : m_diag.diagnostics()) {
+                std::cerr << DiagnosticEngine::render(d);
+                if (d.loc.line != 0 && d.loc.col != 0) print_code_context(d.loc);
+            }
+            exit(EXIT_FAILURE);
+        }
+        return out;
+    } catch (const GenAbort&) {
+        if (!g_lsp_mode) {
+            for (const auto& d : m_diag.diagnostics()) {
+                std::cerr << DiagnosticEngine::render(d);
+                if (d.loc.line != 0 && d.loc.col != 0) print_code_context(d.loc);
+            }
+            exit(EXIT_FAILURE);
+        }
+        return {};
+    }
+}
+
+std::string Generator::gen_prog_impl()
 {
     // Populate function names
     for (const auto* func : m_prog.funcs) {
@@ -280,9 +309,19 @@ void Generator::collect_globals(const std::vector<NodeStmt>& stmts)
     }
     m_backend_ptr->call("_sodium_exit");
 
-    // Then emit user functions (including main)
+    // Then emit user functions (including main). A semantic error in one
+    // function skips only that function; later functions are still checked.
     for (const auto& func : m_prog.funcs) {
-        gen_func_def(*func);
+        try {
+            gen_func_def(*func);
+        } catch (const GenAbort&) {
+            m_ir.end_function();
+            m_vstack.clear();
+            m_tstack.clear();
+            m_in_function = false;
+            m_scopes.clear();
+            m_scopes.push_back({0, {}});
+        }
     }
 
     // Data sections

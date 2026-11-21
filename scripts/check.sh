@@ -44,6 +44,10 @@ step "parser error recovery (multiple independent errors)"
 ./scripts/test_error_recovery.sh > build/last_errors.log 2>&1 || die "error recovery (see build/last_errors.log)"
 tail -1 build/last_errors.log
 
+step "semantic error recovery (multiple functions)"
+./scripts/test_semantic_recovery.sh > build/last_semerrors.log 2>&1 || die "semantic recovery (see build/last_semerrors.log)"
+tail -1 build/last_semerrors.log
+
 step "output path handling (spaces, semicolons, injection)"
 ./scripts/test_paths.sh > build/last_paths.log 2>&1 || die "path handling (see build/last_paths.log)"
 tail -1 build/last_paths.log

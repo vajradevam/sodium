@@ -1,0 +1,8 @@
+// EXPECT-ERROR: Undeclared identifier: missing_one
+
+function a() { return(missing_one); }
+function b() { return(missing_two); }
+function main() {
+    var x = missing_three;
+    return 0;
+}

@@ -87,9 +87,9 @@ TEST(const_eval_division_by_zero_reports_error) {
     bool threw = false;
     try { (void)f.eval(); } catch (const LSPAbort&) { threw = true; }
     CHECK(threw);
-    CHECK(!g_lsp_errors.empty());
-    if (!g_lsp_errors.empty()) {
-        CHECK(g_lsp_errors[0].msg.find("Division by zero") != std::string::npos);
+    CHECK(f.gen->diagnostics().has_errors());
+    if (f.gen->diagnostics().has_errors()) {
+        CHECK(f.gen->diagnostics().diagnostics()[0].message.find("Division by zero") != std::string::npos);
     }
 }
 
@@ -99,5 +99,5 @@ TEST(const_eval_overflow_reports_error) {
     bool threw = false;
     try { (void)f.eval(); } catch (const LSPAbort&) { threw = true; }
     CHECK(threw);
-    CHECK(!g_lsp_errors.empty());
+    CHECK(f.gen->diagnostics().has_errors());
 }

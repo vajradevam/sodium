@@ -12,7 +12,8 @@ Generator::Generator(NodeProg root, Backend& backend, const TargetRegisterInfo& 
 
 [[noreturn]] void Generator::fail(const SourceLoc& loc, const std::string& msg) const {
     m_diag.error(loc, msg);
-    lsp_exit(loc, msg);
+    if (g_lsp_mode) throw LSPAbort();
+    throw GenAbort{};
 }
 
 // ==========================================================================

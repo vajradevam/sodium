@@ -11,6 +11,9 @@
 #include <vector>
 #include <memory>
 
+/// Thrown by Generator::fail to unwind to a statement/function boundary.
+struct GenAbort {};
+
 #include "parser.hpp"
 #include "backend/interface.hpp"
 #include "ir/builder.hpp"
@@ -73,6 +76,11 @@ public:
     void set_emit_ir(bool v) { m_emit_ir = v; }
 
     [[nodiscard]] std::string gen_prog();
+
+private:
+    std::string gen_prog_impl();
+
+public:
 
     void declare_var(const std::string& name, Type type = Type::make_int(IntType::i64), SourceLoc loc = {});
     Var lookup_var(const std::string& name, SourceLoc loc = {});

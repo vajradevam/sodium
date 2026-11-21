@@ -68,7 +68,7 @@ anyway, tick the box, and note "not reproducible" in PROGRESS.md.
 - [x] **E0b Thread the engine into tokenizer/parser (split from E0).** Pass `DiagnosticEngine&` to Tokenizer and Parser, migrate their error sites off `lsp_exit`/globals; keep CLI/LSP behavior identical.
 - [x] **E0c Migrate codegen to the engine (split from E0).** Pass the engine to Generator, migrate gen/* error sites, remove the remaining global diagnostic state; tick E0.
 - [x] **E1 Parser error recovery** (sync on `;` `}` keywords); report up to N errors, no cascades. Tests with 3 independent errors in one file.
-- [ ] **E2 Semantic error recovery** in `src/gen/*`: undeclared identifiers, wrong arg counts, redeclarations continue to the end of the function/file.
+- [x] **E2 Semantic error recovery** in `src/gen/*`: undeclared identifiers, wrong arg counts, redeclarations continue to the end of the function/file.
 - [ ] **E3 Warnings:** unused variable/parameter, unreachable code, missing return in non-void path, narrowing assign, unused result, `=` in condition; `-Werror`, `-w`.
 - [ ] **E4 Notes** ("previous declaration here", "did you mean …"), `-fcolor-diagnostics`/NO_COLOR.
 - [ ] **E5 LSP uses the engine** (multiple diagnostics, severities); add LSP protocol tests (scripted stdio session) to `tests/lsp/`.
