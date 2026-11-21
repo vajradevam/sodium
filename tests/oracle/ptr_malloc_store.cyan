@@ -1,0 +1,11 @@
+// EXPECT-EXIT: 0
+
+function main() {
+    var p = malloc(32);
+    *p = 11;
+    var q = p + 1;
+    *q = 22;
+    print(*p);
+    print(*q);
+    return 0;
+}

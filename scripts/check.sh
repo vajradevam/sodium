@@ -21,6 +21,10 @@ step "IR/assembly regression sweep (both targets)"
 ./scripts/sweep.sh > build/last_sweep.log 2>&1 || die "sweep (see build/last_sweep.log)"
 tail -2 build/last_sweep.log
 
+step "differential oracle (Cyan vs C, both targets)"
+./scripts/oracle.sh > build/last_oracle.log 2>&1 || die "oracle (see build/last_oracle.log)"
+tail -2 build/last_oracle.log
+
 step "C++ unit tests"
 ./build/unit_tests > build/last_unit.log 2>&1 || die "unit tests (see build/last_unit.log)"
 tail -2 build/last_unit.log

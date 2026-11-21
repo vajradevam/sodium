@@ -1,0 +1,11 @@
+// EXPECT-EXIT: 0
+
+function add(a, b) { return(a + b); }
+function mul(a, b) { return(a * b); }
+function compose(x) { return(add(mul(x, 2), 3)); }
+
+function main() {
+    print(compose(5));
+    print(add(compose(7), compose(1)));
+    return 0;
+}

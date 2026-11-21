@@ -1,0 +1,9 @@
+// EXPECT-EXIT: 0
+
+function main() {
+    var z: u8 = 7;
+    var p = &z;
+    var q = p + 3;
+    print(q - p);
+    return 0;
+}

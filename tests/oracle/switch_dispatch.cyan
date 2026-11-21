@@ -1,0 +1,18 @@
+// EXPECT-EXIT: 0
+
+function classify(x) {
+    switch (x) {
+        case 0: return(100);
+        case 1: return(200);
+        case 2: return(300);
+        default: return(999);
+    }
+}
+
+function main() {
+    print(classify(0));
+    print(classify(1));
+    print(classify(2));
+    print(classify(7));
+    return 0;
+}

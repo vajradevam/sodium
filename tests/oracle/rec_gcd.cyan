@@ -1,0 +1,16 @@
+// EXPECT-EXIT: 0
+
+function gcd(a, b) {
+    while (b != 0) {
+        var t = a % b;
+        a = b;
+        b = t;
+    }
+    return(a);
+}
+
+function main() {
+    print(gcd(1071, 462));
+    print(gcd(48, 18));
+    return 0;
+}

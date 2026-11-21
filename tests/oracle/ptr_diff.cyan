@@ -1,0 +1,9 @@
+// EXPECT-EXIT: 0
+
+function main() {
+    var p = malloc(64);
+    var q = p + 5;
+    print(q - p);
+    print(p - q);
+    return 0;
+}
