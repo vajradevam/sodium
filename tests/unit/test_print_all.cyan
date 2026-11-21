@@ -1,4 +1,63 @@
 // EXPECT-EXIT: 0
+// EXPECT-STDOUT: === 1. plain string ===
+// EXPECT-STDOUT: hello world
+// EXPECT-STDOUT: === 2. backward compat integer ===
+// EXPECT-STDOUT: 42
+// EXPECT-STDOUT: -42
+// EXPECT-STDOUT: === 3. empty print() ===
+// EXPECT-STDOUT: 
+// EXPECT-STDOUT: above was empty line
+// EXPECT-STDOUT: === 4. %d format ===
+// EXPECT-STDOUT: 42
+// EXPECT-STDOUT: -42
+// EXPECT-STDOUT: === 5. %s with string literal ===
+// EXPECT-STDOUT: hi
+// EXPECT-STDOUT: prefix hello suffix
+// EXPECT-STDOUT: === 6. multiple arguments ===
+// EXPECT-STDOUT: 10 20 30
+// EXPECT-STDOUT: a=1 b=2 c=3
+// EXPECT-STDOUT: === 7. expressions ===
+// EXPECT-STDOUT: sum=30
+// EXPECT-STDOUT: mul=42
+// EXPECT-STDOUT: neg=-100
+// EXPECT-STDOUT: === 8. literal percent ===
+// EXPECT-STDOUT: 100%
+// EXPECT-STDOUT: 50%
+// EXPECT-STDOUT: 75% of 200
+// EXPECT-STDOUT: === 9. variables ===
+// EXPECT-STDOUT: x=100 y=200
+// EXPECT-STDOUT: x+y=300
+// EXPECT-STDOUT: === 10. mixed ===
+// EXPECT-STDOUT: The answer is 42
+// EXPECT-STDOUT: 2 + 3 = 5
+// EXPECT-STDOUT: === 11. backward compat variable ===
+// EXPECT-STDOUT: 77
+// EXPECT-STDOUT: === 12. function calls ===
+// EXPECT-STDOUT: double(21)=42
+// EXPECT-STDOUT: === 13. long format ===
+// EXPECT-STDOUT: nums: 1 2 3 4 5 6 7 8
+// EXPECT-STDOUT: === 14. no placeholders ===
+// EXPECT-STDOUT: just text no placeholders
+// EXPECT-STDOUT: === 15. consecutive percent ===
+// EXPECT-STDOUT: %%
+// EXPECT-STDOUT: 50%75%
+// EXPECT-STDOUT: === 16. zero ===
+// EXPECT-STDOUT: 0
+// EXPECT-STDOUT: === 17. edge cases ===
+// EXPECT-STDOUT: -1
+// EXPECT-STDOUT: -999
+// EXPECT-STDOUT: 2147483647
+// EXPECT-STDOUT: -2147483647
+// EXPECT-STDOUT: === 18. mixed %d and %s ===
+// EXPECT-STDOUT: Hello Alice, you are 30 years old
+// EXPECT-STDOUT: === 19. multiple %s ===
+// EXPECT-STDOUT: a b c
+// EXPECT-STDOUT: === 20. no extra newlines ===
+// EXPECT-STDOUT: first
+// EXPECT-STDOUT: second
+// EXPECT-STDOUT: third
+// EXPECT-STDOUT: === 21. done ===
+// EXPECT-STDOUT: All print tests completed!
 
 // Comprehensive test for unified print with C-style format strings
 // Run this and visually verify the output.
