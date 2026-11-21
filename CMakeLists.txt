@@ -102,6 +102,7 @@ add_executable(unit_tests
     src/parser.cpp
     src/ast_printer.cpp
     src/arena.cpp
+    sodium-rt/allocator.c
     ${GEN_SOURCES}
     ${BACKEND_SOURCES}
     ${IR_SOURCES}
