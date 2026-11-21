@@ -1,0 +1,12 @@
+// EXPECT-EXIT: 0
+
+function main() {
+    var s: i16 = 32767;
+    s = s + 1;
+    print(s);
+    var u: u32 = 4294967295;
+    print(u);
+    u = u + 1;
+    print(u);
+    return 0;
+}
