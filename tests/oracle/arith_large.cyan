@@ -1,0 +1,8 @@
+// EXPECT-EXIT: 0
+
+function main() {
+    print(2147483647);
+    print(4294967296);
+    print(9223372036854775807);
+    return 0;
+}
