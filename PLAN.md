@@ -43,7 +43,7 @@ anyway, tick the box, and note "not reproducible" in PROGRESS.md.
 - [x] **T5c Oracle corpus: pointers/recursion/control flow + gate (split from T5).** ≥7 more pairs (pointer math, pointer diff, recursion, loops, switch). Fix mismatches (notably V12: riscv64 print(0) emits NUL), run the oracle on both targets, wire into `check.sh`, tick T5, reach ≥25 pairs total.
 - [x] **T6 Cleanup of build hygiene.** `.gitignore` covers all outputs; `git status` is clean after `check.sh`; remove `system()`
   shell-outs in `main.cpp` in favor of `fork/execvp` with argv arrays (fixes shell injection via `-o` paths); test with a path containing spaces and `;`.
-- [ ] **P0-END** `check.sh --full`, tag `phase-0-done`.
+- [x] **P0-END** `check.sh --full`, tag `phase-0-done`.
 
 ## Phase 1 — Verify and fix known suspicions (each: repro test first)
 - [ ] **V1 >6 args (x86_64) / >8 args (riscv64)** incl. nested calls as arguments and recursion with stack args; RSP alignment at call.
