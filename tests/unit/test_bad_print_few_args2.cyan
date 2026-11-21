@@ -1,0 +1,6 @@
+// EXPECT-ERROR: Not enough arguments for print format string
+
+function main() {
+    print("%s %s %s", "a", "b");
+    return 0;
+}

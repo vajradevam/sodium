@@ -928,6 +928,18 @@ std::optional<NodeStmt> Parser::parse_print_stmt()
         args.push_back(first_expr.value());
     }
 
+    // Each %d / %s consumes one argument. Reject a shortage here instead of
+    // letting the generator index past the end of args.
+    size_t needed_args = 0;
+    for (const auto& spec : specs) {
+        if (spec.type == FormatSpec::Int || spec.type == FormatSpec::String) {
+            ++needed_args;
+        }
+    }
+    if (args.size() < needed_args) {
+        error("Not enough arguments for print format string");
+    }
+
     if (!peek().has_value() || peek().value().type != TokenType::close_paren) {
         error("Expected ')'");
     }

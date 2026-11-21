@@ -1,0 +1,6 @@
+// EXPECT-ERROR: Not enough arguments for print format string
+
+function main() {
+    print("prefix %s suffix");
+    return 0;
+}
