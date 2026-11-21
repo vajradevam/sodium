@@ -55,6 +55,7 @@ std::string Generator::did_you_mean(const std::string& name) const {
     // Builtins
     candidates.insert("print");
     candidates.insert("read");
+    candidates.insert("read_eof");
     candidates.insert("malloc");
     candidates.insert("free");
     candidates.insert("argc");

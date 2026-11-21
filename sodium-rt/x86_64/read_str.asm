@@ -14,6 +14,7 @@
 extern __sodium_read_buf
 extern __sodium_read_buf_len
 extern __sodium_read_buf_pos
+extern __sodium_read_eof
 
 global _sodium_read_str
 _sodium_read_str:
@@ -50,12 +51,19 @@ _sodium_read_str:
     mov rax, 0              ; SYS_read
     syscall
     test rax, rax
-    jle .done               ; EOF or error → null-terminate and return
+    jle .eof                ; EOF or error → null-terminate and return
 
+    mov qword [rel __sodium_read_eof], 0
     mov [rel __sodium_read_buf_len], rax
     mov qword [rel __sodium_read_buf_pos], 0
+    jmp .have_data
+
+.eof:
+    mov qword [rel __sodium_read_eof], 1
+    jmp .done
 
 .have_data:
+    mov qword [rel __sodium_read_eof], 0
     ; Load byte at current position (don't advance yet)
     mov rax, [rel __sodium_read_buf_pos]
     lea rcx, [rel __sodium_read_buf]

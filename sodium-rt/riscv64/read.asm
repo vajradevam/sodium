@@ -8,12 +8,15 @@
 .globl __sodium_read_buf
 .globl __sodium_read_buf_len
 .globl __sodium_read_buf_pos
+.globl __sodium_read_eof
 
 __sodium_read_buf:
     .zero 256
 __sodium_read_buf_len:
     .zero 8
 __sodium_read_buf_pos:
+    .zero 8
+__sodium_read_eof:
     .zero 8
 
 .section .text
@@ -37,16 +40,28 @@ _sodium_read_int:
     la a1, __sodium_read_buf
     li a2, 255
     ecall
-    blez a0, .done      # EOF or error
+    blez a0, .eof       # EOF or error
 
+    li t5, 0
+    la t6, __sodium_read_eof
+    sd t5, 0(t6)
     # Store new len and reset pos
     la t6, __sodium_read_buf_len
     sd a0, 0(t6)
     la t4, __sodium_read_buf_pos
     sd zero, 0(t4)      # pos = 0
     li t5, 0            # t5 = pos = 0
+    j .have_data
+
+.eof:
+    li t5, 1
+    la t6, __sodium_read_eof
+    sd t5, 0(t6)
+    j .done
 
 .have_data:
+    la t6, __sodium_read_eof
+    sd zero, 0(t6)      # data available: not EOF
     # Load byte at current position (don't advance yet)
     la t0, __sodium_read_buf
     add t0, t0, t5      # t0 = &buf[pos]
@@ -120,4 +135,10 @@ _sodium_read_int:
     neg t1, t1
 .positive:
     mv a0, t1
+    ret
+
+.globl _sodium_read_eof
+_sodium_read_eof:
+    la t0, __sodium_read_eof
+    ld a0, 0(t0)
     ret

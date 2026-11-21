@@ -47,6 +47,13 @@ Correctness first. `-O0` (default for now) must remain a straightforward transla
 are opt-in `-O1` until the suite has run clean under them for a full phase, then become default.
 Every optimization has a test that checks the *effect* (IR dump) and one that checks *semantics* unchanged.
 
+## D-008 I/O: EOF detection
+`read()` returns 0 on EOF, which is indistinguishable from a real zero. The builtin
+`read_eof()` returns 1 if the most recent `read()` (integer or buffer form) exhausted
+stdin without finding data, and 0 otherwise. Both forms share an input buffer and a
+single EOF flag in the runtime, so `read_eof()` works after either form. The flag is
+reset whenever a refill succeeds or buffered data is available.
+
 ## D-007 Self-hosting prerequisites
 Self-hosting is attempted only after: typed params/returns, typed struct fields, arrays of structs,
 nested structs, function pointers, enums, a string library, file I/O, a growable heap. Phase 9 stages

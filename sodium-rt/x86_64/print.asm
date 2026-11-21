@@ -57,9 +57,18 @@ _sodium_print_raw_int:
     mov rsi, rdi            ; buf = rdi
     lea rdx, [rsp + 31]     ; end of usable buffer (no newline byte)
     sub rdx, rsi            ; len = end - buf  (end excludes garbage at rsp+31)
+.write_loop:
+    test rdx, rdx
+    jz .write_done
     mov rax, 1              ; syscall: write
     mov rdi, 1              ; fd = stdout
     syscall
+    test rax, rax
+    jle .write_done         ; error or EOF on stdout
+    add rsi, rax
+    sub rdx, rax
+    jmp .write_loop
+.write_done:
     add rsp, 32
     ret
 
@@ -90,12 +99,21 @@ _sodium_print_raw_str:
     repne scasb
     not rcx
     dec rcx                 ; rcx = strlen (excluding null)
-    ; write(1, rbx, rcx)
-    mov rax, 1
-    mov rdi, 1
+    ; write(1, rbx, rcx) — loop until every byte is written
     mov rsi, rbx
     mov rdx, rcx
+.write_loop:
+    test rdx, rdx
+    jz .write_done
+    mov rax, 1
+    mov rdi, 1
     syscall
+    test rax, rax
+    jle .write_done
+    add rsi, rax
+    sub rdx, rax
+    jmp .write_loop
+.write_done:
     pop rbx
     ret
 
