@@ -1,0 +1,60 @@
+// EXPECT-EXIT: 0
+
+// V9: nested scoping/shadowing, static and global initialization order,
+// switch fall-through with declarations, and break inside a switch in a loop.
+
+global var g = 7;
+
+function counter() {
+    static var n = 0;
+    n = n + 1;
+    return(n);
+}
+
+function fallthrough(x) {
+    switch (x) {
+        case 1: {
+            var a = 10;
+            print(a);
+        }
+        case 2: {
+            var b = 20;
+            print(b);
+        }
+        default:
+            print(99);
+    }
+    return(0);
+}
+
+function main() {
+    // A nested declaration shadows the outer one only inside its block.
+    var x = 1;
+    {
+        var x = 2;
+        if (x != 2) { return(1); }
+    }
+    if (x != 1) { return(2); }
+
+    // Globals are initialized before main; statics persist across calls.
+    if (g != 7) { return(3); }
+    if (counter() != 1) { return(4); }
+    if (counter() != 2) { return(5); }
+
+    // break exits the switch but not the enclosing loop.
+    var i = 0;
+    while (i < 3) {
+        switch (i) {
+            case 0: { var t = 10; if (t != 10) { return(6); } break; }
+            case 1: { break; }
+            default: { break; }
+        }
+        i = i + 1;
+    }
+    if (i != 3) { return(7); }
+
+    // No break after case 1: fall through into case 2 and default.
+    fallthrough(1);
+
+    return(0);
+}
