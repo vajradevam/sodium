@@ -65,10 +65,17 @@ public:
             case IROpcode::NOP:
                 break;
 
-            case IROpcode::ASM:
-                // Verbatim assembly; clobbers are accounted for by liveness.
+            case IROpcode::ASM: {
+                // Verbatim assembly. Marker labels keep the peephole pass from
+                // rewriting user instructions (X5b); clobbers are handled by
+                // liveness and the allocator.
+                const std::string tag = ".L" + m_func_name +
+                    "_sodium_asm_" + std::to_string(m_asm_counter++);
+                m_backend.label(tag + "_begin");
                 m_backend.emit_insn(insn.asm_text, "");
+                m_backend.label(tag + "_end");
                 break;
+            }
 
             case IROpcode::LOAD_I64:
                 m_backend.load_imm(preg_name(insn.dst), insn.imm_arg);
@@ -523,6 +530,7 @@ private:
     std::string m_func_name;
     bool m_stack_probe = false;
     std::string m_stack_message_label;
+    uint32_t m_asm_counter = 0;
 
     std::string mangle_label(const std::string& label) const {
         if (label.empty()) return label;

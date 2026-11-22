@@ -79,6 +79,20 @@ inline std::string peephole_optimize(const std::string& asm_text,
         pos = newline + 1;
     }
 
+    // Lines between the emitter's inline-asm markers belong to the user and
+    // must be preserved verbatim (X5b).
+    std::vector<bool> user_asm(lines.size(), false);
+    bool inside_user_asm = false;
+    for (size_t i = 0; i < lines.size(); ++i) {
+        if (lines[i].find("_sodium_asm_") == std::string::npos) {
+            if (inside_user_asm) user_asm[i] = true;
+            continue;
+        }
+        user_asm[i] = true;
+        if (lines[i].find("_begin:") != std::string::npos) inside_user_asm = true;
+        if (lines[i].find("_end:") != std::string::npos) inside_user_asm = false;
+    }
+
     const auto is_barrier = [&](const std::string& line) {
         const std::string text = trim(line);
         if (text.empty()) return false;
@@ -89,8 +103,9 @@ inline std::string peephole_optimize(const std::string& asm_text,
     };
 
     // Pass 1: self-moves and arithmetic no-ops.
-    for (std::string& line : lines) {
-        if (is_barrier(line)) continue;
+    for (size_t index = 0; index < lines.size(); ++index) {
+        std::string& line = lines[index];
+        if (user_asm[index] || is_barrier(line)) continue;
         if (x86) {
             const Move move = parse_move(line, "mov ");
             if (move.valid && move.dst == move.src) {
@@ -127,6 +142,7 @@ inline std::string peephole_optimize(const std::string& asm_text,
     const std::string mnemonic = x86 ? "mov " : "mv ";
     for (size_t i = 0; i + 1 < lines.size(); ++i) {
         if (lines[i].empty() || lines[i + 1].empty()) continue;
+        if (user_asm[i] || user_asm[i + 1]) continue;
         if (is_barrier(lines[i]) || is_barrier(lines[i + 1])) continue;
         const Move first = parse_move(lines[i], mnemonic);
         const Move second = parse_move(lines[i + 1], mnemonic);

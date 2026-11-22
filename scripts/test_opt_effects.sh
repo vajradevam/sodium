@@ -138,4 +138,26 @@ grep -qE '^[[:space:]]*nop[[:space:]]*$' "$WORK/asm-rv.s" || {
     exit 1
 }
 
+# X5b: multi-line asm emits every line, and the peephole leaves user asm alone.
+"$COMPILER" -O1 -S -o "$WORK/asm-multi.s" tests/checks/test_inline_asm_multiline.cyan 2>/dev/null
+"$COMPILER" -O1 --target riscv64 -S -o "$WORK/asm-multi-rv.s" tests/checks/test_inline_asm_multiline.cyan 2>/dev/null
+[ "$(grep -cE '^[[:space:]]*nop[[:space:]]*$' "$WORK/asm-multi.s")" -eq 3 ] || {
+    echo "effect: x86_64 multi-line asm did not emit three instructions"
+    exit 1
+}
+[ "$(grep -cE '^[[:space:]]*nop[[:space:]]*$' "$WORK/asm-multi-rv.s")" -eq 3 ] || {
+    echo "effect: riscv64 multi-line asm did not emit three instructions"
+    exit 1
+}
+"$COMPILER" -O1 -S -o "$WORK/asm-peep.s" tests/checks/test_inline_asm_peephole.cyan 2>/dev/null
+"$COMPILER" -O1 --target riscv64 -S -o "$WORK/asm-peep-rv.s" tests/checks/test_inline_asm_peephole.cyan 2>/dev/null
+grep -qE '^[[:space:]]*mov[[:space:]]+rax,[[:space:]]*rax[[:space:]]*$' "$WORK/asm-peep.s" || {
+    echo "effect: peephole rewrote user x86_64 asm"
+    exit 1
+}
+grep -qE '^[[:space:]]*addi[[:space:]]+t1,[[:space:]]*t1,[[:space:]]*0[[:space:]]*$' "$WORK/asm-peep-rv.s" || {
+    echo "effect: peephole rewrote user riscv64 asm"
+    exit 1
+}
+
 echo "Optimization effects: OK"

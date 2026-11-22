@@ -1,0 +1,11 @@
+// EXPECT-EXIT: 0
+// EXPECT-STDOUT: 3
+
+// X5b: user asm lines must survive the -O1 peephole pass verbatim.
+
+function main() {
+    asm("x86_64", "mov rax, rax", ["rax"]);
+    asm("riscv64", "addi t1, t1, 0", ["t1"]);
+    print("%d", 3);
+    return 0;
+}

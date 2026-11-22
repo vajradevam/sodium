@@ -1,0 +1,11 @@
+// EXPECT-EXIT: 0
+// EXPECT-STDOUT: 7
+
+// X5b: an asm string with embedded newlines emits one assembler line each.
+
+function main() {
+    asm("x86_64", "nop\nnop\nnop", []);
+    asm("riscv64", "nop\nnop\nnop", []);
+    print("%d", 7);
+    return 0;
+}

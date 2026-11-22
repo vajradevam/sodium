@@ -158,7 +158,7 @@ anyway, tick the box, and note "not reproducible" in PROGRESS.md.
 - [x] **X4b `--check-null`:** opt-in null-deref checks for pointer reads and writes; tests proving null fails and non-null is unchanged on both targets.
 - [x] **X4c `--stack-probe`:** opt-in stack-overflow probe at function entry via a stack-pointer read opcode on both backends; tests proving deep recursion fails and shallow calls are unchanged.
 - [x] **X5a Inline asm syntax and IR plumbing:** `asm("arch", "instruction", ["clobbers"])` statement, AST/parser/IR opcode/emitter, target filtering, clobber validation and conservative barrier semantics (D-036); positive and compile-error tests on both targets.
-- [ ] **X5b Clobber-aware allocation:** per-register clobber sets in liveness/linear scan, multi-line asm and peephole barrier, with live-value regression tests on both targets.
+- [x] **X5b Clobber-aware allocation:** per-register clobber sets in liveness/linear scan, multi-line asm and peephole barrier, with live-value regression tests on both targets.
 - [ ] **X6 Debug info:** `.loc`/line tables so `gdb`/`qemu -g` can step source lines.
 - [ ] **P6-END** gate, tag.
 

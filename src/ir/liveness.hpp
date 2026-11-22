@@ -20,6 +20,10 @@ struct LiveRange {
     /// allocator to prefer spilling the value whose next use is farthest away.
     std::vector<uint32_t> use_positions;
 
+    /// Physical registers clobbered by an ASM instruction inside this range
+    /// (X5b). The allocator must not place the value in one of these.
+    std::set<int> clobbered_pregs;
+
     bool overlaps(const LiveRange& other) const {
         return start < other.end && other.start < end;
     }
@@ -149,6 +153,7 @@ inline LiveRanges compute_live_ranges(const IRFunction& func) {
     std::map<uint32_t, Extent> extents;
     std::set<uint32_t> call_positions;
     std::set<uint32_t> div_positions;
+    std::map<uint32_t, std::set<int>> asm_clobbers;
     auto extend = [&](uint32_t vreg, uint32_t pos) {
         auto& e = extents[vreg];
         if (!e.seen) { e.seen = true; e.first = pos; e.last = pos; }
@@ -162,9 +167,9 @@ inline LiveRanges compute_live_ranges(const IRFunction& func) {
     for (size_t bi = 0; bi < block_count; ++bi) {
         for (const auto& insn : func.blocks[bi].instructions) {
             if (is_call(insn.op)) call_positions.insert(idx);
-            // X5a: treat ASM as a conservative clobber barrier — values live
-            // across it use callee-save registers until X5b tracks exact regs.
-            if (insn.op == IROpcode::ASM) call_positions.insert(idx);
+            if (insn.op == IROpcode::ASM) {
+                for (int preg : insn.asm_clobbers) asm_clobbers[idx].insert(preg);
+            }
             if (insn.op == IROpcode::DIV || insn.op == IROpcode::MOD) div_positions.insert(idx);
             if (insn.dst != IRInstruction::NONE_VREG) extend(insn.dst, idx);
             if (insn.dst2 != IRInstruction::NONE_VREG) extend(insn.dst2, idx);
@@ -207,6 +212,13 @@ inline LiveRanges compute_live_ranges(const IRFunction& func) {
         // live across a call.
         for (uint32_t dp : div_positions) {
             if (dp > r.start && dp + 1 < r.end) { r.crosses_div = true; break; }
+        }
+        // X5b: exact per-register clobbers from ASM instructions inside the
+        // interval replace the conservative call-like barrier.
+        for (const auto& [pos, regs] : asm_clobbers) {
+            if (pos > r.start && pos + 1 < r.end) {
+                r.clobbered_pregs.insert(regs.begin(), regs.end());
+            }
         }
         ranges.push_back(r);
     }

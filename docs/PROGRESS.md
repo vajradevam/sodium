@@ -407,3 +407,14 @@ until X5b. Added tests/checks cases (both-target nop, unknown clobber, callee-sa
 missing clobber list), 4 C++ IR/emitter/liveness cases and an assembly effect check.
 `scripts/check.sh --full` green: 695 -> 700 passed / 0 failed / 10 skipped at both levels;
 289 -> 293 C++ cases / 4302 checks; sweep 2118 -> 2142 invocations / 0 crashes; ASan/UBSan clean.
+
+## 2026-11-23 — X5b Clobber-aware allocation and hardening
+Replaced the X5a conservative ASM barrier with exact per-register clobbers: `LiveRange` records
+the physical registers clobbered by ASM inside its interval and linear scan excludes them from
+assignment and eviction candidates. ASM strings may now contain embedded newlines, emitted as one
+assembler line each, and the emitter surrounds user asm with marker labels that make the peephole
+pass copy those lines verbatim. Added two Cyan cases (multi-line nops, self-move asm surviving
+-O1), updated the liveness/allocator C++ case to assert rax is avoided, added a peephole-barrier
+unit case and assembly effect checks. `scripts/check.sh --full` green: 700 -> 704 passed / 0
+failed / 10 skipped at both levels; 293 -> 294 C++ cases / 4309 checks; sweep 2142 -> 2154
+invocations / 0 crashes; ASan/UBSan clean.

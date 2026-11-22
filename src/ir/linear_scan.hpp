@@ -135,6 +135,14 @@ public:
             } else {
                 preferred = all_regs;
             }
+            // X5b: never place a value in a register an ASM inside its range
+            // clobbers.
+            if (!range.clobbered_pregs.empty()) {
+                preferred.erase(
+                    std::remove_if(preferred.begin(), preferred.end(),
+                        [&](int preg) { return range.clobbered_pregs.count(preg) != 0; }),
+                    preferred.end());
+            }
 
             // 2c. Find a free register.
             int free_reg = find_free_register(preferred);
@@ -225,6 +233,7 @@ private:
             if (std::find(available.begin(), available.end(), ai.phys_reg) == available.end()) {
                 continue;
             }
+            if (range.clobbered_pregs.count(ai.phys_reg) != 0) continue;
             if (ai.needs_callee_save && !current_protected) continue;
             if (victim < 0 || ai.next_use > victim_next) {
                 victim = static_cast<int>(i);

@@ -826,10 +826,8 @@ void Generator::gen_stmt(const NodeStmt& stmt)
         void operator()(const NodeStmtAsm* stmt_asm) const {
             // A statement for another target is a no-op (D-036).
             if (stmt_asm->target != gen->m_backend_ptr->target_name()) return;
-            if (stmt_asm->text.empty() ||
-                stmt_asm->text.find('\n') != std::string::npos) {
-                gen->fail(stmt_asm->keyword.loc,
-                          "asm instruction must be a single non-empty line");
+            if (stmt_asm->text.empty()) {
+                gen->fail(stmt_asm->keyword.loc, "empty asm instruction");
             }
             std::vector<int> clobbers;
             for (const auto& name : stmt_asm->clobbers) {
@@ -844,7 +842,17 @@ void Generator::gen_stmt(const NodeStmt& stmt)
                 }
                 clobbers.push_back(preg);
             }
-            gen->m_ir.asm_insn(stmt_asm->text, std::move(clobbers));
+            // Each line becomes its own ASM instruction so the emitter emits
+            // one assembler line at a time (X5b).
+            size_t begin = 0;
+            for (;;) {
+                const size_t newline = stmt_asm->text.find('\n', begin);
+                const std::string line = stmt_asm->text.substr(
+                    begin, newline == std::string::npos ? std::string::npos : newline - begin);
+                if (!line.empty()) gen->m_ir.asm_insn(line, clobbers);
+                if (newline == std::string::npos) break;
+                begin = newline + 1;
+            }
         }
     };
 
