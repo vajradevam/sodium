@@ -324,7 +324,8 @@ public:
     /// Finalize an IR function: run allocator, rewriter, emit to backend.
     /// `frame_bytes` is the frame size captured when the function was generated;
     /// the function object itself is owned by the caller.
-    void flush_function(IRFunction* func, uint32_t frame_bytes, bool emit_extern);
+    void flush_function(IRFunction* func, uint32_t frame_bytes, bool emit_extern,
+                        bool optimize = true);
 
     /// Access the backend.
     Backend& backend() const { return *m_backend_ptr; }

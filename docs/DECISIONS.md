@@ -330,3 +330,12 @@ under -O1; both do, so the default is now -O1. -O0 remains fully supported and i
 by the gate: `check.sh` runs the discoverable suite through `scripts/sodium-o0.sh` and the -O1
 suite through `scripts/sodium-o1.sh`, so both levels are tested on every commit. Benchmark
 instruction counts and the regalloc benchmark pass explicit levels and are unaffected.
+
+### D-032 consequences for the gate and inliner
+Making -O1 the default required two robustness fixes found by running every gate step under it.
+Functions with a generation error are no longer optimized or inlined (partial IR from a clean
+compile-error diagnostic must not turn into a verifier failure), and the leaf inliner keeps the
+CALL when a void-returning callee's result vreg is actually used. The ABI interop harness rewrites
+`call SYM` lines to redirect Cyan stubs to C definitions, so it compiles the Cyan side at -O0
+explicitly; `check.sh` runs both the suite and the differential oracle at -O0 and -O1, so both
+levels remain covered on every commit.

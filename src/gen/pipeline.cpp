@@ -4,7 +4,8 @@
 // IR function finalization
 // ==========================================================================
 
-void Generator::flush_function(IRFunction* func, uint32_t frame_bytes, bool emit_extern) {
+void Generator::flush_function(IRFunction* func, uint32_t frame_bytes, bool emit_extern,
+                               bool optimize) {
     if (!func) return;
     m_next_frame_offset = frame_bytes;
 
@@ -35,7 +36,7 @@ void Generator::flush_function(IRFunction* func, uint32_t frame_bytes, bool emit
     };
     if (!check_ir()) throw GenAbort{};
 
-    if (m_opt_level >= 1) {
+    if (m_opt_level >= 1 && optimize) {
         fold_function(*func);
         promote_locals(*func);
         cse_function(*func);
@@ -86,6 +87,10 @@ void Generator::flush_function(IRFunction* func, uint32_t frame_bytes, bool emit
 void Generator::gen_func_def(const NodeFuncDef& func)
 {
     size_t saved_stack_size = m_stack_size;
+    // A semantic error leaves partial IR in this function. Optimizing or
+    // inlining it would turn a clean diagnostic into a spurious verifier
+    // failure, so such functions go through the plain translation path.
+    bool had_error = false;
 
     // Start a new IR function
     m_ir.start_function(func.name.value.value());
@@ -186,11 +191,13 @@ void Generator::gen_func_def(const NodeFuncDef& func)
             gen_stmt(s);
         } catch (const GenAbort&) {
             // Keep checking the remaining statements in this function.
+            had_error = true;
             m_vstack.clear();
             m_tstack.clear();
         } catch (const LSPAbort&) {
             // In LSP mode fail() throws LSPAbort instead; keep recovering so
             // later statements report their diagnostics too.
+            had_error = true;
             m_vstack.clear();
             m_tstack.clear();
         }
@@ -229,12 +236,12 @@ void Generator::gen_func_def(const NodeFuncDef& func)
 
     // Under -O1 keep the IR alive so the leaf inliner can see callee bodies;
     // all functions are optimized and emitted together in gen_prog_impl.
-    if (m_opt_level >= 1) {
+    if (m_opt_level >= 1 && !had_error) {
         m_pending_functions.push_back({ m_ir.end_function(), m_next_frame_offset });
     } else {
         IRFunction* ir_func = m_ir.current_function();
         const uint32_t frame_bytes = m_next_frame_offset;
-        flush_function(ir_func, frame_bytes, true);
+        flush_function(ir_func, frame_bytes, true, !had_error);
         m_ir.end_function();
     }
 }

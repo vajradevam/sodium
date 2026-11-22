@@ -317,3 +317,16 @@ a 20% tolerance. -O1 reduces counts on every benchmark except the recursive fib 
 342597 -> 296620, hash riscv 65146 -> 42006). The script is now a `check.sh` step and also
 verifies each program's stdout. `scripts/check.sh` green: 675 passed / 0 failed / 10 skipped at
 both levels; 274 C++ cases / 4265 checks.
+
+## 2026-11-23 — O8b Default optimization level (D-032)
+Verified the full suite (675/675 on both targets) and the differential oracle (58/58) under -O1,
+then changed the compiler default from -O0 to -O1. Added `scripts/sodium-o0.sh` and made
+`check.sh` run the suite and the oracle explicitly at both -O0 and -O1, so flipping the default
+did not reduce coverage. Added an effect check that no-flag output equals -O1 output and differs
+from -O0. Running all steps under the new default exposed three issues, all fixed: compile-error
+tests produced invalid IR after optimization (errored functions now skip the O1 pipeline and
+inlining), a void callee's used result vreg was left undefined by inlining (the CALL is kept),
+and the ABI harness's `call SYM` rewriting no longer worked with inlined stubs (it now compiles
+at -O0 explicitly). `scripts/check.sh --full` green: 675 passed / 0 failed / 10 skipped at both
+levels; 274 -> 275 C++ cases / 4267 checks; oracle 58/58 at both levels; sweep 2058 invocations /
+0 crashes; ABI 8/8; ASan/UBSan clean.

@@ -112,4 +112,17 @@ if grep -qE '^[[:space:]]*call[[:space:]]+(add|square|bump)[[:space:]]*$' "$WORK
     exit 1
 fi
 
+# O8b: with no -O flag the compiler must behave exactly like -O1 (D-032).
+"$COMPILER" -S -o "$WORK/default.s" "$WORK/mem2reg.cyan" 2> "$WORK/default.err"
+"$COMPILER" -O1 -S -o "$WORK/o1.s" "$WORK/mem2reg.cyan" 2> "$WORK/o1.err"
+"$COMPILER" -O0 -S -o "$WORK/o0.s" "$WORK/mem2reg.cyan" 2> "$WORK/o0.err"
+cmp -s "$WORK/default.s" "$WORK/o1.s" || {
+    echo "effect: default output differs from -O1"
+    exit 1
+}
+if cmp -s "$WORK/default.s" "$WORK/o0.s"; then
+    echo "effect: default output still matches -O0"
+    exit 1
+fi
+
 echo "Optimization effects: OK"

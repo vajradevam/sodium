@@ -48,7 +48,10 @@ for cyan in $(find tests/abi -type f -name '*.cyan' | sort); do
             runner=(qemu-riscv64)
         fi
 
-        if ! "$COMPILER" --target "$target" -w -S -o "$WORK/cy.s" "$cyan" > "$WORK/cy.log" 2>&1; then
+        # This harness rewrites `call SYM` lines in the generated assembly so
+        # C definitions win at link time. Inlining would remove those calls,
+        # so compile the Cyan side at -O0 explicitly (D-032 made -O1 default).
+        if ! "$COMPILER" -O0 --target "$target" -w -S -o "$WORK/cy.s" "$cyan" > "$WORK/cy.log" 2>&1; then
             echo "FAIL $label: Cyan compile failed"; cat "$WORK/cy.log"; fail=$((fail + 1)); continue
         fi
         if ! "${cc_cmd[@]}" "$c_source" -o "$WORK/c.o" > "$WORK/cc.log" 2>&1; then

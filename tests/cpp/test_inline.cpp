@@ -213,3 +213,18 @@ TEST(inline_rejects_callee_with_computed_addresses) {
     CHECK_EQ(stats.inlined, size_t{0});
     CHECK(has_op(caller, IROpcode::CALL));
 }
+
+TEST(inline_keeps_call_when_void_result_is_used) {
+    IRFunction caller("main");
+    auto* b = caller.add_block(".entry");
+    b->emit(IRInstruction::call(0, "nothing", {}));
+    b->emit(IRInstruction::ret(IRValue::vreg(0)));
+    IRFunction leaf("nothing");
+    auto* lb = leaf.add_block(".entry");
+    lb->emit(IRInstruction::nop());  // falls through to the epilogue
+    leaf.add_block(".Lnothing_epilogue")->emit(IRInstruction::ret_void());
+    std::vector<InlineItem> items = { {&caller, 16}, {&leaf, 0} };
+    InlineStats stats = ir_inline::inline_leaves(items);
+    CHECK_EQ(stats.inlined, size_t{0});
+    CHECK(has_op(caller, IROpcode::CALL));
+}

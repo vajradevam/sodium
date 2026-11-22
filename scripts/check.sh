@@ -33,9 +33,13 @@ step "benchmark instruction counts (both targets, -O0 and -O1)"
 ./scripts/bench.sh > build/last_bench_instr.log 2>&1 || die "benchmark regressions (see build/last_bench_instr.log)"
 tail -4 build/last_bench_instr.log
 
-step "differential oracle (Cyan vs C, both targets)"
-./scripts/oracle.sh > build/last_oracle.log 2>&1 || die "oracle (see build/last_oracle.log)"
+step "differential oracle at -O0 (Cyan vs C, both targets)"
+COMPILER=./scripts/sodium-o0.sh ./scripts/oracle.sh > build/last_oracle.log 2>&1 || die "oracle at -O0 (see build/last_oracle.log)"
 tail -2 build/last_oracle.log
+
+step "differential oracle under -O1 (both targets)"
+COMPILER=./scripts/sodium-o1.sh ./scripts/oracle.sh > build/last_oracle_o1.log 2>&1 || die "oracle under -O1 (see build/last_oracle_o1.log)"
+tail -2 build/last_oracle_o1.log
 
 step "C interop (struct ABI vs gcc, both targets)"
 ./scripts/test_abi_interop.sh > build/last_abi.log 2>&1 || die "ABI interop (see build/last_abi.log)"
@@ -45,8 +49,8 @@ step "C++ unit tests"
 ./build/unit_tests > build/last_unit.log 2>&1 || die "unit tests (see build/last_unit.log)"
 tail -2 build/last_unit.log
 
-step "test suite"
-./scripts/run_tests.sh > build/last_tests.log 2>&1; rc=$?
+step "test suite at -O0"
+COMPILER=./scripts/sodium-o0.sh ./scripts/run_tests.sh > build/last_tests.log 2>&1; rc=$?
 tail -4 build/last_tests.log
 grep -E "SKIP|FAIL" build/last_tests.log | grep -v "^Results" | head -20
 [ $rc -eq 0 ] || die "tests (see build/last_tests.log)"

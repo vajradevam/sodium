@@ -68,7 +68,7 @@ int main(int argc, char* argv[]) {
     bool verify_ir_flag = false;
     bool dump_regalloc_flag = false;
     bool no_alloc_flag = false;
-    int opt_level = 0;           // -O0 (default) or -O1
+    int opt_level = 1;           // -O1 (default, D-032) or -O0
     bool emit_asm_only = false;     // -S: stop after assembly
     const char* filename = nullptr;
     std::string output_path;         // -o <file>, or derived from input
@@ -81,7 +81,7 @@ int main(int argc, char* argv[]) {
     bool color_forced_off = false;   // -fno-color-diagnostics or NO_COLOR
 
     auto usage = []() {
-        std::cerr << "Usage: sodium [--target <arch>] [--print-ast] [--emit-ir] [--verify-ir] [--dump-regalloc] [-O0|-O1] [--no-alloc] [-o <file>] [-S] [-I <dir>] [--cyanlib-dir <dir>] [-w] [-Werror] [-fcolor-diagnostics] <filename.cyan>" << std::endl;
+        std::cerr << "Usage: sodium [--target <arch>] [--print-ast] [--emit-ir] [--verify-ir] [--dump-regalloc] [-O0|-O1] (default -O1) [--no-alloc] [-o <file>] [-S] [-I <dir>] [--cyanlib-dir <dir>] [-w] [-Werror] [-fcolor-diagnostics] <filename.cyan>" << std::endl;
     };
 
     for (int i = 1; i < argc; i++) {

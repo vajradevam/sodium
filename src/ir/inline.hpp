@@ -166,6 +166,32 @@ inline InlineStats inline_leaves(std::vector<InlineItem>& items) {
                 const bool has_return = !cinsns.empty() &&
                     (cinsns.back().op == IROpcode::RET ||
                      cinsns.back().op == IROpcode::RET_VOID);
+                const bool void_callee = !has_return ||
+                    cinsns.back().op == IROpcode::RET_VOID;
+                // A call whose result is used must keep its CALL when the
+                // callee returns nothing (e.g. a function with no return
+                // statement); otherwise the destination vreg is undefined.
+                // Generator-assigned result vregs of plain statement calls are
+                // unused, so those can still be inlined.
+                if (void_callee && insn.dst != IRInstruction::NONE_VREG) {
+                    bool result_used = false;
+                    for (const auto& other : caller.blocks) {
+                        for (const auto& candidate : other.instructions) {
+                            for (const auto& operand : candidate.operands) {
+                                if (operand.is_vreg() && operand.vreg_id == insn.dst) {
+                                    result_used = true;
+                                    break;
+                                }
+                            }
+                            if (result_used) break;
+                        }
+                        if (result_used) break;
+                    }
+                    if (result_used) {
+                        out.push_back(insn);
+                        continue;
+                    }
+                }
                 const size_t body_end = has_return ? cinsns.size() - 1 : cinsns.size();
 
                 // Clone everything but the explicit terminator.
