@@ -121,7 +121,8 @@ anyway, tick the box, and note "not reproducible" in PROGRESS.md.
 - [x] **L5a Vec and Str:** growable i64 vector and byte-string builder in `cyanlib/containers.cyan`, with push/get/set/build/free and property tests using many random operations against a reference checksum, on both targets.
 - [x] **B4 Struct-pointer arithmetic ignores struct size (found during L5b):** `ptr + n` on `T*` used the 8-byte fallback from `type_size` for structs, so arrays of structs were addressed at 8-byte strides. Use `get_struct_info(name)->size` for add/sub/difference; regression test on both targets.
 - [x] **L5b HashMap:** open-addressed string→i64 map in `cyanlib/containers.cyan` with put/get/remove/checksum, plus property tests comparing many random operations against a reference model, on both targets.
-- [ ] **L6 `argv`/`envp`/`exit` handling polish;** `print` to fd; `assert(cond, "msg")` builtin.
+- [ ] **L6a `exit`/`envp` polish:** add an `exit(n)` builtin (call from an expression, no return type) and an `envp(i)` builtin backed by a `__sodium_envp` global captured in `_start` on both targets; add `ENV:` test-harness support and tests for early exit and environment lookup.
+- [ ] **L6b fd printing and assert:** add fd-targeted printing (`fprint(fd, s)`) and `assert(cond, msg)` to `cyanlib/io.cyan` using `exit(n)`; add `EXPECT-STDERR` harness support and tests for successful asserts and a failing assert's message/exit code.
 - [ ] **P4-END** full gate, tag.
 
 ## Phase 5 — IR & optimization (D-006; all behind `-O1` first)
