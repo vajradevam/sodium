@@ -78,3 +78,9 @@ preceding error as a note plus a replacement fix-it; the error text is unchanged
 `-fcolor-diagnostics` enables ANSI colors (bold location, red error, magenta warning, cyan note,
 green fix-it); `-fno-color-diagnostics` and a non-empty `NO_COLOR` disable them. Plain output is
 the default so compiler logs stay deterministic.
+
+## D-011 Pointer-to-struct access (Y7)
+Cyan uses C-like `p->field` for accessing a field through a pointer to a struct.
+`(*p).field` is not supported: field access accepts only an identifier (or another field
+access) as its base, not an arbitrary parenthesized expression. `&s.field` yields a pointer
+to the field. Struct identity is carried in `Type` so pointer types retain their pointee struct.
