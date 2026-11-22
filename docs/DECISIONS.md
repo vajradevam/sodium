@@ -286,3 +286,16 @@ DIV/MOD-crossing) is never evicted for one that does not. `scripts/bench_regallo
 spills and callee-save assignments across five programs on both targets on every gate run; the
 heuristic change keeps the total at the baseline (2 spills) while the crafted one-register unit
 case shows the intended different choice.
+
+## D-030 Peephole is a post-emission, per-target textual pass (O7a)
+Rather than adding ad-hoc checks inside each Backend's emission methods, the peephole optimizer is a
+pure function `peephole_optimize(assembly, target_name)` over the emitted assembly text. It runs
+after `gen_prog()` and before the assembly file is written, only under `-O1` (D-006). Rules are
+split into a target-independent set and a small target-specific set, and are deliberately
+conservative so they are provably safe on raw text:
+  * self-move / no-op removal (`mov r,r` on x86-64; `mv r,r` and `addi r,r,0` on riscv64);
+  * adjacent dead-move elimination (`mov A,B` immediately followed by `mov A,C` drops the first).
+Segments are processed independently between labels/directives, so a rule never crosses a
+basic-block boundary where control flow could have observed the overwritten value. No rule
+changes condition flags or removes a memory operation. The pass reports how many instructions it
+removed so the effect is measurable in the gate.
