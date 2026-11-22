@@ -146,7 +146,7 @@ anyway, tick the box, and note "not reproducible" in PROGRESS.md.
 - [x] **O7b1 Deferred function emission:** collect generated IR functions in a pool under `-O1` (no behavior change at `-O0` or `-O1`), with unit/integration coverage that the emitted program is identical.
 - [x] **O7b2 IR leaf inliner (D-031):** splice single-block leaf callees into callers before the `-O1` passes; tests for IR effect, semantics, recursion/address-taken/size rejection and both targets.
 - [x] **O8a Benchmarks:** add `bench/` programs (fib, sieve, matmul, sort, hash) and a script printing dynamic guest instruction counts via qemu `-one-insn-per-tb -d in_asm` on both targets, with committed baselines and regression detection.
-- [ ] **O8b Default optimization level:** verify the whole suite and the differential oracle pass under `-O1`; if so, decide and record whether `-O1` becomes the default, and implement with tests.
+- [x] **O8b Default optimization level (D-032):** verified suite (675/675) and oracle (58/58) under `-O1`; made `-O1` the default while keeping explicit `-O0` coverage in the gate.
 - [ ] **P5-END** full gate under `-O0` and `-O1`, tag.
 
 ## Phase 6 — Language extras

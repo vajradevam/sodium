@@ -322,3 +322,11 @@ under `-O1`. Eligibility now additionally requires: no `LEA`/`LOAD_PARAM`, every
 offset zero, and every `STORE_PARAM` full-width (`I64`) with no chunk shift. This keeps inlining
 to genuine scalar leaves (e.g. `add(a,b)`, `square(x)`, void helpers) and leaves all aggregate
 traffic to the regular calling convention.
+
+## D-032 -O1 becomes the default optimization level (O8b)
+D-006 made -O0 the default and -O1 opt-in during development. The O8b gate required the whole
+suite (675 tests on x86_64 and riscv64) and the differential oracle (58 comparisons) to pass
+under -O1; both do, so the default is now -O1. -O0 remains fully supported and is still covered
+by the gate: `check.sh` runs the discoverable suite through `scripts/sodium-o0.sh` and the -O1
+suite through `scripts/sodium-o1.sh`, so both levels are tested on every commit. Benchmark
+instruction counts and the regalloc benchmark pass explicit levels and are unaffected.
