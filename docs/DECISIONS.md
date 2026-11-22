@@ -352,3 +352,17 @@ a name not defined by any macro evaluates to 0 in `#if`. Inactive branches produ
 all, so they cannot leak tokens or trigger include errors. Macro definitions are scoped to one
 preprocessor run and are visible across `#include` boundaries, which makes the standard
 `#ifndef GUARD / #define GUARD / ... / #endif` include-guard idiom work.
+
+## D-034 Modules: keep textual `#include`, document cyanlib prefixes (X3)
+Cyan has no module system and gains none in this phase: `#include "..."` / `<...>` stays the only
+way to compose source, resolved against the including file's directory, `-I` paths and the system
+cyanlib directory. Adding an `import` keyword would need a new AST/IR form, per-file symbol tables
+and link-time name mangling; the existing textual stage is backward compatible and, since X2,
+supports both `#pragma once` (used by every cyanlib header) and `#ifndef`/`#define`/`#endif`
+include guards. Because all included declarations share one global namespace, namespacing is a
+convention, not a language feature: module-specific functions and constants carry a module prefix
+(`vec_*`, `map_*`, `str_*` in containers; `fmt_*` in fmt; `io_*`, `fprint`, `assert` in io; `mem_*`
+in mem), CamelCase names are reserved for struct types, and deliberately unprefixed C-compatible
+shims (`strlen`, `strcmp`, `memcpy`, `atoi`, `calloc`, `realloc`) are the exception. New cyanlib
+APIs must use a module prefix; collisions are compile errors and are not silently resolved. The
+convention is written down in `docs/MODULES.md`.

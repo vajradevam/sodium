@@ -153,7 +153,7 @@ anyway, tick the box, and note "not reproducible" in PROGRESS.md.
 - [ ] **X1 Floats** (`f32`,`f64`) incl. ABI on both targets, literals, conversions, print. (Decide scope in DECISIONS.md first; skip → BLOCKED if it needs >1 phase.)
 - [x] **X2a Object macros and conditionals:** `#define NAME ...`, `#ifdef`/`#ifndef`/`#else`/`#endif`, string-literal-safe expansion, include guards and negative tests (D-033).
 - [x] **X2b Function macros and `#if`:** `#define F(a,b) body` with argument substitution and the `#if` constant-expression grammar from D-033, with tests on both targets.
-- [ ] **X3 Module hygiene:** `import`-style or keep `#include`; namespacing for `cyanlib` (prefix convention documented).
+- [x] **X3 Module hygiene (D-034):** kept textual `#include`; documented `#pragma once`/include-guard usage and cyanlib prefix conventions in `docs/MODULES.md`.
 - [ ] **X4 Bounds-check mode** `--bounds`, null-deref checks `--check-null`, stack-overflow probe diagnostics; each with tests proving they trigger and don't change valid programs.
 - [ ] **X5 Inline asm** minimal form, per-arch, with clobber list.
 - [ ] **X6 Debug info:** `.loc`/line tables so `gdb`/`qemu -g` can step source lines.
