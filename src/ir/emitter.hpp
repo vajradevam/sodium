@@ -22,6 +22,9 @@ public:
     IREmitter(Backend& backend, const TargetRegisterInfo& tri)
         : m_backend(backend), m_tri(tri) {}
 
+    /// Enable source-line debug markers (D-037).
+    void set_debug_info(bool enabled) { m_debug_info = enabled; }
+
     /// Enable the optional entry stack-overflow probe (X4c).
     void set_stack_probe(bool enabled, const std::string& message_label) {
         m_stack_probe = enabled;
@@ -61,6 +64,12 @@ public:
 
     /// Emit a single instruction.
     void emit_instruction(const IRInstruction& insn) {
+        if (m_debug_info && insn.src_line != 0 &&
+            (insn.src_line != m_last_debug_line || insn.src_file != m_last_debug_file)) {
+            m_backend.debug_line(insn.src_file, insn.src_line);
+            m_last_debug_line = insn.src_line;
+            m_last_debug_file = insn.src_file;
+        }
         switch (insn.op) {
             case IROpcode::NOP:
                 break;
@@ -531,6 +540,9 @@ private:
     bool m_stack_probe = false;
     std::string m_stack_message_label;
     uint32_t m_asm_counter = 0;
+    bool m_debug_info = false;
+    uint32_t m_last_debug_line = 0;
+    std::string m_last_debug_file;
 
     std::string mangle_label(const std::string& label) const {
         if (label.empty()) return label;

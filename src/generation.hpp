@@ -16,6 +16,7 @@
 struct GenAbort {};
 
 #include "parser.hpp"
+#include "source_loc.hpp"
 #include "backend/interface.hpp"
 #include "ir/builder.hpp"
 #include "ir/module.hpp"
@@ -24,6 +25,9 @@ struct GenAbort {};
 #include "ir/inline.hpp"
 #include "ir/rewriter.hpp"
 #include "ir/target_regs.hpp"
+
+/// Best-effort source location for an AST statement (used for debug lines).
+SourceLoc statement_location(const NodeStmt& stmt);
 #include "ir/verify.hpp"
 #include "ir/fold.hpp"
 #include "ir/cleanup.hpp"

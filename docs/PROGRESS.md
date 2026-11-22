@@ -418,3 +418,14 @@ pass copy those lines verbatim. Added two Cyan cases (multi-line nops, self-move
 unit case and assembly effect checks. `scripts/check.sh --full` green: 700 -> 704 passed / 0
 failed / 10 skipped at both levels; 293 -> 294 C++ cases / 4309 checks; sweep 2142 -> 2154
 invocations / 0 crashes; ASan/UBSan clean.
+
+## 2026-11-23 — X6a Debug line plumbing
+Carried statement source locations into IR: `IRInstruction` now has `src_line`/`src_file`,
+`IRBuilder::set_loc` stamps them on emitted instructions, and `gen_stmt` stamps the current
+statement's location via a shared `statement_location()` helper. Added a backend-agnostic
+`Backend::debug_line` method: x86_64 emits NASM `%line N+0 "file"` (absolute path and `+0` form),
+riscv64 emits `.file N "file"` plus `.loc N L 0`, with no-ops in the null backend. `IREmitter`
+optionally writes a marker when the source line changes. Added 4 C++ cases covering both targets,
+line-change deduplication and the disabled path; verified end-to-end that a compiled program's
+assembly contains `%line` rows from the original `.cyan` lines. `scripts/check.sh` green:
+704 passed / 0 failed / 10 skipped; 294 -> 298 C++ cases / 4314 checks.

@@ -41,6 +41,17 @@ void X8664Backend::emit_insn(const std::string& insn, const std::string& ops) {
         *m_output << "    " << insn << " " << ops << "\n";
 }
 
+void X8664Backend::debug_line(const std::string& file, uint32_t line) {
+    // NASM's %line pins the following assembly lines to a source line. The
+    // +0 form is required so each marker sets an exact line (D-037).
+    std::string escaped;
+    for (char c : file) {
+        if (c == '\\' || c == '"') escaped += '\\';
+        escaped += c;
+    }
+    *m_output << "%line " << line << "+0 \"" << escaped << "\"\n";
+}
+
 void X8664Backend::emit_cqo() {
     emit_insn("cqo");
 }

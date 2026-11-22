@@ -227,3 +227,7 @@ void Generator::check_flow_warnings() {
         }
     }
 }
+
+SourceLoc statement_location(const NodeStmt& stmt) {
+    return stmt_loc(stmt);
+}

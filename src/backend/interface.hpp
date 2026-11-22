@@ -192,6 +192,9 @@ public:
     // Labels and directives
     // ----------------------------------------------------------------
 
+    /// Emit a source-line debug marker (D-037). Target-specific syntax.
+    virtual void debug_line(const std::string& file, uint32_t line) = 0;
+
     /// Emit a global label (e.g., "func_name:").
     virtual void label(const std::string& name) = 0;
 

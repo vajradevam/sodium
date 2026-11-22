@@ -88,6 +88,7 @@ public:
 
     // Generic instruction emission
     void emit_insn(const std::string& insn, const std::string& ops = "") override;
+    void debug_line(const std::string& file, uint32_t line) override;
 
     // Labels / directives
     void label(const std::string& name) override;

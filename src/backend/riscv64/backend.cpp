@@ -16,6 +16,24 @@ std::ostream& RISCV64Backend::output() {
 
 // ---- helpers ----
 
+void RISCV64Backend::debug_line(const std::string& file, uint32_t line) {
+    auto it = m_debug_files.find(file);
+    int file_id = 0;
+    if (it == m_debug_files.end()) {
+        file_id = static_cast<int>(m_debug_files.size()) + 1;
+        m_debug_files.emplace(file, file_id);
+        std::string escaped;
+        for (char c : file) {
+            if (c == '\\' || c == '"') escaped += '\\';
+            escaped += c;
+        }
+        emit_insn(".file", std::to_string(file_id) + " \"" + escaped + "\"");
+    } else {
+        file_id = it->second;
+    }
+    emit_insn(".loc", std::to_string(file_id) + " " + std::to_string(line) + " 0");
+}
+
 void RISCV64Backend::emit_insn(const std::string& insn, const std::string& ops) {
     // Emit .option norelax once at the start to prevent the assembler
     // from converting la (PC-relative) to gp-relative addressing.

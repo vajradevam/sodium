@@ -66,9 +66,17 @@ public:
 
     // ---- instruction emission ----
 
+    /// Set the source location stamped on subsequently emitted instructions.
+    void set_loc(uint32_t line, const std::string& file) {
+        m_src_line = line;
+        m_src_file = file;
+    }
+
     /// Emit an instruction and return the destination vreg (or NONE_VREG).
     uint32_t emit(IRInstruction insn) {
         assert(m_cur_block);
+        insn.src_line = m_src_line;
+        insn.src_file = m_src_file;
         m_cur_block->instructions.push_back(std::move(insn));
         return m_cur_block->instructions.back().dst;
     }
@@ -312,5 +320,7 @@ private:
 
     std::unique_ptr<IRFunction> m_func;
     IRBlock* m_cur_block = nullptr;
+    uint32_t m_src_line = 0;
+    std::string m_src_file;
     uint32_t m_block_count = 0;
 };

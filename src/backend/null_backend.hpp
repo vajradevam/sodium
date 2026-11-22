@@ -28,6 +28,7 @@ public:
                            const std::string&, const std::string&) override {}
 
     void emit_insn(const std::string& insn, const std::string& ops) override { (void)insn; (void)ops; }
+    void debug_line(const std::string& file, uint32_t line) override { (void)file; (void)line; }
     void load_imm(const std::string& reg, int64_t value) override { (void)reg; (void)value; }
     void load(const std::string& reg, const std::string& addr) override { (void)reg; (void)addr; }
     void store(const std::string& addr, const std::string& reg) override { (void)addr; (void)reg; }

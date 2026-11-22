@@ -5,6 +5,7 @@
 #include <ostream>
 #include <string>
 #include <cstdint>
+#include <map>
 
 /// RISC-V 64-bit LP64 backend: emits GNU assembler syntax.
 class RISCV64Backend : public Backend {
@@ -88,6 +89,7 @@ public:
 
     // Generic instruction emission
     void emit_insn(const std::string& insn, const std::string& ops = "") override;
+    void debug_line(const std::string& file, uint32_t line) override;
 
     // Labels / directives
     void label(const std::string& name) override;
@@ -111,6 +113,7 @@ public:
 
 private:
     std::ostream* m_output;
+    std::map<std::string, int> m_debug_files;
     uint64_t m_div_label_counter = 0;
 
     // Comparison state (stored by cmp/test, consumed by branches and set_cc)
