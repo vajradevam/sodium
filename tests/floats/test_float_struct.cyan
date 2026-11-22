@@ -1,0 +1,58 @@
+// EXPECT-EXIT: 0
+// EXPECT-STDOUT: 14.000000
+// EXPECT-STDOUT: 4.000000 5.000000 1.500000
+// EXPECT-STDOUT: 7 2.500000 5.000000 9
+// EXPECT-STDOUT: 2.000000 3.000000 2.000000
+// EXPECT-STDOUT: 114.000000
+// EXPECT-STDOUT: 1.000000 2.500000 4.000000
+struct Vec { var x: f64; var y: f64; var z: f64; };
+struct Mixed { var id: i32; var w: f32; var scale: f64; var tag: u8; };
+struct Body { var pos: Vec; var mass: f64; var vel: Vec; };
+
+function length_sq(v: Vec*) -> f64 {
+    return v->x * v->x + v->y * v->y + v->z * v->z;
+}
+
+function dot_big(a: Body, b: Body) -> f64 {
+    return a.pos.x * b.pos.x + a.pos.y * b.pos.y + a.pos.z * b.pos.z + a.mass * b.mass;
+}
+
+function push(p: Vec*, v: Vec*, dt: f64) {
+    p->x += v->x * dt;
+    p->y = p->y + v->y * dt;
+    p->z -= v->z * dt;
+}
+
+function main() {
+    var v: Vec = { .x = 1.0, .y = 2.0, .z = 3.0 };
+    print(length_sq(&v));
+    v.x = 4;
+    v.y *= 2.5;
+    v.z /= 2.0;
+    print("%f %f %f", v.x, v.y, v.z);
+    var m: Mixed = { .id = 7, .w = 1.5f, .scale = 0.25, .tag = 9 };
+    m.w += 1;
+    m.scale = m.w * 2;
+    print("%d %f %f %d", m.id, m.w, m.scale, m.tag);
+    var a: Body;
+    a.pos.x = 1.0;
+    a.pos.y = 2.0;
+    a.pos.z = 3.0;
+    a.mass = 10.0;
+    a.vel.x = 0.5;
+    a.vel.y = 0.5;
+    a.vel.z = 0.5;
+    var b: Body = a;
+    push(&b.pos, &b.vel, 2.0);
+    print("%f %f %f", b.pos.x, b.pos.y, b.pos.z);
+    print(dot_big(a, b));
+    var vs: Vec[3];
+    var i: i64 = 0;
+    while (i < 3) {
+        vs[i].x = i * 1.5;
+        vs[i].y = vs[i].x + 1.0;
+        i = i + 1;
+    }
+    print("%f %f %f", vs[0].y, vs[1].y, vs[2].y);
+    return(0);
+}

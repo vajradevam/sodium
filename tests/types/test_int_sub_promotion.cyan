@@ -1,0 +1,25 @@
+// EXPECT-EXIT: 0
+// EXPECT-STDOUT: -1
+// EXPECT-STDOUT: 300
+// EXPECT-STDOUT: -3
+// Narrow integer arithmetic is promoted like C: a u8 difference that goes negative is a
+// signed value, not a zero-extended u8 (found while fixing the type-stack imbalance, D-039).
+
+function diff(a: u8, b: u8) -> i64 {
+    return a - b;
+}
+
+function sum(a: u8, b: u8) -> i64 {
+    return a + b;
+}
+
+function count_down(n: i64) -> i64 {
+    return n - sum(1, 2);
+}
+
+function main() {
+    print(diff(1, 2));
+    print(sum(200, 100));
+    print(count_down(0));
+    return(0);
+}

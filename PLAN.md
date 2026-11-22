@@ -150,16 +150,17 @@ anyway, tick the box, and note "not reproducible" in PROGRESS.md.
 - [x] **P5-END** full gate under `-O0` and `-O1`, tag.
 
 ## Phase 6 — Language extras
-- [ ] **X1 Floats (D-038, branch `phase-7/floats`)** — split into the sub-tasks below; tick X1 when F5b is done.
+- [x] **X1 Floats (D-038, branch `phase-7/floats`)** — split into the sub-tasks below; tick X1 when F5b is done.
   - [x] **F1a Front end:** tokenizer float literals (`1.5`, `2e-3`, `1.5f`) and malformed-literal errors; `f32`/`f64` types, casts, implicit/explicit conversion rules, no-`%`/no-truthiness errors; unit + compile-error tests.
-  - [ ] **F1b Semantic typing in gen:** expression type propagation for float arithmetic/comparisons/promotions; reject codegen with a clear "not yet lowered" diagnostic until F2.
-  - [ ] **F2a IR register classes:** `RegClass` on vregs, float width on `IRValue`, FP opcodes, builder helpers, dump, verifier class checks; C++ unit tests.
-  - [ ] **F2b Regalloc for FP:** FP register file in `target_regs.hpp` for both targets, class-aware liveness/linear scan/rewriter/spills (FP caller-saved), unit tests.
-  - [ ] **F3a x86_64 SSE emission and SysV FP ABI:** arithmetic, compares, conversions, constants, arg/return passing, calls to C; run tests and `tests/abi` interop with gcc.
-  - [ ] **F3b riscv64 D/F emission and LP64D FP ABI:** same on riscv64 under qemu with gcc interop.
-  - [ ] **F4 Runtime print/format:** freestanding float formatter in `sodium-rt`, `print`/`fmt` integration, edge cases (0, -0, inf, nan, large, small).
-  - [ ] **F5a Structs with floats** by value on both ABIs (extends D-012) and arrays of floats.
-  - [ ] **F5b Optimizer and oracle:** mem2reg/CSE/inline/peephole safety for FP, differential oracle programs with floats vs C, `--full` gate, merge `phase-7/floats`.
+  - [x] **F1b Semantic typing in gen:** implemented together with the F2/F3 lowering in `src/gen/float.cpp` (typing and lowering share the visitors); the interim "not yet lowered" rejections are gone.
+  - [x] **F2a IR register classes:** `RegClass` on vregs, float width on `IRValue`, FP opcodes, builder helpers, dump, verifier class checks; C++ unit tests.
+  - [x] **F2b Regalloc for FP:** FP register info in `target_regs.hpp`; FP vregs are stack-resident and lowered through scratch FP registers by the rewriter (D-039); unit tests. Real FP register allocation is a later optimization.
+  - [x] **F3a x86_64 SSE emission and SysV FP ABI:** arithmetic, compares, conversions, constants, arg/return passing, calls to C; run tests and `tests/abi` interop with gcc.
+  - [x] **F3b riscv64 D/F emission and LP64D FP ABI:** same on riscv64 under qemu with gcc interop.
+  - [x] **F4 Runtime print/format:** freestanding float formatter in `sodium-rt`, `print`/`fmt` integration, edge cases (0, -0, inf, nan, large, small).
+  - [x] **F5a Floats in aggregates:** float fields (read, assign, compound, literals, nesting, arrays of float-field structs) and float arrays; by-value passing of small float structs is X1b.
+  - [ ] **X1b Small structs with floats by value:** classify the 8-byte words of structs of at most 16 bytes into FP/integer registers (System V eightbytes, LP64D flattening) for arguments and results, including the RET2/CALL second-result classes; then lift `check_struct_by_value`. Today it is a compile error (D-039).
+  - [x] **F5b Optimizer and oracle:** mem2reg/CSE/inline/peephole safety for FP, differential oracle programs with floats vs C, `--full` gate, merge `phase-7/floats`.
 - [x] **X2a Object macros and conditionals:** `#define NAME ...`, `#ifdef`/`#ifndef`/`#else`/`#endif`, string-literal-safe expansion, include guards and negative tests (D-033).
 - [x] **X2b Function macros and `#if`:** `#define F(a,b) body` with argument substitution and the `#if` constant-expression grammar from D-033, with tests on both targets.
 - [x] **X3 Module hygiene (D-034):** kept textual `#include`; documented `#pragma once`/include-guard usage and cyanlib prefix conventions in `docs/MODULES.md`.

@@ -1,0 +1,4 @@
+// A function that returns a float needs a declared return type (D-038).
+// EXPECT-ERROR: returning a float requires a declared float return type
+function f() { return 1.5; }
+function main() { return(0); }

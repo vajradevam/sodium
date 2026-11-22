@@ -1,0 +1,3 @@
+// A pointer cannot be cast to a float (D-038).
+// EXPECT-ERROR: cannot cast
+function main() { var x: i64 = 1; var p: i64* = &x; var f: f64 = p as f64; print(f); return(0); }

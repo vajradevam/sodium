@@ -1,0 +1,3 @@
+// An f64 literal that overflows is rejected (D-038).
+// EXPECT-ERROR: out of range for f64
+function main() { var x: f64 = 1e999; print(x); return(0); }

@@ -1,0 +1,3 @@
+// A float does not convert to an integer implicitly (D-038).
+// EXPECT-ERROR: cannot implicitly convert f64 to i64 in the initializer of 'i'
+function main() { var i: i64 = 1.5; print(i); return(0); }

@@ -1,0 +1,37 @@
+// EXPECT-EXIT: 0
+// EXPECT-STDOUT: 54321.000000
+// EXPECT-STDOUT: 55.000000
+// EXPECT-STDOUT: 24.250000
+// EXPECT-STDOUT: 3628800.000000
+// EXPECT-STDOUT: 123.000000
+function mix(a: i64, x: f64, b: i64, y: f32, c: i64) -> f64 {
+    return a + x * 10.0 + b * 100.0 + y * 1000.0 + c * 10000.0;
+}
+
+function nine(a: f64, b: f64, c: f64, d: f64, e: f64, f: f64, g: f64, h: f64, i: f64, j: f64) -> f64 {
+    return a + b * 2.0 + c * 3.0 + d * 4.0 + e * 5.0 + f * 6.0 + g * 7.0 + h * 8.0 + i * 9.0 + j * 10.0;
+}
+
+function many(a: i64, b: i64, c: i64, d: i64, e: i64, f: i64, g: i64, h: i64, x: f64, y: f64, z: f64) -> f64 {
+    return g + h + x * 2.0 + y * 3.0 + z * 4.0 + a + f;
+}
+
+function fact(n: i64) -> f64 {
+    if (n <= 1) { return 1.0; }
+    return n * fact(n - 1);
+}
+
+function keep(x: f64) -> f64 {
+    var t: f64 = x * 2.0;
+    var r: f64 = fact(5);
+    return t + r;
+}
+
+function main() {
+    print(mix(1, 2.0, 3, 4.0f, 5));
+    print(nine(1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0));
+    print(many(1, 2, 3, 4, 5, 6, 7, 8, 0.5, 0.25, 0.125));
+    print(fact(10));
+    print(keep(1.5));
+    return(0);
+}

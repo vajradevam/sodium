@@ -22,6 +22,9 @@ void Generator::load_var_to_vstack(const std::string& name) {
                 Type* pointee = alloc_type(var.type);
                 m_tstack.back() = Type::make_ptr(pointee);
                 return;
+            } else if (var.type.kind == Type::Float) {
+                load_float_var(var);
+                return;
             } else if (var.type.kind == Type::Ptr || var.type.int_type == IntType::i64 || var.type.int_type == IntType::u64) {
                 uint32_t addr = var_addr(var);
                 uint32_t val = m_ir.load(IRValue::vreg(addr), 0);
@@ -84,6 +87,15 @@ void Generator::store_var_from_vstack(const std::string& name, AssignOp op) {
             const auto& var = it->vars.at(name);
             if (var.array_size > 0) {
                 fail({}, "Cannot assign to array variable directly (use arr = [a,b,c] or arr[i] = val)");
+            }
+            if (var.type.kind == Type::Float) {
+                store_float_var(var, op);
+                return;
+            }
+            if (!m_tstack.empty() && m_tstack.back().kind == Type::Float) {
+                fail({}, "cannot implicitly convert " + type_name(m_tstack.back()) + " to "
+                             + type_name(var.type) + " in assignment to '" + name
+                             + "' (use an explicit cast: 'as " + type_name(var.type) + "')");
             }
 
             bool is_ptr_type = (var.type.kind == Type::Ptr);
@@ -158,6 +170,9 @@ void Generator::store_var_from_vstack(const std::string& name, AssignOp op) {
     }
     // Global variable
     if (m_globals.contains(name)) {
+        if (!m_tstack.empty() && m_tstack.back().kind == Type::Float) {
+            fail({}, "global variables cannot hold floats yet (assign to '" + name + "')");
+        }
         if (op == AssignOp::assign) {
             uint32_t val = pop_vreg();
             m_ir.store(IRValue::vreg(m_ir.lea_label(name)), 0, IRValue::vreg(val));

@@ -107,9 +107,6 @@ void Generator::gen_func_def(const NodeFuncDef& func)
 
     enter_scope();
     m_in_function = true;
-    for (const auto& pt : func.param_types)
-        if (pt) reject_float(*pt, func.name.loc);
-    if (func.return_type) reject_float(*func.return_type, func.name.loc);
     m_current_return_type = func.return_type;
     m_current_func_name = func.name.value.value();
     m_func_epilogue_label = ".L" + func.name.value.value() + "_epilogue";
@@ -128,6 +125,7 @@ void Generator::gen_func_def(const NodeFuncDef& func)
     if (func.return_type && func.return_type->kind == Type::Struct) {
         auto ret_info = get_struct_info(func.return_type->struct_name);
         if (!ret_info.has_value()) fail(func.name.loc, "Unknown struct type: " + func.return_type->struct_name);
+        check_struct_by_value(func.return_type->struct_name, func.name.loc);
         if (ret_info->size > 16) {
             uint32_t slot = alloc_object(8);
             m_ir.store_param(static_cast<int64_t>(placer.ordinal(placer.scalar())), 0,
@@ -159,6 +157,7 @@ void Generator::gen_func_def(const NodeFuncDef& func)
         if (param_type.kind == Type::Struct) {
             auto info = get_struct_info(param_type.struct_name);
             if (!info.has_value()) fail(func.params[i].loc, "Unknown struct type: " + param_type.struct_name);
+            check_struct_by_value(param_type.struct_name, func.params[i].loc);
             const std::vector<ArgPlacement> places = place_struct_arg(placer, *info);
             if (info->size > 16 && places.size() == 1) {
                 // Passed by reference: the slot holds a pointer to the caller's copy.
@@ -191,6 +190,13 @@ void Generator::gen_func_def(const NodeFuncDef& func)
 
         // Store the incoming word (argument register or stack slot) straight into
         // the frame slot at the variable's own width (STORE_PARAM, no vreg involved).
+        if (param_type.kind == Type::Float) {
+            const Var& pv = scope.vars.at(param_name);
+            m_ir.store_param(static_cast<int64_t>(placer.ordinal(placer.fp_scalar())), 0,
+                             -static_cast<int64_t>(pv.stack_loc + frame_bytes(pv)),
+                             param_type.float_type == FloatType::f32 ? IRWidth::F32 : IRWidth::F64);
+            continue;
+        }
         store_word_param(scope.vars.at(param_name),
                          param_type.kind == Type::Int ? type_size(param_type) : 8, placer.scalar());
     }
@@ -374,8 +380,6 @@ std::string Generator::gen_prog_impl()
     std::unordered_map<std::string, size_t> struct_sizes;
     std::unordered_map<std::string, size_t> struct_aligns;
     for (const auto* sd : m_prog.structs) {
-        for (const auto& ft : sd->field_types)
-            if (ft) reject_float(*ft, sd->name.loc);
         StructInfo info = StructInfo::compute_layout(sd->fields, sd->field_types, struct_sizes, struct_aligns);
         struct_sizes[sd->name.value.value()] = info.size;
         struct_aligns[sd->name.value.value()] = info.align;
@@ -403,6 +407,7 @@ std::string Generator::gen_prog_impl()
     m_backend_ptr->extern_sym("_sodium_print_int");
     m_backend_ptr->extern_sym("_sodium_print_raw_int");
     m_backend_ptr->extern_sym("_sodium_print_raw_hex");
+    m_backend_ptr->extern_sym("_sodium_print_raw_float");
     m_backend_ptr->extern_sym("_sodium_print_raw_uint");
     m_backend_ptr->extern_sym("_sodium_print_raw_char");
     m_backend_ptr->extern_sym("_sodium_print_raw_str");

@@ -1,0 +1,3 @@
+// A float cannot be used as a condition (D-038).
+// EXPECT-ERROR: a condition cannot be a f64
+function main() { var x: f64 = 1.0; if (x) { print("yes"); } return(0); }

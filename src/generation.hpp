@@ -120,6 +120,7 @@ struct StructInfo {
 struct ArgPlacement {
     bool on_stack = false;
     size_t index = 0;
+    bool fp_reg = false;   ///< `index` names an FP argument register
 };
 
 class ArgPlacer {
@@ -129,6 +130,18 @@ public:
     /// One word: a scalar, a pointer, or a by-reference struct.
     ArgPlacement scalar() {
         if (m_regs_used < m_tri.arg_regs.size()) return {false, m_regs_used++};
+        return {true, m_stack_used++};
+    }
+
+    /// A float scalar (D-038): the next FP argument register; once those run out, the next
+    /// integer register (RISC-V LP64D) or the stack (System V).
+    ArgPlacement fp_scalar() {
+        if (m_fp_used < m_tri.fp_arg_regs.size()) {
+            ArgPlacement p{false, m_fp_used++};
+            p.fp_reg = true;
+            return p;
+        }
+        if (m_tri.fp_overflow_to_gpr) return scalar();
         return {true, m_stack_used++};
     }
 
@@ -153,14 +166,19 @@ public:
 
     /// The `ordinal` STORE_PARAM expects: register index, or register count + stack index.
     size_t ordinal(const ArgPlacement& p) const {
+        if (p.fp_reg) return static_cast<size_t>(FP_PARAM_ORDINAL_BASE) + p.index;
         return p.on_stack ? m_tri.arg_regs.size() + p.index : p.index;
     }
 
 private:
     const TargetRegisterInfo& m_tri;
     size_t m_regs_used = 0;
+    size_t m_fp_used = 0;
     size_t m_stack_used = 0;
 };
+
+/// The source location of an expression (its leftmost token), for diagnostics.
+SourceLoc expr_source_loc(const NodeExpr& expr);
 
 /// Human-readable type name for diagnostics (function pointers print as their signature).
 std::string type_name(const Type& t);
@@ -183,9 +201,61 @@ public:
     void set_warn_config(WarnConfig cfg) { m_diag.set_warn_config(cfg); }
     void set_color(bool v) { m_diag.set_color(v); }
 
-    /// Floats parse and type-check but have no lowering until F2 (D-038): fail clearly instead of
-    /// silently treating the value as an integer.
-    void reject_float(const Type& t, const SourceLoc& loc) const;
+    /// True when a struct (or a struct nested in it) has a float field.
+    bool struct_has_float(const std::string& name) const;
+
+    /// A struct of at most 16 bytes that contains floats would be passed and returned in FP
+    /// registers by the System V / LP64D ABIs; that classification is not implemented
+    /// (D-039), so by-value use is rejected instead of silently breaking C interop.
+    void check_struct_by_value(const std::string& name, const SourceLoc& loc) const;
+
+    // ---- floating point (D-038), gen/float.cpp ----
+
+    /// Push the value of a float literal as an f32/f64 constant.
+    void gen_float_literal(const NodeExprFloatLit& lit);
+
+    /// Convert the value `v` of type `from` (int or float) to the float type `to`. Widening
+    /// is implicit everywhere; with `allow_narrow` (explicit casts) f64 may become f32.
+    uint32_t to_float(uint32_t v, const Type& from, FloatType to, const SourceLoc& loc,
+                      bool allow_narrow = false);
+
+    /// True when either of the two values on top of the type stack is a float.
+    bool top_two_have_float() const;
+
+    /// Pop two operands and push `a OP b` where OP is FADD/FSUB/FMUL/FDIV, converting an
+    /// integer or f32 operand as needed (the result type is f64 unless both are f32 / f32 and int).
+    void gen_float_arith(IROpcode op, const SourceLoc& loc, const char* op_name);
+
+    /// Pop two operands and push the 0/1 result of comparing them (FCMP_*).
+    void gen_float_compare(IROpcode op, const SourceLoc& loc, const char* op_name);
+
+    /// Negate the float on top of the stack.
+    void gen_float_neg();
+
+    /// Fail unless the value on top of the stack is not a float (conditions, bit operations, ...).
+    void require_not_float(const SourceLoc& loc, const std::string& what);
+
+    /// Convert the stack entry at `pos` to `want` when a float is involved. Returns true when
+    /// `want` or the entry is a float (the entry is then converted or an error is reported).
+    bool coerce_float_at(size_t pos, const Type& want, const SourceLoc& loc, const std::string& what);
+    bool coerce_float_top(const Type& want, const SourceLoc& loc, const std::string& what) {
+        return !m_tstack.empty() && coerce_float_at(m_tstack.size() - 1, want, loc, what);
+    }
+
+    /// Store the float on top of the stack to `addr` as `ft` and pop it.
+    void store_float_top(uint32_t addr, FloatType ft);
+
+    /// Store the value on top of the stack (a float or an integer) to the float at `addr`; for a
+    /// compound `op` the current value is read first and the result is converted back to `ft`.
+    void store_float_at(uint32_t addr, FloatType ft, AssignOp op, const SourceLoc& loc);
+
+    /// Load/store a float scalar variable and the compound assignments on one.
+    void load_float_var(const Var& var);
+    void store_float_var(const Var& var, AssignOp op);
+
+    /// Call returning a float.
+    uint32_t emit_call_f(const CallTarget& target, const std::vector<IRValue>& args, IRWidth w,
+                         int reg_args);
 
     /// Record an error in the engine and report it through the CLI/LSP path.
     [[noreturn]] void fail(const SourceLoc& loc, const std::string& msg) const;

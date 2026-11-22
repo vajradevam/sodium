@@ -1,0 +1,21 @@
+// EXPECT-EXIT: 0
+// EXPECT-STDOUT: 3
+// EXPECT-STDOUT: 6.250000
+// EXPECT-STDOUT: 9.000000
+// EXPECT-STDOUT: 12
+// Tiny single-block functions are inlining candidates at -O1. Functions with float
+// parameters or results must be left alone (inlining remaps vregs as integers), while the
+// integer ones around them are still inlined.
+
+function pick(x: f64) -> i64 { return 3; }
+function sq(x: f64) -> f64 { return x * x; }
+function plus(a: i64, b: i64) -> i64 { return a + b; }
+function third(a: f64) -> f64 { return a * 3.0; }
+
+function main() {
+    print(pick(1.5));
+    print(sq(2.5));
+    print(third(3.0));
+    print(plus(5, 7));
+    return(0);
+}

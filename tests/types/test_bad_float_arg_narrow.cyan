@@ -1,0 +1,4 @@
+// f64 does not narrow to an f32 parameter implicitly (D-038).
+// EXPECT-ERROR: cannot implicitly convert f64 to f32 in argument 1
+function f(x: f32) -> f32 { return x; }
+function main() { var d: f64 = 1.5; print(f(d)); return(0); }

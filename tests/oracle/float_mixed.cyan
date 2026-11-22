@@ -1,0 +1,30 @@
+// EXPECT-EXIT: 0
+function mean(a: f64, b: f64, c: f64) -> f64 {
+    return (a + b + c) / 3;
+}
+
+function main() {
+    var n: i64 = 17;
+    var h: f64 = n / 4.0;
+    print(h);
+    print(h as i64);
+    print((0.0 - h) as i64);
+    print(mean(1.0, 2.0, 4.0));
+    var acc: f32 = 0.0f;
+    var i: i64 = 0;
+    while (i < 100) {
+        acc += 0.1f;
+        i = i + 1;
+    }
+    print(acc);
+    var d: f64 = acc;
+    print(d * 2.0);
+    var big: f64 = 123456789012.0;
+    print(big as i64);
+    print((big / 1000.0) as i32);
+    var neg: f64 = 0.0 - 2.5;
+    print(neg * neg);
+    print(neg < 0);
+    print(neg >= h);
+    return(0);
+}

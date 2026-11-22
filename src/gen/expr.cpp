@@ -16,7 +16,20 @@ IRWidth width_of_int(IntType t) {
     return IRWidth::I64;
 }
 
+// Result type of `a + b` / `a - b` on integers: the wider operand, but nothing narrower than
+// i32 (C's integer promotion). The register holds the full 64-bit result, so a u8 difference
+// that went negative must not be claimed to be a u8 (it would be zero-extended on return).
+Type int_arith_type(const Type& a, const Type& b) {
+    const Type& wider = type_size(a) >= type_size(b) ? a : b;
+    if (wider.kind == Type::Int && type_size(wider) < 4) return Type::make_int(IntType::i32);
+    return wider;
+}
+
 uint32_t load_typed_field(IRBuilder& ir, uint32_t ptr, const Type& t) {
+    if (t.kind == Type::Float) {
+        return ir.fload(t.float_type == FloatType::f32 ? IRWidth::F32 : IRWidth::F64,
+                        IRValue::vreg(ptr), 0);
+    }
     size_t sz = type_size(t);
     bool sgn = int_signed(t.int_type);
     if (sz >= 8) return ir.load(IRValue::vreg(ptr), 0);
@@ -64,7 +77,7 @@ void Generator::gen_expr(const NodeExpr& expr)
 
         void operator()(const NodeExprFloatLit* lit)
         {
-            gen->fail(lit->float_lit.loc, "floating-point code generation is not implemented yet (D-038, F2)");
+            gen->gen_float_literal(*lit);
         }
 
         void operator()(const NodeExprIntLit* expr_int_lit)
@@ -109,7 +122,6 @@ void Generator::gen_expr(const NodeExpr& expr)
             if (is_local) {
                 Type elem_type;
                 uint32_t elem_addr = gen->index_addr(*expr_index, elem_type);
-                gen->reject_float(elem_type, expr_index->name.loc);
                 // A struct element is a struct value: represented by its address.
                 uint32_t val = elem_type.kind == Type::Struct
                                    ? elem_addr
@@ -141,6 +153,7 @@ void Generator::gen_expr(const NodeExpr& expr)
         void operator()(const NodeExprBitNot* bit_not)
         {
             gen->gen_expr(*bit_not->expr);
+            gen->require_not_float(expr_source_loc(*bit_not->expr), "the operand of '~'");
             uint32_t src = gen->pop_vreg();
             uint32_t v = gen->m_ir.not_(IRValue::vreg(src));
             gen->push_vreg(v);
@@ -149,6 +162,7 @@ void Generator::gen_expr(const NodeExpr& expr)
         void operator()(const NodeExprLogNot* log_not)
         {
             gen->gen_expr(*log_not->expr);
+            gen->require_not_float(expr_source_loc(*log_not->expr), "the operand of '!'");
             uint32_t src = gen->pop_vreg();
             uint32_t v = gen->m_ir.cmp_eq(IRValue::vreg(src), IRValue::imm_i64(0));
             gen->push_vreg(v);
@@ -157,6 +171,7 @@ void Generator::gen_expr(const NodeExpr& expr)
         void operator()(const NodeExprTernary* ternary)
         {
             gen->gen_expr(*ternary->cond);
+            gen->require_not_float(expr_source_loc(*ternary->cond), "a condition");
             uint32_t cond = gen->pop_vreg();
 
             auto label_else = gen->new_label();
@@ -177,6 +192,27 @@ void Generator::gen_expr(const NodeExpr& expr)
             // Then branch
             gen->m_ir.new_block(label_then);
             gen->gen_expr(*ternary->then_expr);
+            if (gen->peek_type().kind == Type::Float) {
+                // A float result travels through a frame temporary: the arms cannot share a
+                // vreg without knowing its class before the branch.
+                const Type result_type = gen->peek_type();
+                uint32_t slot = gen->alloc_object(8);
+                gen->store_float_top(gen->object_addr(slot, 8), result_type.float_type);
+                gen->m_ir.jmp(label_end);
+
+                gen->m_ir.new_block(label_else);
+                gen->gen_expr(*ternary->else_expr);
+                gen->coerce_float_top(result_type, expr_source_loc(*ternary->else_expr),
+                                      "the arms of a conditional expression");
+                gen->store_float_top(gen->object_addr(slot, 8), result_type.float_type);
+
+                gen->m_ir.new_block(label_end);
+                gen->push_vreg(gen->m_ir.fload(
+                    result_type.float_type == FloatType::f32 ? IRWidth::F32 : IRWidth::F64,
+                    IRValue::vreg(gen->object_addr(slot, 8)), 0));
+                gen->m_tstack.back() = result_type;
+                return;
+            }
             uint32_t then_v = gen->pop_vreg();
             gen->m_ir.emit(IRInstruction::copy(result, IRValue::vreg(then_v)));
             gen->m_ir.jmp(label_end);
@@ -185,6 +221,12 @@ void Generator::gen_expr(const NodeExpr& expr)
             gen->m_ir.new_block(label_else);
             gen->gen_expr(*ternary->else_expr);
             Type result_type = gen->peek_type();
+            if (result_type.kind == Type::Float) {
+                gen->m_ir.new_block(label_end);   // keep the partial IR well formed
+                gen->fail(expr_source_loc(*ternary->else_expr),
+                          "the arms of a conditional expression must both be floats or both integers "
+                          "(write the first arm as a float, e.g. '0.0')");
+            }
             uint32_t else_v = gen->pop_vreg();
             gen->m_ir.emit(IRInstruction::copy(result, IRValue::vreg(else_v)));
 
@@ -264,7 +306,6 @@ void Generator::gen_expr(const NodeExpr& expr)
         {
             Type field_type;
             uint32_t field_addr = gen->field_addr(*field_access, field_type);
-            gen->reject_float(field_type, field_access->obj_name.loc);
             // A nested struct field is a struct value: represented by its address.
             uint32_t val = field_type.kind == Type::Struct
                                ? field_addr
@@ -393,8 +434,33 @@ void Generator::gen_expr(const NodeExpr& expr)
             Type from = gen->peek_type();
             uint32_t v = gen->pop_vreg();
             Type to = cast->target;
-            gen->reject_float(to, cast->loc);
-            gen->reject_float(from, cast->loc);
+            if (to.kind == Type::Float) {
+                if (from.kind != Type::Int && from.kind != Type::Float) {
+                    gen->fail(cast->loc, "cannot cast " + type_name(from) + " to " + type_name(to));
+                }
+                v = gen->to_float(v, from, to.float_type, cast->loc, /*allow_narrow=*/true);
+                gen->push_vreg(v);
+                gen->m_tstack.back() = to;
+                return;
+            }
+            if (from.kind == Type::Float) {
+                if (to.kind != Type::Int) {
+                    gen->fail(cast->loc, "cannot cast " + type_name(from) + " to " + type_name(to));
+                }
+                // Truncates toward zero; the result is then narrowed like any integer cast.
+                v = gen->m_ir.f2i(IRValue::fvreg(v, from.float_type == FloatType::f32 ? IRWidth::F32
+                                                                                       : IRWidth::F64));
+                const size_t dst_sz = type_size(to);
+                if (dst_sz <= 1)      v = gen->m_ir.and_(IRValue::vreg(v), IRValue::imm_i64(0xFF));
+                else if (dst_sz <= 2) v = gen->m_ir.and_(IRValue::vreg(v), IRValue::imm_i64(0xFFFF));
+                else if (dst_sz <= 4) v = gen->m_ir.zext(IRValue::vreg(v), IRWidth::I32);
+                if (to.int_type == IntType::i8 || to.int_type == IntType::i16 || to.int_type == IntType::i32) {
+                    v = gen->m_ir.sext(IRValue::vreg(v), width_of_int(to.int_type));
+                }
+                gen->push_vreg(v);
+                gen->m_tstack.back() = to;
+                return;
+            }
             if (from.kind == Type::Int && to.kind == Type::Int) {
                 size_t src_sz = type_size(from), dst_sz = type_size(to);
                 if (dst_sz < src_sz) {
@@ -433,6 +499,11 @@ void Generator::gen_expr(const NodeExpr& expr)
                 gen->emit_runtime_check(IRValue::vreg(nonnull), "null dereference\n");
             }
 
+            if (ptr_type.kind == Type::Ptr && ptr_type.pointee && ptr_type.pointee->kind == Type::Float) {
+                gen->push_vreg(load_typed_field(gen->m_ir, ptr, *ptr_type.pointee));
+                gen->m_tstack.back() = *ptr_type.pointee;
+                return;
+            }
             if (ptr_type.kind == Type::Ptr && ptr_type.pointee) {
                 size_t elem_size = type_size(*ptr_type.pointee);
                 bool is_signed = (ptr_type.pointee->kind == Type::Int &&
@@ -476,6 +547,7 @@ void Generator::gen_expr(const NodeExpr& expr)
                 }
                 for (auto it = expr_call->args.rbegin(); it != expr_call->args.rend(); ++it) {
                     gen->gen_expr(**it);
+                    gen->require_not_float(expr_source_loc(**it), "a builtin argument");
                 }
                 std::vector<IRValue> argv;
                 argv.reserve(sys->arity);
@@ -494,6 +566,7 @@ void Generator::gen_expr(const NodeExpr& expr)
                               + std::to_string(expr_call->args.size()));
                 }
                 gen->gen_expr(*expr_call->args[0]);
+                gen->require_not_float(expr_source_loc(*expr_call->args[0]), "a builtin argument");
                 uint32_t code = gen->pop_vreg();
                 gen->m_ir.call("_sodium_exit", {IRValue::vreg(code)});
                 return;
@@ -505,6 +578,7 @@ void Generator::gen_expr(const NodeExpr& expr)
                               + std::to_string(expr_call->args.size()));
                 }
                 gen->gen_expr(*expr_call->args[0]);
+                gen->require_not_float(expr_source_loc(*expr_call->args[0]), "a builtin argument");
                 uint32_t idx = gen->pop_vreg();
                 uint32_t addr = gen->m_ir.lea_label("__sodium_envp");
                 uint32_t envp_ptr = gen->m_ir.load(IRValue::vreg(addr), 0);
@@ -520,6 +594,7 @@ void Generator::gen_expr(const NodeExpr& expr)
                 // Call _sodium_malloc with the size argument
                 for (auto it = expr_call->args.rbegin(); it != expr_call->args.rend(); ++it) {
                     gen->gen_expr(**it);
+                    gen->require_not_float(expr_source_loc(**it), "a builtin argument");
                 }
                 uint32_t size = gen->pop_vreg();
                 uint32_t result = gen->m_ir.call("_sodium_malloc", {IRValue::vreg(size)});
@@ -532,6 +607,7 @@ void Generator::gen_expr(const NodeExpr& expr)
             if (fname == "free") {
                 for (auto it = expr_call->args.rbegin(); it != expr_call->args.rend(); ++it) {
                     gen->gen_expr(**it);
+                    gen->require_not_float(expr_source_loc(**it), "a builtin argument");
                 }
                 uint32_t ptr = gen->pop_vreg();
                 gen->m_ir.call("_sodium_free", {IRValue::vreg(ptr)});
@@ -563,6 +639,7 @@ void Generator::gen_expr(const NodeExpr& expr)
                     gen->fail(expr_call->name.loc, "argv() takes exactly one argument (the index)");
                 }
                 gen->gen_expr(*expr_call->args[0]);
+                gen->require_not_float(expr_source_loc(*expr_call->args[0]), "a builtin argument");
                 uint32_t idx = gen->pop_vreg();
                 uint32_t addr = gen->m_ir.lea_label("__sodium_argv");
                 uint32_t argv_ptr = gen->m_ir.load(IRValue::vreg(addr), 0);
@@ -591,7 +668,7 @@ void Generator::gen_expr(const NodeExpr& expr)
                 if (expr_call->callee) {
                     // `s.cb(x)`, `table[i](x)`, `f(1)(2)`: the pointer is an expression.
                     gen->gen_expr(*expr_call->callee);
-                    callee_type = gen->pop_type();
+                    callee_type = gen->peek_type();
                     target.pointer = gen->pop_vreg();
                     if (!is_fn_ptr(callee_type)) {
                         gen->fail(expr_call->name.loc, "called object is not a function pointer (it has type "
@@ -644,8 +721,11 @@ void Generator::gen_expr(const NodeExpr& expr)
             ArgPlacer placer(*gen->m_tri_ptr);
             std::vector<IRValue> reg_words;
             std::vector<IRValue> stack_words;
+            auto push_value = [&](const ArgPlacement& place, IRValue value) {
+                (place.on_stack ? stack_words : reg_words).push_back(value);
+            };
             auto push_word = [&](const ArgPlacement& place, uint32_t vreg) {
-                (place.on_stack ? stack_words : reg_words).push_back(IRValue::vreg(vreg));
+                push_value(place, IRValue::vreg(vreg));
             };
 
             // A struct result larger than 16 bytes comes back through a buffer whose
@@ -656,6 +736,7 @@ void Generator::gen_expr(const NodeExpr& expr)
                 const std::string& rname = return_type->struct_name;
                 ret_info = gen->get_struct_info(rname);
                 if (!ret_info.has_value()) gen->fail(expr_call->name.loc, "Unknown struct type: " + rname);
+                gen->check_struct_by_value(rname, expr_call->name.loc);
                 if (ret_info->size > 16) {
                     uint32_t slot = gen->alloc_object(ret_info->size);
                     hidden_result = gen->object_addr(slot, Generator::align_frame(ret_info->size, 8));
@@ -663,6 +744,16 @@ void Generator::gen_expr(const NodeExpr& expr)
                 }
             }
             for (size_t i = 0; i < n_args; i++) {
+                if (arg_types[i].kind == Type::Float) {
+                    if (i >= param_types.size() || !param_types[i]) {
+                        gen->fail(expr_call->name.loc, "argument " + std::to_string(i + 1) + " to '"
+                                  + fname + "' is a float but the parameter has no declared type");
+                    }
+                    push_value(placer.fp_scalar(),
+                               IRValue::fvreg(arg_vregs[i], arg_types[i].float_type == FloatType::f32
+                                                                ? IRWidth::F32 : IRWidth::F64));
+                    continue;
+                }
                 if (arg_types[i].kind != Type::Struct) {
                     push_word(placer.scalar(), arg_vregs[i]);
                     continue;
@@ -676,6 +767,7 @@ void Generator::gen_expr(const NodeExpr& expr)
                 const std::string& sname = arg_types[i].struct_name;
                 auto info = gen->get_struct_info(sname);
                 if (!info.has_value()) gen->fail(expr_call->name.loc, "Unknown struct type: " + sname);
+                gen->check_struct_by_value(sname, expr_call->name.loc);
                 const std::vector<ArgPlacement> places = gen->place_struct_arg(placer, *info);
                 if (info->size > 16 && places.size() == 1) {
                     // By reference to a caller-made copy.
@@ -699,7 +791,11 @@ void Generator::gen_expr(const NodeExpr& expr)
                 return;
             }
 
-            uint32_t result = gen->emit_call(target, args, reg_count);
+            uint32_t result = (return_type && return_type->kind == Type::Float)
+                ? gen->emit_call_f(target, args,
+                                   return_type->float_type == FloatType::f32 ? IRWidth::F32 : IRWidth::F64,
+                                   reg_count)
+                : gen->emit_call(target, args, reg_count);
             gen->push_vreg(result);
             // A call yields its declared return type (so a returned function pointer can be
             // passed on or called); unannotated functions keep the legacy i64 result.
@@ -713,9 +809,14 @@ void Generator::gen_expr(const NodeExpr& expr)
                 void operator()(const BinExprAdd* add) {
                     gen->gen_expr(*add->lhs);
                     gen->gen_expr(*add->rhs);
-                    Type type_b = gen->pop_type();
-                    Type type_a = gen->pop_type();
+                    if (gen->top_two_have_float()) {
+                        gen->gen_float_arith(IROpcode::FADD, expr_source_loc(*add->lhs), "+");
+                        return;
+                    }
+                    // pop_vreg() pops the matching type as well; peek it first.
+                    Type type_b = gen->peek_type();
                     uint32_t b = gen->pop_vreg();
+                    Type type_a = gen->peek_type();
                     uint32_t a = gen->pop_vreg();
 
                     if (type_a.kind == Type::Ptr && type_a.pointee &&
@@ -752,12 +853,16 @@ void Generator::gen_expr(const NodeExpr& expr)
                         // int + int — result keeps the wider operand type
                         uint32_t v = gen->m_ir.add(IRValue::vreg(a), IRValue::vreg(b));
                         gen->push_vreg(v);
-                        gen->m_tstack.back() = type_size(type_a) >= type_size(type_b) ? type_a : type_b;
+                        gen->m_tstack.back() = int_arith_type(type_a, type_b);
                     }
                 }
                 void operator()(const BinExprMulti* mul) {
                     gen->gen_expr(*mul->lhs);
                     gen->gen_expr(*mul->rhs);
+                    if (gen->top_two_have_float()) {
+                        gen->gen_float_arith(IROpcode::FMUL, expr_source_loc(*mul->lhs), "*");
+                        return;
+                    }
                     uint32_t b = gen->pop_vreg();
                     uint32_t a = gen->pop_vreg();
                     uint32_t v = gen->m_ir.mul(IRValue::vreg(a), IRValue::vreg(b));
@@ -766,9 +871,26 @@ void Generator::gen_expr(const NodeExpr& expr)
                 void operator()(const BinExprSub* sub) {
                     gen->gen_expr(*sub->lhs);
                     gen->gen_expr(*sub->rhs);
-                    Type type_b = gen->pop_type();
-                    Type type_a = gen->pop_type();
+                    if (gen->top_two_have_float()) {
+                        // Unary minus is parsed as `0 - x` with a location-less zero: negate.
+                        const auto* zero = std::get_if<NodeExprIntLit*>(&sub->lhs->var);
+                        if (zero && (*zero)->int_lit.loc.line == 0 &&
+                            gen->m_tstack.back().kind == Type::Float) {
+                            const Type t = gen->m_tstack.back();
+                            const uint32_t v = gen->pop_vreg();
+                            gen->pop_vreg();   // the synthetic zero
+                            gen->push_vreg(v);
+                            gen->m_tstack.back() = t;
+                            gen->gen_float_neg();
+                            return;
+                        }
+                        gen->gen_float_arith(IROpcode::FSUB, expr_source_loc(*sub->lhs), "-");
+                        return;
+                    }
+                    // pop_vreg() pops the matching type as well; peek it first.
+                    Type type_b = gen->peek_type();
                     uint32_t b = gen->pop_vreg();
+                    Type type_a = gen->peek_type();
                     uint32_t a = gen->pop_vreg();
 
                     if (type_a.kind == Type::Ptr && type_a.pointee &&
@@ -809,12 +931,16 @@ void Generator::gen_expr(const NodeExpr& expr)
                         // int - int — result keeps the wider operand type
                         uint32_t v = gen->m_ir.sub(IRValue::vreg(a), IRValue::vreg(b));
                         gen->push_vreg(v);
-                        gen->m_tstack.back() = type_size(type_a) >= type_size(type_b) ? type_a : type_b;
+                        gen->m_tstack.back() = int_arith_type(type_a, type_b);
                     }
                 }
                 void operator()(const BinExprDiv* div) {
                     gen->gen_expr(*div->lhs);
                     gen->gen_expr(*div->rhs);
+                    if (gen->top_two_have_float()) {
+                        gen->gen_float_arith(IROpcode::FDIV, expr_source_loc(*div->lhs), "/");
+                        return;
+                    }
                     uint32_t b = gen->pop_vreg();
                     uint32_t a = gen->pop_vreg();
                     uint32_t v = gen->m_ir.div(IRValue::vreg(a), IRValue::vreg(b));
@@ -823,6 +949,9 @@ void Generator::gen_expr(const NodeExpr& expr)
                 void operator()(const BinExprMod* mod) {
                     gen->gen_expr(*mod->lhs);
                     gen->gen_expr(*mod->rhs);
+                    if (gen->top_two_have_float()) {
+                        gen->fail(expr_source_loc(*mod->lhs), "operator '%' is not defined for floats");
+                    }
                     uint32_t b = gen->pop_vreg();
                     uint32_t a = gen->pop_vreg();
                     uint32_t v = gen->m_ir.mod(IRValue::vreg(a), IRValue::vreg(b));
@@ -831,6 +960,10 @@ void Generator::gen_expr(const NodeExpr& expr)
                 void operator()(const BinExprLT* lt) {
                     gen->gen_expr(*lt->lhs);
                     gen->gen_expr(*lt->rhs);
+                    if (gen->top_two_have_float()) {
+                        gen->gen_float_compare(IROpcode::FCMP_LT, expr_source_loc(*lt->lhs), "<");
+                        return;
+                    }
                     uint32_t b = gen->pop_vreg();
                     uint32_t a = gen->pop_vreg();
                     uint32_t v = gen->m_ir.cmp_lt(IRValue::vreg(a), IRValue::vreg(b));
@@ -839,6 +972,10 @@ void Generator::gen_expr(const NodeExpr& expr)
                 void operator()(const BinExprGT* gt) {
                     gen->gen_expr(*gt->lhs);
                     gen->gen_expr(*gt->rhs);
+                    if (gen->top_two_have_float()) {
+                        gen->gen_float_compare(IROpcode::FCMP_GT, expr_source_loc(*gt->lhs), ">");
+                        return;
+                    }
                     uint32_t b = gen->pop_vreg();
                     uint32_t a = gen->pop_vreg();
                     uint32_t v = gen->m_ir.cmp_gt(IRValue::vreg(a), IRValue::vreg(b));
@@ -847,6 +984,10 @@ void Generator::gen_expr(const NodeExpr& expr)
                 void operator()(const BinExprEQ* eq) {
                     gen->gen_expr(*eq->lhs);
                     gen->gen_expr(*eq->rhs);
+                    if (gen->top_two_have_float()) {
+                        gen->gen_float_compare(IROpcode::FCMP_EQ, expr_source_loc(*eq->lhs), "==");
+                        return;
+                    }
                     uint32_t b = gen->pop_vreg();
                     uint32_t a = gen->pop_vreg();
                     uint32_t v = gen->m_ir.cmp_eq(IRValue::vreg(a), IRValue::vreg(b));
@@ -855,6 +996,10 @@ void Generator::gen_expr(const NodeExpr& expr)
                 void operator()(const BinExprNEQ* neq) {
                     gen->gen_expr(*neq->lhs);
                     gen->gen_expr(*neq->rhs);
+                    if (gen->top_two_have_float()) {
+                        gen->gen_float_compare(IROpcode::FCMP_NE, expr_source_loc(*neq->lhs), "!=");
+                        return;
+                    }
                     uint32_t b = gen->pop_vreg();
                     uint32_t a = gen->pop_vreg();
                     uint32_t v = gen->m_ir.cmp_ne(IRValue::vreg(a), IRValue::vreg(b));
@@ -863,6 +1008,10 @@ void Generator::gen_expr(const NodeExpr& expr)
                 void operator()(const BinExprLTE* lte) {
                     gen->gen_expr(*lte->lhs);
                     gen->gen_expr(*lte->rhs);
+                    if (gen->top_two_have_float()) {
+                        gen->gen_float_compare(IROpcode::FCMP_LE, expr_source_loc(*lte->lhs), "<=");
+                        return;
+                    }
                     uint32_t b = gen->pop_vreg();
                     uint32_t a = gen->pop_vreg();
                     uint32_t v = gen->m_ir.cmp_le(IRValue::vreg(a), IRValue::vreg(b));
@@ -871,6 +1020,10 @@ void Generator::gen_expr(const NodeExpr& expr)
                 void operator()(const BinExprGTE* gte) {
                     gen->gen_expr(*gte->lhs);
                     gen->gen_expr(*gte->rhs);
+                    if (gen->top_two_have_float()) {
+                        gen->gen_float_compare(IROpcode::FCMP_GE, expr_source_loc(*gte->lhs), ">=");
+                        return;
+                    }
                     uint32_t b = gen->pop_vreg();
                     uint32_t a = gen->pop_vreg();
                     uint32_t v = gen->m_ir.cmp_ge(IRValue::vreg(a), IRValue::vreg(b));
@@ -879,6 +1032,9 @@ void Generator::gen_expr(const NodeExpr& expr)
                 void operator()(const BinExprAnd* and_op) {
                     gen->gen_expr(*and_op->lhs);
                     gen->gen_expr(*and_op->rhs);
+                    if (gen->top_two_have_float()) {
+                        gen->fail(expr_source_loc(*and_op->lhs), "operator '&&' is not defined for floats");
+                    }
                     uint32_t b = gen->pop_vreg();
                     uint32_t a = gen->pop_vreg();
                     uint32_t lhs_nz = gen->m_ir.cmp_ne(IRValue::vreg(a), IRValue::imm_i64(0));
@@ -889,6 +1045,9 @@ void Generator::gen_expr(const NodeExpr& expr)
                 void operator()(const BinExprOr* or_op) {
                     gen->gen_expr(*or_op->lhs);
                     gen->gen_expr(*or_op->rhs);
+                    if (gen->top_two_have_float()) {
+                        gen->fail(expr_source_loc(*or_op->lhs), "operator '||' is not defined for floats");
+                    }
                     uint32_t b = gen->pop_vreg();
                     uint32_t a = gen->pop_vreg();
                     uint32_t lhs_nz = gen->m_ir.cmp_ne(IRValue::vreg(a), IRValue::imm_i64(0));
@@ -899,6 +1058,9 @@ void Generator::gen_expr(const NodeExpr& expr)
                 void operator()(const BinExprBitAnd* and_op) {
                     gen->gen_expr(*and_op->lhs);
                     gen->gen_expr(*and_op->rhs);
+                    if (gen->top_two_have_float()) {
+                        gen->fail(expr_source_loc(*and_op->lhs), "operator '&' is not defined for floats");
+                    }
                     uint32_t b = gen->pop_vreg();
                     uint32_t a = gen->pop_vreg();
                     uint32_t v = gen->m_ir.and_(IRValue::vreg(a), IRValue::vreg(b));
@@ -907,6 +1069,9 @@ void Generator::gen_expr(const NodeExpr& expr)
                 void operator()(const BinExprBitOr* or_op) {
                     gen->gen_expr(*or_op->lhs);
                     gen->gen_expr(*or_op->rhs);
+                    if (gen->top_two_have_float()) {
+                        gen->fail(expr_source_loc(*or_op->lhs), "operator '|' is not defined for floats");
+                    }
                     uint32_t b = gen->pop_vreg();
                     uint32_t a = gen->pop_vreg();
                     uint32_t v = gen->m_ir.or_(IRValue::vreg(a), IRValue::vreg(b));
@@ -915,6 +1080,9 @@ void Generator::gen_expr(const NodeExpr& expr)
                 void operator()(const BinExprXor* xor_op) {
                     gen->gen_expr(*xor_op->lhs);
                     gen->gen_expr(*xor_op->rhs);
+                    if (gen->top_two_have_float()) {
+                        gen->fail(expr_source_loc(*xor_op->lhs), "operator '^' is not defined for floats");
+                    }
                     uint32_t b = gen->pop_vreg();
                     uint32_t a = gen->pop_vreg();
                     uint32_t v = gen->m_ir.xor_(IRValue::vreg(a), IRValue::vreg(b));
@@ -923,6 +1091,9 @@ void Generator::gen_expr(const NodeExpr& expr)
                 void operator()(const BinExprShl* shl_op) {
                     gen->gen_expr(*shl_op->lhs);
                     gen->gen_expr(*shl_op->rhs);
+                    if (gen->top_two_have_float()) {
+                        gen->fail(expr_source_loc(*shl_op->lhs), "operator '<<' is not defined for floats");
+                    }
                     uint32_t b = gen->pop_vreg();
                     uint32_t a = gen->pop_vreg();
                     uint32_t v = gen->m_ir.shl(IRValue::vreg(a), IRValue::vreg(b));
@@ -931,6 +1102,9 @@ void Generator::gen_expr(const NodeExpr& expr)
                 void operator()(const BinExprShr* shr_op) {
                     gen->gen_expr(*shr_op->lhs);
                     gen->gen_expr(*shr_op->rhs);
+                    if (gen->top_two_have_float()) {
+                        gen->fail(expr_source_loc(*shr_op->lhs), "operator '>>' is not defined for floats");
+                    }
                     uint32_t b = gen->pop_vreg();
                     uint32_t a = gen->pop_vreg();
                     // Cyan integers are signed i64 by default: >> is arithmetic.
@@ -1035,6 +1209,7 @@ uint32_t Generator::index_addr(const NodeExprIndex& index, Type& out_type) {
     const size_t used = std::min(indices.size(), dims.size());
     for (size_t k = 0; k < used; k++) {
         gen_expr(*indices[k]);
+        require_not_float(index.name.loc, "an array index");
         uint32_t v = pop_vreg();
         if (m_bounds_check) {
             const uint32_t lower = m_ir.cmp_ge(IRValue::vreg(v), IRValue::imm_i64(0));

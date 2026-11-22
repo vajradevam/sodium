@@ -1,0 +1,33 @@
+// EXPECT-EXIT: 0
+// EXPECT-STDOUT: 2 -2
+// EXPECT-STDOUT: 0
+// EXPECT-STDOUT: -56
+// EXPECT-STDOUT: 44
+// EXPECT-STDOUT: 10000000000
+// EXPECT-STDOUT: -5.000000
+// EXPECT-STDOUT: 617.000000
+// EXPECT-STDOUT: 4000000000.000000
+// EXPECT-STDOUT: 2000000000
+function main() {
+    var a: f64 = 2.99;
+    var b: f64 = -2.99;
+    print("%d %d", a as i64, b as i64);
+    print("%d", 0.999999 as i64);
+    var small: i8 = 200.0 as i8;
+    print(small);
+    var u: u8 = 300.0 as u8;
+    print(u);
+    var big: f64 = 1e10;
+    print(big as i64);
+    var neg: i32 = -5;
+    var f: f64 = neg;
+    print(f);
+    var h: i16 = 1234;
+    print(h * 0.5);
+    var u32v: u32 = 4000000000;
+    var g: f64 = u32v;
+    print(g);
+    var back: i64 = (g / 2.0) as i64;
+    print(back);
+    return(0);
+}

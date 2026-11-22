@@ -1,3 +1,0 @@
-// Floats parse but are not lowered yet (D-038, F2): literal.
-// EXPECT-ERROR: floating-point code generation is not implemented yet
-function main() { var x = 1.5; return(0); }

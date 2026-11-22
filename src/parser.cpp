@@ -1083,6 +1083,10 @@ std::vector<FormatSpec> Parser::parse_format_string(const std::string& fmt)
                     specs.push_back({FormatSpec::Char, ""});
                     i += 2;
                     break;
+                case 'f':
+                    specs.push_back({FormatSpec::Float, ""});
+                    i += 2;
+                    break;
                 case 'l':
                     // `%ld` is the only length modifier: i64 is already 64-bit,
                     // so it maps to the same specifier as `%d`.
@@ -1222,8 +1226,8 @@ std::optional<NodeStmt> Parser::parse_print_stmt()
             args.push_back(arg.value());
         }
     } else {
-        // Old-style: print(expr) — single expression, print as integer
-        specs.push_back({FormatSpec::Int, ""});
+        // Old-style: print(expr) — single expression, printed by its type
+        specs.push_back({FormatSpec::Any, ""});
         args.push_back(first_expr.value());
     }
 
@@ -1237,6 +1241,8 @@ std::optional<NodeStmt> Parser::parse_print_stmt()
             case FormatSpec::Hex:
             case FormatSpec::Unsigned:
             case FormatSpec::Char:
+            case FormatSpec::Float:
+            case FormatSpec::Any:
                 ++needed_args;
                 break;
             default:

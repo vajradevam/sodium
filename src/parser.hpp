@@ -276,7 +276,10 @@ struct NodeStmtBlock {
 };
 
 struct FormatSpec {
-    enum Type : uint8_t { Text, Int, String, LiteralPercent, Hex, Unsigned, Char };
+    enum Type : uint8_t { Text, Int, String, LiteralPercent, Hex, Unsigned, Char,
+                          Float,  ///< %f: a float printed in fixed notation (D-038)
+                          Any     ///< print(expr): an integer or a float, by the argument's type
+    };
     Type type;
     std::string text;  // for Text fragments
 };

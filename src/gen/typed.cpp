@@ -80,11 +80,6 @@ bool safe_widening(IntType from, IntType to) {
 
 } // namespace
 
-void Generator::reject_float(const Type& t, const SourceLoc& loc) const {
-    if (t.kind == Type::Float)
-        fail(loc, "floating-point code generation is not implemented yet (D-038, F2)");
-}
-
 const NodeFuncDef* Generator::find_func(const std::string& name) const {
     for (const auto* func : m_prog.funcs) {
         if (func->name.value.value() == name) return func;
@@ -118,6 +113,8 @@ void Generator::check_call_args(const NodeExprCall& call, SourceLoc loc, const s
         const Type want = *param_types[i];
         const Type got = m_tstack[base + i];
         if (want == got) continue;
+        if (coerce_float_at(base + i, want, loc,
+                            "argument " + std::to_string(i + 1) + " to " + what)) continue;
 
         auto constant = eval_const_expr(call.args[i]);
         if (constant.has_value() && want.kind == Type::Int &&
@@ -160,6 +157,7 @@ void Generator::check_return_type(const NodeExpr& expr, SourceLoc loc) {
     const Type want = *m_current_return_type;
     const Type got = m_tstack.back();
     if (want == got) return;
+    if (coerce_float_top(want, loc, "the return of function '" + m_current_func_name + "'")) return;
 
     // `0` is a valid null pointer literal for any pointer return type (D-003).
     if (want.kind == Type::Ptr && got.kind == Type::Int) {

@@ -1,0 +1,41 @@
+// EXPECT-EXIT: 0
+// EXPECT-STDOUT: 4.250000
+// EXPECT-STDOUT: 5.000000
+// EXPECT-STDOUT: 10.000000
+// EXPECT-STDOUT: 0.000000 1.500000 3.000000 4.500000
+// EXPECT-STDOUT: 0.500000 1.500000 7.000000
+// EXPECT-STDOUT: 9.000000
+// EXPECT-STDOUT: 11.000000
+function bump(p: f64*, by: f64) {
+    *p = *p + by;
+}
+
+function main() {
+    var x: f64 = 1.5;
+    var p: f64* = &x;
+    *p = 4.25;
+    print(x);
+    bump(&x, 0.75);
+    print(x);
+    print(*p * 2.0);
+    var arr: f64[4];
+    var i: i64 = 0;
+    while (i < 4) {
+        arr[i] = i * 1.5;
+        i = i + 1;
+    }
+    print("%f %f %f %f", arr[0], arr[1], arr[2], arr[3]);
+    var f: f32[3];
+    f[0] = 0.5f;
+    f[1] = f[0] * 3.0f;
+    f[2] = 7;
+    print("%f %f %f", f[0], f[1], f[2]);
+    var sum: f64 = 0.0;
+    i = 0;
+    while (i < 4) { sum += arr[i]; i = i + 1; }
+    print(sum);
+    *p += 0.5;
+    *p *= 2.0;
+    print(x);
+    return(0);
+}
