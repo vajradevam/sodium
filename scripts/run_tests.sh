@@ -83,11 +83,12 @@ TARGETS_VAL=""
 SKIP_REASON=""
 ENV_VALS=()
 STDOUT_LINES=()
+STDERR_LINES=()
 
 parse_headers() {
     EXPECT_EXIT=""; EXPECT_ERROR=""; EXPECT_WARNING=""; NO_WARNING=""
     COMPILE_FLAGS=""; STDIN_VAL=""; ARGS_VAL=""
-    TARGETS_VAL=""; SKIP_REASON=""; ENV_VALS=(); STDOUT_LINES=()
+    TARGETS_VAL=""; SKIP_REASON=""; ENV_VALS=(); STDOUT_LINES=(); STDERR_LINES=()
     local line
     while IFS= read -r line || [ -n "$line" ]; do
         case "$line" in
@@ -103,6 +104,7 @@ parse_headers() {
             "// TARGETS: "*)       TARGETS_VAL="${line#// TARGETS: }" ;;
             "// SKIP-TEST: "*)     SKIP_REASON="${line#// SKIP-TEST: }" ;;
             "// EXPECT-STDOUT: "*) STDOUT_LINES+=("${line#// EXPECT-STDOUT: }") ;;
+            "// EXPECT-STDERR: "*) STDERR_LINES+=("${line#// EXPECT-STDERR: }") ;;
             "// EXPECT-STDOUT:")   STDOUT_LINES+=("") ;;
         esac
     done < "$1"
@@ -222,6 +224,14 @@ run_case() {
             emit FAIL "stdout mismatch: $(diff -u "$base.expected" "$base.stdout" | tail -1)"
             return
         fi
+    fi
+    if [ "${#STDERR_LINES[@]}" -gt 0 ]; then
+        for want in "${STDERR_LINES[@]}"; do
+            if ! grep -Fq -- "$want" "$base.stderr"; then
+                emit FAIL "stderr missing substring: $want"
+                return
+            fi
+        done
     fi
     emit PASS ""
 }

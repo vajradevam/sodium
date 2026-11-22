@@ -1,0 +1,11 @@
+// EXPECT-EXIT: 1
+// EXPECT-STDERR: Assertion failed: bad thing
+
+// A failing assertion reports on stderr and exits with status 1.
+#include "io.cyan"
+
+function main() {
+    assert(0, "bad thing");
+    print("unreachable");
+    return(0);
+}

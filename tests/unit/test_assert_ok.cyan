@@ -1,0 +1,12 @@
+// EXPECT-EXIT: 0
+// EXPECT-STDOUT: ok
+
+// Passing assertions do nothing observable.
+#include "io.cyan"
+
+function main() {
+    assert(1, "never printed");
+    assert(2 > 1, "also never");
+    print("ok");
+    return(0);
+}

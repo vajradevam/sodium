@@ -1,0 +1,22 @@
+// EXPECT-EXIT: 0
+// EXPECT-STDERR: stderr-ok
+// ARGS: /tmp/opencode/cyan_l6b_fd.txt
+
+// fprint writes a string to any fd; eprint/eprintln target stderr.
+#include "io.cyan"
+
+function main() {
+    var path = argv(1);
+    var fd = sys_open(path, 577, 420);
+    if (fd < 0) { return(1); }
+    if (fprint(fd, "hello") != 5) { return(6); }
+    if (sys_close(fd) != 0) { return(2); }
+    var data = io_read_file(path);
+    if (data == null) { return(3); }
+    if (strcmp(data, "hello") != 0) { return(4); }
+    free(data);
+    if (sys_unlink(path) != 0) { return(5); }
+    eprint("stderr-");
+    eprintln("ok");
+    return(0);
+}

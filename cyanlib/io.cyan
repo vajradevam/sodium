@@ -102,3 +102,21 @@ function io_perror(msg: u8*, code: i64) -> i64 {
     eprintln(msg);
     return(code);
 }
+
+// fprint(fd, s) — write a NUL-terminated string to an arbitrary fd and
+// return the number of bytes actually written (negative on error).
+function fprint(fd: i64, s: u8*) -> i64 {
+    return(sys_write(fd, s, strlen(s)));
+}
+
+// assert(cond, msg) — when cond is zero, report the message on stderr and
+// exit with status 1. Returns 0 when the condition holds, so it can also be
+// used in expressions such as `if (assert(cond, "msg") != 0) { ... }`.
+function assert(cond: i64, msg: u8*) -> i64 {
+    if (cond != 0) { return(0); }
+    eprint("Assertion failed: ");
+    eprint(msg);
+    eprint("\n");
+    exit(1);
+    return(0);
+}

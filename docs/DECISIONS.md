@@ -36,7 +36,7 @@ missing return, conflicting inferred pointer types.
 
 ## D-005 Tests
 Tests are discovered, not registered: every `tests/**/*.cyan` is run. Header comments declare expectations:
-`// EXPECT-EXIT: N`, `// EXPECT-STDOUT: <line>` (repeatable, ordered), `// EXPECT-ERROR: <substring>`,
+`// EXPECT-EXIT: N`, `// EXPECT-STDOUT: <line>` (repeatable, ordered, exact), `// EXPECT-STDERR: <substring>` (repeatable), `// EXPECT-ERROR: <substring>`,
 `// ARGS: ...`, `// STDIN: ...`, `// ENV: NAME=value` (repeatable, applied with `env`), `// TARGETS: x86_64 riscv64` (default both). Files named `test_bad_*`
 must declare `EXPECT-ERROR`. `// SKIP-TEST: <reason>` marks a file that is included by other tests and
 is not a standalone test (currently `tests/include/helper.cyan`). An `EXPECT-STDOUT` header declares an
@@ -199,3 +199,11 @@ at the end, mirroring `argv(i)`. `__sodium_envp` is a runtime global captured by
 `_start` at `sp/rsp + 16 + argc*8` (environment entries follow argv's NULL terminator), so both
 x86_64 and riscv64 see the same vector. The test runner accepts repeatable `// ENV: NAME=value`
 headers and runs the program under `env` with those variables set.
+
+## D-021 fd printing and assert (L6b)
+`cyanlib/io.cyan` adds `fprint(fd, s)`, which writes a NUL-terminated string to any descriptor via
+`sys_write` and returns the byte count, and `assert(cond, msg)`, which reports
+`Assertion failed: <msg>` on stderr and exits with status 1 when the condition is zero. `assert` is
+a library function rather than a special statement, so it composes with the rest of the language
+and needs no new parser form. The runner's `// EXPECT-STDERR: <substring>` header performs a
+substring check on stderr (stdout keeps exact ordered-line comparison).
