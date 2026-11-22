@@ -349,7 +349,7 @@ done
 printf '  %-12s %4d passed, %d failed, %d skipped\n' \
     "TOTAL" "$TOTAL_PASS" "$TOTAL_FAIL" "$TOTAL_SKIP"
 echo "Run-equivalents: ${#CASES[@]}"
-echo -e "Results: ${GREEN}$TOTAL_PASS passed${NC}, ${RED}$TOTAL_FAIL failed${NC}"
+echo -e "Results: ${GREEN}$TOTAL_PASS passed${NC}, ${RED}$TOTAL_FAIL failed${NC}, $TOTAL_SKIP skipped"
 echo "========================================"
 
 [ "$TOTAL_FAIL" -gt 0 ] && exit 1
