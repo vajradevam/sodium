@@ -730,14 +730,29 @@ uint32_t Generator::field_addr(const NodeExprFieldAccess& access, Type& out_type
     std::string struct_name;
 
     if (access.base) {
-        auto* inner = std::get_if<NodeExprFieldAccess*>(&access.base->var);
-        if (!inner) fail(access.field_name.loc, "Unsupported field access base");
-        Type inner_type;
-        base_addr = field_addr(**inner, inner_type);
-        if (inner_type.kind != Type::Struct) {
-            fail(access.field_name.loc, "Field access requires a struct value");
+        if (auto* inner = std::get_if<NodeExprFieldAccess*>(&access.base->var)) {
+            Type inner_type;
+            base_addr = field_addr(**inner, inner_type);
+            if (inner_type.kind != Type::Struct) {
+                fail(access.field_name.loc, "Field access requires a struct value");
+            }
+            struct_name = inner_type.struct_name;
+        } else if (auto* indexed = std::get_if<NodeExprIndex*>(&access.base->var)) {
+            const auto& name = (*indexed)->name.value.value();
+            auto var = lookup_var(name, (*indexed)->name.loc);
+            gen_expr(*(*indexed)->index);
+            uint32_t index = pop_vreg();
+            uint32_t offset = m_ir.mul(IRValue::vreg(index),
+                                      IRValue::imm_i64(static_cast<int64_t>(var.elem_size)));
+            uint32_t start = m_ir.frame_addr(static_cast<int64_t>(var.stack_loc));
+            base_addr = m_ir.sub(IRValue::vreg(start), IRValue::vreg(offset));
+            if (var.type.kind != Type::Struct) {
+                fail(access.field_name.loc, "Field access requires an array of structs");
+            }
+            struct_name = var.type.struct_name;
+        } else {
+            fail(access.field_name.loc, "Unsupported field access base");
         }
-        struct_name = inner_type.struct_name;
     } else {
         auto var = lookup_var(access.obj_name.value.value(), access.obj_name.loc);
         if (access.arrow) {

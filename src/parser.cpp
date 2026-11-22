@@ -547,6 +547,18 @@ std::optional<NodeExpr*> Parser::parse_primary_expr()
                 consume(); // ]
                 auto expr = m_allocator.alloc<NodeExpr>();
                 expr->var = expr_index;
+                // Field access on an indexed element: a[0].x (and chains).
+                while (peek().has_value() && peek().value().type == TokenType::dot) {
+                    consume();
+                    if (!peek().has_value() || peek().value().type != TokenType::ident) {
+                        error("Expected field name after '.'");
+                    }
+                    auto access = m_allocator.alloc<NodeExprFieldAccess>();
+                    access->base = expr;
+                    access->field_name = consume();
+                    expr = m_allocator.alloc<NodeExpr>();
+                    expr->var = access;
+                }
                 return expr;
             }
             else if (peek(1).has_value() && peek(1).value().type == TokenType::open_paren) {
@@ -1432,9 +1444,7 @@ std::optional<NodeStmt> Parser::parse_stmt() {
                         auto stmt_arr = m_allocator.alloc<NodeStmtArrDecl>();
                         stmt_arr->name = stmt_let->ident;
                         stmt_arr->loc = stmt_let->ident.loc;
-                        stmt_arr->elem_type = (full->kind == Type::Int)
-                                                  ? Type::make_int(full->int_type)
-                                                  : std::optional<Type>{};
+                        stmt_arr->elem_type = full;
                         consume(); // [
                         if (auto sz = parse_expr()) {
                             stmt_arr->size = sz.value();
@@ -1630,6 +1640,41 @@ std::optional<NodeStmt> Parser::parse_stmt() {
             return parse_return_stmt();
         } else if (peek().has_value() && peek().value().type == TokenType::_print) {
             return parse_print_stmt();
+        } else if (
+            peek().has_value() && peek().value().type == TokenType::ident
+            && peek(1).has_value() && peek(1).value().type == TokenType::open_square) {
+                // Assignment to a field of an indexed struct: a[0].x = v
+                auto lhs = parse_expr();
+                if (!lhs) error("Invalid indexed field assignment target");
+                // Plain `a[i] = v` is an array assignment, not a field one.
+                if (auto* indexed = std::get_if<NodeExprIndex*>(&(*lhs)->var)) {
+                    auto arr = m_allocator.alloc<NodeStmtArrAssign>();
+                    arr->name = (*indexed)->name;
+                    arr->index = (*indexed)->index;
+                    if (!peek().has_value() || peek().value().type != TokenType::eq) {
+                        error("Expected '=' in array assignment");
+                    }
+                    consume();
+                    if (auto expr = parse_expr()) arr->expr = expr.value();
+                    else error("Invalid expression in array assignment");
+                    if (peek().has_value() && peek().value().type == TokenType::semi) consume();
+                    else error("Expected ';' after array assignment");
+                    return NodeStmt { .var = arr };
+                }
+                auto* access = std::get_if<NodeExprFieldAccess*>(&(*lhs)->var);
+                if (!access || !(*access)->base) error("Invalid indexed field assignment target");
+                auto stmt = m_allocator.alloc<NodeStmtFieldAssign>();
+                stmt->base = (*access)->base;
+                stmt->field_name = (*access)->field_name;
+                if (!peek().has_value() || !is_assign_op(peek().value().type)) {
+                    error("Expected assignment operator after indexed field access");
+                }
+                stmt->op = token_to_assign_op(consume().type);
+                if (auto expr = parse_expr()) stmt->expr = expr.value();
+                else error("Invalid expression in field assignment");
+                if (peek().has_value() && peek().value().type == TokenType::semi) consume();
+                else error("Expected ';' after field assignment");
+                return NodeStmt { .var = stmt };
         } else if (
             peek().has_value() && peek().value().type == TokenType::ident
             && peek(1).has_value() && peek(1).value().type == TokenType::open_square) {

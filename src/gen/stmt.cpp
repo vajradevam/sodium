@@ -302,6 +302,10 @@ void Generator::gen_stmt(const NodeStmt& stmt)
             size_t size = static_cast<size_t>(const_size.value());
             Type elem_type = stmt_arr->elem_type.value_or(Type::make_int(IntType::i64));
             size_t elem_size = type_size(elem_type);
+            if (elem_type.kind == Type::Struct) {
+                auto info = gen->get_struct_info(elem_type.struct_name);
+                if (info.has_value()) elem_size = info->size;
+            }
             auto& scope = gen->m_scopes.back();
             uint32_t slot = gen->m_next_frame_offset;
             uint32_t arr_bytes = static_cast<uint32_t>(size * elem_size);
