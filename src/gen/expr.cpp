@@ -204,8 +204,8 @@ void Generator::gen_expr(const NodeExpr& expr)
             // struct fields are stored after the base variable: slot - field_offset
             // (field 0 is at the same address as the struct base, field 1 is at base-8, etc.)
             uint32_t base_addr = gen->m_ir.frame_addr(static_cast<int64_t>(var.stack_loc));
-            uint32_t field_addr = gen->m_ir.lea(IRValue::vreg(base_addr), -static_cast<int64_t>(field_offset * 8));
-            // Actually the fields go from base downward. Let me use: base - field_offset * 8
+            uint32_t field_addr = gen->m_ir.lea(IRValue::vreg(base_addr), -static_cast<int64_t>(field_offset));
+            // Actually the fields go from base downward. Let me use: base - field_offset
             // Actually lea with negative offset from base_addr
             // Wait, LEA computes base_addr + offset. We want base_addr - field_offset*8
             uint32_t val = gen->m_ir.load(IRValue::vreg(field_addr), 0);
@@ -298,7 +298,7 @@ void Generator::gen_expr(const NodeExpr& expr)
                 }
                 size_t field_offset = offset_it->second;
                 uint32_t base_addr = gen->m_ir.frame_addr(static_cast<int64_t>(var.stack_loc));
-                uint32_t field_addr = gen->m_ir.lea(IRValue::vreg(base_addr), -static_cast<int64_t>(field_offset * 8));
+                uint32_t field_addr = gen->m_ir.lea(IRValue::vreg(base_addr), -static_cast<int64_t>(field_offset));
                 gen->push_vreg(field_addr);
                 // Struct fields are i64 (8-byte slots)
                 Type* pointee = gen->alloc_type(Type::make_int(IntType::i64));

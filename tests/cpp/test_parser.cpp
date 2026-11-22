@@ -228,3 +228,17 @@ TEST(parser_nested_pointer_type_is_nestable) {
     CHECK(f.return_type.has_value());
     if (f.return_type) CHECK_EQ(f.return_type->kind, Type::Ptr);
 }
+
+TEST(parser_typed_struct_fields) {
+    NodeProg prog = parse_program("struct S { var a: i8; var b: i32; var c; };");
+    CHECK_EQ(prog.structs.size(), size_t(1));
+    if (prog.structs.empty()) return;
+    const NodeStructDef& s = *prog.structs[0];
+    CHECK_EQ(s.fields.size(), size_t(3));
+    CHECK_EQ(s.field_types.size(), size_t(3));
+    CHECK(s.field_types[0].has_value());
+    CHECK(s.field_types[1].has_value());
+    CHECK(!s.field_types[2].has_value());
+    if (s.field_types[0]) CHECK(*s.field_types[0] == Type::make_int(IntType::i8));
+    if (s.field_types[1]) CHECK(*s.field_types[1] == Type::make_int(IntType::i32));
+}

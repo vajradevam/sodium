@@ -28,14 +28,14 @@ void Generator::gen_stmt(const NodeStmt& stmt)
                     gen->fail(stmt_let->ident.loc, "Unknown struct type: " + stmt_let->struct_type_name);
                 }
                 auto& scope = gen->m_scopes.back();
-                uint32_t struct_bytes = static_cast<uint32_t>(struct_info.value().size * 8);
+                uint32_t struct_bytes = static_cast<uint32_t>(struct_info.value().size);
                 uint32_t slot = gen->m_next_frame_offset;
                 gen->m_next_frame_offset += struct_bytes;
                 scope.vars[stmt_let->ident.value.value()] = Var { .stack_loc = slot, .array_size = struct_info.value().size, .struct_type = stmt_let->struct_type_name, .decl_loc = stmt_let->ident.loc };
                 scope.var_count += struct_info.value().size;
-                // Zero-initialize all fields (each 8 bytes)
-                for (size_t i = 0; i < struct_info.value().size; i++) {
-                    uint32_t addr = gen->m_ir.frame_addr(static_cast<int64_t>(slot + i * 8));
+                // Zero-initialize the whole struct (including padding).
+                for (size_t byte = 0; byte < struct_bytes; byte += 8) {
+                    uint32_t addr = gen->m_ir.frame_addr(static_cast<int64_t>(slot + byte));
                     gen->m_ir.store(IRValue::vreg(addr), 0, IRValue::imm_i64(0));
                 }
                 return;
@@ -507,7 +507,7 @@ void Generator::gen_stmt(const NodeStmt& stmt)
             }
             size_t field_offset = offset_it->second;
             uint32_t base_addr = gen->m_ir.frame_addr(static_cast<int64_t>(var.stack_loc));
-            uint32_t field_addr = gen->m_ir.lea(IRValue::vreg(base_addr), -static_cast<int64_t>(field_offset * 8));
+            uint32_t field_addr = gen->m_ir.lea(IRValue::vreg(base_addr), -static_cast<int64_t>(field_offset));
 
             if (stmt_field->op == AssignOp::assign) {
                 gen->gen_expr(*stmt_field->expr);

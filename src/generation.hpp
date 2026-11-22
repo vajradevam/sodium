@@ -60,9 +60,32 @@ struct GlobalInit {
 };
 
 struct StructInfo {
-    size_t size; // total size in qwords
+    size_t size = 0; // total size in bytes (including trailing padding)
     std::vector<std::string> field_names;
-    std::unordered_map<std::string, size_t> field_offsets; // offset in qwords from base
+    std::unordered_map<std::string, size_t> field_offsets; // byte offsets from struct base
+    std::vector<Type> field_types;
+
+    /// C-rule layout: natural alignment, internal and trailing padding.
+    static StructInfo compute_layout(const std::vector<Token>& names,
+                                     const std::vector<std::optional<Type>>& types) {
+        StructInfo info;
+        size_t offset = 0;
+        size_t struct_align = 1;
+        for (size_t i = 0; i < names.size(); i++) {
+            Type t = (i < types.size() && types[i]) ? *types[i]
+                                                    : Type::make_int(IntType::i64);
+            size_t sz = type_size(t);
+            size_t align = sz < 8 ? sz : 8;
+            offset = (offset + align - 1) & ~(align - 1);
+            info.field_names.push_back(names[i].value.value());
+            info.field_offsets[names[i].value.value()] = offset;
+            info.field_types.push_back(t);
+            offset += sz;
+            if (align > struct_align) struct_align = align;
+        }
+        info.size = (offset + struct_align - 1) & ~(struct_align - 1);
+        return info;
+    }
 };
 
 class Generator {

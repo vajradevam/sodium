@@ -1,5 +1,6 @@
 #include "test_framework.hpp"
 #include "parser.hpp"
+#include "generation.hpp"
 
 #include <cstdint>
 
@@ -72,4 +73,48 @@ TEST(types_size_of_pointer_is_word) {
     *byte_type = Type::make_int(IntType::i8);
     Type p = Type::make_ptr(byte_type, arena);
     CHECK_EQ(type_size(p), size_t(8));
+}
+
+TEST(struct_layout_follows_c_alignment_and_padding) {
+    std::vector<Token> names;
+    names.push_back({TokenType::ident, "a", {}});
+    names.push_back({TokenType::ident, "b", {}});
+    names.push_back({TokenType::ident, "c", {}});
+    std::vector<std::optional<Type>> types = {
+        Type::make_int(IntType::i8),
+        Type::make_int(IntType::i32),
+        Type::make_int(IntType::i16),
+    };
+    StructInfo info = StructInfo::compute_layout(names, types);
+    CHECK_EQ(info.size, size_t(12));
+    CHECK_EQ(info.field_offsets.at("a"), size_t(0));
+    CHECK_EQ(info.field_offsets.at("b"), size_t(4));
+    CHECK_EQ(info.field_offsets.at("c"), size_t(8));
+}
+
+TEST(struct_layout_packs_bytes_and_adds_trailing_padding) {
+    std::vector<Token> names;
+    names.push_back({TokenType::ident, "a", {}});
+    names.push_back({TokenType::ident, "b", {}});
+    std::vector<std::optional<Type>> types = {
+        Type::make_int(IntType::i8),
+        Type::make_int(IntType::i64),
+    };
+    StructInfo info = StructInfo::compute_layout(names, types);
+    CHECK_EQ(info.field_offsets.at("a"), size_t(0));
+    CHECK_EQ(info.field_offsets.at("b"), size_t(8));
+    CHECK_EQ(info.size, size_t(16));
+}
+
+TEST(struct_layout_all_i8_has_no_internal_padding) {
+    std::vector<Token> names;
+    names.push_back({TokenType::ident, "a", {}});
+    names.push_back({TokenType::ident, "b", {}});
+    names.push_back({TokenType::ident, "c", {}});
+    std::vector<std::optional<Type>> types = {
+        Type::make_int(IntType::i8), Type::make_int(IntType::i8), Type::make_int(IntType::i8)
+    };
+    StructInfo info = StructInfo::compute_layout(names, types);
+    CHECK_EQ(info.size, size_t(3));
+    CHECK_EQ(info.field_offsets.at("c"), size_t(2));
 }

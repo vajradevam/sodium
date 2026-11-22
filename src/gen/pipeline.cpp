@@ -238,16 +238,10 @@ std::string Generator::gen_prog_impl()
         m_func_names[func->name.value.value()] = true;
     }
 
-    // Populate struct type information
+    // Populate struct type information with C-rule byte layout.
     for (const auto* sd : m_prog.structs) {
-        StructInfo info;
-        for (size_t i = 0; i < sd->fields.size(); i++) {
-            const auto& field_name = sd->fields[i].value.value();
-            info.field_names.push_back(field_name);
-            info.field_offsets[field_name] = i;
-        }
-        info.size = sd->fields.size();
-        m_struct_types[sd->name.value.value()] = info;
+        m_struct_types[sd->name.value.value()] =
+            StructInfo::compute_layout(sd->fields, sd->field_types);
     }
 
     // Flow-based warnings (unreachable code, missing return).

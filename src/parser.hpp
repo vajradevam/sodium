@@ -300,6 +300,8 @@ struct NodeFuncDef {
 struct NodeStructDef {
     Token name;
     std::vector<Token> fields;
+    // Parallel to fields; empty optional = untyped field (i64).
+    std::vector<std::optional<Type>> field_types;
 };
 
 struct NodeBlock {

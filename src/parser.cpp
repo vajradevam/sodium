@@ -1824,6 +1824,13 @@ NodeStructDef* Parser::parse_struct_def() {
                 error("Expected field name in struct");
             }
             def->fields.push_back(consume());
+            std::optional<Type> field_type;
+            if (peek().has_value() && peek().value().type == TokenType::colon) {
+                consume();
+                field_type = parse_full_type();
+                if (!field_type.has_value()) error("Expected field type after ':'");
+            }
+            def->field_types.push_back(field_type);
             if (!peek().has_value() || peek().value().type != TokenType::semi) {
                 error("Expected ';' after struct field");
             }
