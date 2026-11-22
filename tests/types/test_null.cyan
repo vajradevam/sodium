@@ -1,0 +1,18 @@
+// EXPECT-EXIT: 0
+// EXPECT-STDOUT: 0
+// EXPECT-STDOUT: 0
+
+function pass(p: u8*) {
+    return(p);
+}
+
+function nil() -> u8* {
+    return(null);
+}
+
+function main() {
+    var p: u8* = null;
+    print(pass(p));
+    print(nil());
+    return(0);
+}

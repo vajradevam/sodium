@@ -300,6 +300,21 @@ std::vector<Token> Tokenizer::tokenize() {
             else if (buf == "u64") {
                 tokens.push_back({ .type = TokenType::_u64, .loc = tok_loc });
             }
+            else if (buf == "true") {
+                tokens.push_back({ .type = TokenType::_true, .loc = tok_loc });
+            }
+            else if (buf == "false") {
+                tokens.push_back({ .type = TokenType::_false, .loc = tok_loc });
+            }
+            else if (buf == "null") {
+                tokens.push_back({ .type = TokenType::_null, .loc = tok_loc });
+            }
+            else if (buf == "bool") {
+                tokens.push_back({ .type = TokenType::_bool, .loc = tok_loc });
+            }
+            else if (buf == "char") {
+                tokens.push_back({ .type = TokenType::_char, .loc = tok_loc });
+            }
             else {
                 tokens.push_back({ .type = TokenType::ident, .value = buf, .loc = tok_loc });
             }

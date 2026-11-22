@@ -135,3 +135,11 @@ TEST(tokenizer_recognizes_arrow_for_return_types) {
     CHECK_EQ(t.size(), 1u);
     CHECK(t[0].type == TT::arrow);
 }
+
+TEST(tokenizer_recognizes_bool_char_null_keywords) {
+    auto t = tok("bool char true false null");
+    const TT want[] = {TT::_bool, TT::_char, TT::_true, TT::_false, TT::_null};
+    CHECK_EQ(t.size(), sizeof(want) / sizeof(want[0]));
+    for (size_t i = 0; i < t.size() && i < sizeof(want) / sizeof(want[0]); ++i)
+        CHECK(t[i].type == want[i]);
+}

@@ -1,0 +1,14 @@
+// EXPECT-EXIT: 0
+// EXPECT-STDOUT: 1
+// EXPECT-STDOUT: 0
+// EXPECT-STDOUT: 65
+
+function main() {
+    var t: bool = true;
+    var f: bool = false;
+    var c: char = 65;
+    print(t);
+    print(f);
+    print(c);
+    return(0);
+}

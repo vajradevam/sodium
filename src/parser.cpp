@@ -436,6 +436,20 @@ std::optional<NodeExpr*> Parser::parse_primary_expr()
             return expr;
         }
 
+        if (peek().has_value() &&
+            (peek().value().type == TokenType::_true ||
+             peek().value().type == TokenType::_false ||
+             peek().value().type == TokenType::_null)) {
+            Token tok = consume();
+            auto expr_int_lit = m_allocator.alloc<NodeExprIntLit>();
+            expr_int_lit->int_lit = Token { .type = TokenType::int_lit,
+                .value = std::string(tok.type == TokenType::_true ? "1" : "0"),
+                .loc = tok.loc };
+            auto expr = m_allocator.alloc<NodeExpr>();
+            expr->var = expr_int_lit;
+            return expr;
+        }
+
         if (peek().has_value() && peek().value().type == TokenType::int_lit) {
             auto expr_int_lit = m_allocator.alloc<NodeExprIntLit>();
             expr_int_lit->int_lit = consume();
@@ -1301,6 +1315,9 @@ std::optional<IntType> Parser::parse_type() {
             case TokenType::_u16: consume(); return IntType::u16;
             case TokenType::_u32: consume(); return IntType::u32;
             case TokenType::_u64: consume(); return IntType::u64;
+            // bool is a 1-byte 0/1 value; char is Cyan's spelling of u8.
+            case TokenType::_bool:
+            case TokenType::_char: consume(); return IntType::u8;
             default: return {};
         }
 }
@@ -1349,14 +1366,20 @@ std::optional<NodeStmt> Parser::parse_stmt() {
                 auto stmt_let = m_allocator.alloc<NodeStmtLet>();
                 stmt_let->ident = consume();
                 consume(); // :
-                if (auto type = parse_type()) {
-                    stmt_let->type = type.value();
+                if (auto full = parse_full_type()) {
+                    if (full->kind == Type::Ptr) {
+                        stmt_let->full_type = full;
+                    } else {
+                        stmt_let->type = full->int_type;
+                    }
                     // Typed array: `var a: i32[10];`
                     if (peek().has_value() && peek().value().type == TokenType::open_square) {
                         auto stmt_arr = m_allocator.alloc<NodeStmtArrDecl>();
                         stmt_arr->name = stmt_let->ident;
                         stmt_arr->loc = stmt_let->ident.loc;
-                        stmt_arr->elem_type = Type::make_int(type.value());
+                        stmt_arr->elem_type = (full->kind == Type::Int)
+                                                  ? Type::make_int(full->int_type)
+                                                  : std::optional<Type>{};
                         consume(); // [
                         if (auto sz = parse_expr()) {
                             stmt_arr->size = sz.value();

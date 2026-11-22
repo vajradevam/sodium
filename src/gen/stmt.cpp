@@ -18,8 +18,8 @@ void Generator::gen_stmt(const NodeStmt& stmt)
 
         void operator()(const NodeStmtLet* stmt_let) const
         {
-            auto raw_type = stmt_let->type.value_or(IntType::i64);
-            Type var_type = Type::make_int(raw_type);
+            Type var_type = stmt_let->full_type.value_or(
+                Type::make_int(stmt_let->type.value_or(IntType::i64)));
 
             // Handle struct-typed variable
             if (!stmt_let->struct_type_name.empty()) {

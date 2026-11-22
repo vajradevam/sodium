@@ -181,6 +181,7 @@ struct NodeStmtLet {
     Token ident;
     NodeExpr* expr;
     std::optional<IntType> type {};
+    std::optional<Type> full_type;    // pointer types from `var p: u8* = ...`
     std::string struct_type_name {}; // non-empty if struct-typed (e.g., "var p: Point")
 };
 
