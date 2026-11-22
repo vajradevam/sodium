@@ -72,6 +72,7 @@ void Generator::flush_function(IRFunction* func, uint32_t frame_bytes, bool emit
     // function body, so deferred and immediate emission produce identical text.
     if (emit_extern) m_backend_ptr->extern_sym(func->name);
     IREmitter emitter(*m_backend_ptr, *m_tri_ptr);
+    emitter.set_debug_info(m_debug_info);
     if (m_stack_probe) {
         const std::string message = new_string_label();
         m_strings.push_back({message, "stack overflow\n"});

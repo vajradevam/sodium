@@ -429,3 +429,11 @@ optionally writes a marker when the source line changes. Added 4 C++ cases cover
 line-change deduplication and the disabled path; verified end-to-end that a compiled program's
 assembly contains `%line` rows from the original `.cyan` lines. `scripts/check.sh` green:
 704 passed / 0 failed / 10 skipped; 294 -> 298 C++ cases / 4314 checks.
+
+## 2026-11-23 — X6b -g flag and debug info integration
+Added the opt-in `-g` flag, absolute source paths in line markers, and `-g -F dwarf` / `-g` for
+NASM and the RISC-V assembler. Added `scripts/test_debug_info.sh` to the gate: it checks that
+`-g` produces a `.debug_line` section and source-line rows on both targets, that gdb resolves a
+Cyan line to an address, and that the default build has no debug info. `scripts/check.sh --full`
+green: 704 passed / 0 failed / 10 skipped at both levels and under ASan/UBSan; 298 C++ cases /
+4314 checks; sweep 2154 invocations / 0 crashes.

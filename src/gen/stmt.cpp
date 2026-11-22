@@ -9,7 +9,10 @@ void Generator::gen_stmt(const NodeStmt& stmt)
     // Stamp the current statement's location on generated IR instructions so
     // the emitter can produce debug line markers (D-037).
     const SourceLoc loc = statement_location(stmt);
-    if (loc.line != 0) m_ir.set_loc(static_cast<uint32_t>(loc.line), loc.file);
+    if (loc.line != 0) {
+        m_ir.set_loc(static_cast<uint32_t>(loc.line),
+                     m_debug_source_path.empty() ? loc.file : m_debug_source_path);
+    }
 
     struct StmtVisitor {
         Generator* gen;

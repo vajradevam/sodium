@@ -198,6 +198,8 @@ public:
     void set_bounds_check(bool v) { m_bounds_check = v; }
     void set_null_check(bool v) { m_null_check = v; }
     void set_stack_probe(bool v) { m_stack_probe = v; }
+    void set_debug_info(bool v) { m_debug_info = v; }
+    void set_debug_source_path(const std::string& path) { m_debug_source_path = path; }
 
     /// Emit a conditional runtime check. A false `condition` prints `message`
     /// and exits with the check-failure status (D-035).
@@ -403,6 +405,8 @@ private:
     bool m_bounds_check = false;
     bool m_null_check = false;
     bool m_stack_probe = false;
+    bool m_debug_info = false;
+    std::string m_debug_source_path;  ///< absolute path used in debug line markers
     uint32_t m_check_counter = 0;   ///< unique labels for emitted checks
 
     // ---- IR state ----

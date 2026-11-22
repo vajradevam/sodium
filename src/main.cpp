@@ -21,6 +21,8 @@
 #include "backend/riscv64/backend.hpp"
 #include "backend/peephole.hpp"
 
+namespace fs = std::filesystem;
+
 // Temp directory to clean up on exit (set after mkdtemp succeeds)
 static std::string g_tmp_dir;
 
@@ -82,9 +84,10 @@ int main(int argc, char* argv[]) {
     bool bounds_check = false;       // --bounds
     bool null_check = false;         // --check-null
     bool stack_probe = false;        // --stack-probe
+    bool debug_info_flag = false;    // -g
 
     auto usage = []() {
-        std::cerr << "Usage: sodium [--target <arch>] [--print-ast] [--emit-ir] [--verify-ir] [--dump-regalloc] [-O0|-O1] (default -O1) [--no-alloc] [-o <file>] [-S] [-I <dir>] [--cyanlib-dir <dir>] [-w] [-Werror] [-fcolor-diagnostics] [--bounds] [--check-null] [--stack-probe] <filename.cyan>" << std::endl;
+        std::cerr << "Usage: sodium [--target <arch>] [--print-ast] [--emit-ir] [--verify-ir] [--dump-regalloc] [-O0|-O1] (default -O1) [--no-alloc] [-o <file>] [-S] [-I <dir>] [--cyanlib-dir <dir>] [-w] [-Werror] [-fcolor-diagnostics] [--bounds] [--check-null] [--stack-probe] [-g] <filename.cyan>" << std::endl;
     };
 
     for (int i = 1; i < argc; i++) {
@@ -108,6 +111,8 @@ int main(int argc, char* argv[]) {
             null_check = true;
         } else if (std::strcmp(argv[i], "--stack-probe") == 0) {
             stack_probe = true;
+        } else if (std::strcmp(argv[i], "-g") == 0) {
+            debug_info_flag = true;
         } else if (std::strcmp(argv[i], "--target") == 0) {
             if (i + 1 < argc) {
                 target = argv[++i];
@@ -258,7 +263,15 @@ int main(int argc, char* argv[]) {
         tri = new TargetRegisterInfo(TargetRegisterInfo::x86_64_systemv());
         rt_dir = resolve_rt_dir();
         if (!emit_asm_only) {
-            asm_argv = {"nasm", "-felf64", asm_file, "-o", obj_file};
+            asm_argv = {"nasm", "-felf64"};
+            if (debug_info_flag) {
+                asm_argv.push_back("-g");
+                asm_argv.push_back("-F");
+                asm_argv.push_back("dwarf");
+            }
+            asm_argv.push_back(asm_file);
+            asm_argv.push_back("-o");
+            asm_argv.push_back(obj_file);
             link_argv = {"ld", "-o", exe_file, obj_file, rt_dir + "/sodium-rt.a"};
         }
     } else if (target == "riscv64") {
@@ -266,7 +279,11 @@ int main(int argc, char* argv[]) {
         tri = new TargetRegisterInfo(TargetRegisterInfo::riscv64_lp64());
         rt_dir = resolve_rt_dir();
         if (!emit_asm_only) {
-            asm_argv = {"riscv64-elf-as", "-march=rv64gc", "-mno-relax", "-o", obj_file, asm_file};
+            asm_argv = {"riscv64-elf-as", "-march=rv64gc", "-mno-relax"};
+            if (debug_info_flag) asm_argv.push_back("-g");
+            asm_argv.push_back("-o");
+            asm_argv.push_back(obj_file);
+            asm_argv.push_back(asm_file);
             // --no-relax is required: relaxation rewrites auipc/addi pairs
             // that the compiler uses for label addresses, breaking pointer
             // arithmetic. Calls use auipc+jalr now, so the old JAL range limit
@@ -388,6 +405,12 @@ int main(int argc, char* argv[]) {
         generator.set_bounds_check(bounds_check);
         generator.set_null_check(null_check);
         generator.set_stack_probe(stack_probe);
+        generator.set_debug_info(debug_info_flag);
+        if (debug_info_flag) {
+            std::error_code ec;
+            const fs::path absolute = fs::absolute(filename, ec);
+            generator.set_debug_source_path(ec ? filename : absolute.string());
+        }
         (void)generator.gen_prog();  // writes to backend stream
         asm_output = asm_stream.str();
         if (opt_level >= 1) {

@@ -61,6 +61,10 @@ COMPILER=./scripts/sodium-o1.sh ./scripts/run_tests.sh > build/last_tests_o1.log
     || die "tests under -O1 (see build/last_tests_o1.log)"
 tail -4 build/last_tests_o1.log
 
+step "debug line tables (-g, both targets)"
+./scripts/test_debug_info.sh > build/last_debuginfo.log 2>&1 || die "debug info (see build/last_debuginfo.log)"
+tail -1 build/last_debuginfo.log
+
 step "harness self-test (wrong EXPECT-* must fail)"
 ./scripts/run_tests.sh --self-test > build/last_selftest.log 2>&1 || die "harness self-test (see build/last_selftest.log)"
 tail -6 build/last_selftest.log
