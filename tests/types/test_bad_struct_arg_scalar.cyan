@@ -1,0 +1,9 @@
+// EXPECT-ERROR: argument 1 to 'f' has type i64, expected Point
+
+struct Point { var x: i64; var y: i64; };
+
+function f(p: Point) -> i64 { return p.x; }
+
+function main() {
+    return(f(5));
+}

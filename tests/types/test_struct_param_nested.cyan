@@ -1,0 +1,47 @@
+// Nested structs, pass-through of a struct parameter, struct array elements
+// and nested fields as struct arguments (D-012, Y8b1).
+// EXPECT-EXIT: 0
+// EXPECT-STDOUT: 34
+// EXPECT-STDOUT: 1234
+// EXPECT-STDOUT: 1234
+// EXPECT-STDOUT: 12
+// EXPECT-STDOUT: 7
+
+struct Pair { var a: i64; var b: i64; };
+struct Inner { var x: i32; var y: i32; };
+struct Outer { var in: Inner; var z: i32; };
+struct Tiny { var v: i8; };
+
+function pair_value(p: Pair) -> i64 { return p.a * 10 + p.b; }
+
+function outer_value(o: Outer) -> i64 {
+    return o.in.x * 1000 + o.in.y * 100 + o.z * 10 + 4;
+}
+
+// Passes its own struct parameter on to another function.
+function relay(o: Outer) -> i64 { return outer_value(o); }
+
+function inner_sum(i: Inner) -> i64 { return i.x + i.y; }
+
+function tiny_value(t: Tiny) -> i64 { return t.v; }
+
+function main() {
+    var arr: Pair[2];
+    arr[1].a = 3;
+    arr[1].b = 4;
+    print(pair_value(arr[1]));
+
+    var o: Outer;
+    var ip: Inner* = &o.in;
+    ip->x = 1;
+    ip->y = 2;
+    o.z = 3;
+    print(outer_value(o));
+    print(relay(o));
+
+    print(inner_sum(o.in) * 4);
+
+    var t: Tiny = { .v = 7 };
+    print(tiny_value(t));
+    return(0);
+}

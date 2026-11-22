@@ -1,0 +1,78 @@
+// Structs <= 16 bytes passed by value in argument registers (D-012, Y8b1).
+// EXPECT-EXIT: 0
+// EXPECT-STDOUT: 30
+// EXPECT-STDOUT: 11
+// EXPECT-STDOUT: 100
+// EXPECT-STDOUT: 6
+// EXPECT-STDOUT: 36
+// EXPECT-STDOUT: 777
+// EXPECT-STDOUT: 11
+// EXPECT-STDOUT: 22
+// EXPECT-STDOUT: -5
+// EXPECT-STDOUT: 100
+// EXPECT-STDOUT: 2220
+// EXPECT-STDOUT: 12047
+
+struct Pair { var a: i64; var b: i64; };
+struct Half { var lo: i32; var hi: i32; };
+struct Mixed { var a: i8; var b: i16; var c: i8; };
+struct Tri { var x: i32; var y: i32; var z: i32; };
+struct Bytes3 { var p: i8; var q: i8; var r: i8; };
+struct One { var v: i64; };
+
+function sum_pair(p: Pair) -> i64 { return p.a + p.b; }
+
+function sum_half(h: Half) -> i64 { return h.lo + h.hi; }
+
+function mixed_sum(m: Mixed) -> i64 { return m.a + m.b + m.c; }
+
+function tri_sum(t: Tri) -> i64 { return t.x + t.y + t.z; }
+
+function bytes_sum(b: Bytes3) -> i64 { return b.p + b.q + b.r; }
+
+// Scalars around struct words must keep their positions.
+function around(first: i64, p: Pair, last: i64) -> i64 {
+    return first * 100 + p.a * 10 + p.b + last * 1000;
+}
+
+// The callee gets a copy: writing the parameter must not touch the caller.
+function clobber(p: Pair) -> i64 {
+    p.a = 999;
+    p.b = 777;
+    return p.b;
+}
+
+function two(p: Pair, h: Half) -> i64 { return p.a * 1000 + p.b * 100 + h.lo * 10 + h.hi; }
+
+function pick(o: One) -> i64 { return o.v; }
+
+function main() {
+    var p: Pair = { .a = 10, .b = 20 };
+    print(sum_pair(p));
+
+    var h: Half = { .lo = 4, .hi = 7 };
+    print(sum_half(h));
+
+    var m: Mixed = { .a = 1, .b = 90, .c = 9 };
+    print(mixed_sum(m));
+
+    var t: Tri = { .x = 1, .y = 2, .z = 3 };
+    print(tri_sum(t));
+
+    var b: Bytes3 = { .p = 10, .q = 20, .r = 6 };
+    print(bytes_sum(b));
+
+    print(clobber(p));
+    // p unchanged
+    print(p.a + 1);
+    print(p.b + 2);
+
+    var n: Half = { .lo = -2, .hi = -3 };
+    print(sum_half(n));
+
+    var o: One = { .v = 100 };
+    print(pick(o));
+    print(around(1, p, 2));
+    print(two(p, h));
+    return(0);
+}

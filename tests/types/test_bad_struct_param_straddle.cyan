@@ -1,0 +1,15 @@
+// System V AMD64 passes a struct that does not fit in the remaining argument
+// registers entirely on the stack; that placement is not implemented yet.
+// TARGETS: x86_64
+// EXPECT-ERROR: would be split between argument registers and the stack
+
+struct Pair { var a: i64; var b: i64; };
+
+function f(a: i64, b: i64, c: i64, d: i64, e: i64, p: Pair) -> i64 {
+    return a + p.a;
+}
+
+function main() {
+    var p: Pair = { .a = 1, .b = 2 };
+    return(f(1, 2, 3, 4, 5, p));
+}

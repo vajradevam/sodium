@@ -1,0 +1,17 @@
+// RISC-V LP64 splits a 16-byte struct between the last argument register (a7)
+// and the first stack word (D-012, Y8b1).
+// TARGETS: riscv64
+// EXPECT-EXIT: 0
+// EXPECT-STDOUT: 36
+
+struct Pair { var a: i64; var b: i64; };
+
+function split(a: i64, b: i64, c: i64, d: i64, e: i64, f: i64, g: i64, p: Pair) -> i64 {
+    return a + b + c + d + e + f + g + p.a + p.b;
+}
+
+function main() {
+    var p: Pair = { .a = 8, .b = 0 };
+    print(split(1, 2, 3, 4, 5, 6, 7, p));
+    return(0);
+}

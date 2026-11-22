@@ -100,6 +100,12 @@ public:
         return dst;
     }
 
+    /// Store parameter word `ordinal` (shifted right by `shift_bits`) into the frame at
+    /// `fp_offset` (raw fp-relative byte offset), `width` bits wide.
+    void store_param(int64_t ordinal, int64_t shift_bits, int64_t fp_offset, IRWidth width) {
+        emit(IRInstruction::store_param(ordinal, shift_bits, fp_offset, width));
+    }
+
     uint32_t neg(IRValue src) {
         auto dst = new_vreg();
         emit(IRInstruction::unary(IROpcode::NEG, dst, src));

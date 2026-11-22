@@ -134,6 +134,13 @@ struct IRInstruction {
         return { IROpcode::LOAD_PARAM, dst, IRWidth::I64, {}, "", "", "", param_index, {} };
     }
 
+    static IRInstruction store_param(int64_t ordinal, int64_t shift_bits, int64_t fp_offset,
+                                      IRWidth width) {
+        return { IROpcode::STORE_PARAM, NONE_VREG, width,
+                 {IRValue::imm_i64(ordinal), IRValue::imm_i64(shift_bits)},
+                 "", "", "", fp_offset, {} };
+    }
+
     static IRInstruction ret(IRValue val) {
         return { IROpcode::RET, NONE_VREG, IRWidth::I64, {val}, "", "", "", 0, {} };
     }

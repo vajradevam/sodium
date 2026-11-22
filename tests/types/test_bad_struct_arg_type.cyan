@@ -1,0 +1,11 @@
+// EXPECT-ERROR: argument 1 to 'f' has type Color, expected Point
+
+struct Point { var x: i64; var y: i64; };
+struct Color { var r: i64; var g: i64; };
+
+function f(p: Point) -> i64 { return p.x; }
+
+function main() {
+    var c: Color = { .r = 1, .g = 2 };
+    return(f(c));
+}

@@ -24,6 +24,9 @@ struct TargetRegisterInfo {
     int ret_reg = 0;             ///< return value register (typically rax)
     int scratch_reg = 0;         ///< scratch register for spills
     int fp_reg = 0;              ///< frame pointer register
+    /// A multi-word struct argument may straddle the last argument register and the stack
+    /// (RISC-V LP64). System V AMD64 passes such a struct entirely on the stack instead.
+    bool split_struct_args = false;
     int fp_bias = 0;             ///< added to raw fp-relative spill offsets (riscv64: s0 sits 16 bytes above the
                                  ///< x86 rbp-equivalent because ra/s0 are saved below it)
 
@@ -174,6 +177,7 @@ struct TargetRegisterInfo {
         info.arg_regs = {10, 11, 12, 13, 14, 15, 16, 17};  // a0-a7
         info.ret_reg = 10;   // a0
         info.fp_reg = 8;     // s0
+        info.split_struct_args = true;
         info.fp_bias = -16;  // locals use addr_fp() (offset - 16); spill slots must match
         info.scratch_reg = 5;  // t0
 

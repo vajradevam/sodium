@@ -57,6 +57,7 @@ const char* ir_opcode_name(IROpcode op) {
         case IROpcode::BR:          return "br";
         case IROpcode::CALL:        return "call";
         case IROpcode::LOAD_PARAM:  return "load_param";
+        case IROpcode::STORE_PARAM: return "store_param";
         case IROpcode::RET:         return "ret";
         case IROpcode::RET_VOID:    return "ret_void";
         case IROpcode::SYSCALL:     return "syscall";
@@ -163,6 +164,13 @@ std::string IRInstruction::to_string() const {
             ss << " " << imm_arg;
             break;
 
+        case IROpcode::STORE_PARAM:
+            ss << " param" << operands[0].imm;
+            if (operands[1].imm != 0) ss << " >> " << operands[1].imm;
+            ss << " -> [fp" << (imm_arg < 0 ? " - " : " + ") << (imm_arg < 0 ? -imm_arg : imm_arg)
+               << "] i" << static_cast<int>(dst_width);
+            break;
+
         case IROpcode::PUSH_FRAME:
             ss << " " << imm_arg;
             break;
@@ -250,6 +258,7 @@ size_t IRInstruction::operand_count() const {
         case IROpcode::STORE_8:
         case IROpcode::STORE_16:
         case IROpcode::STORE_32:
+        case IROpcode::STORE_PARAM:
             return 2;
         case IROpcode::ADD:
         case IROpcode::SUB:

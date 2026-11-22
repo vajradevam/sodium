@@ -1,0 +1,25 @@
+// Four 16-byte structs (eight argument words) with live locals across the call:
+// register moves, spills and stack words must all stay in order (D-012, Y8b1).
+// EXPECT-EXIT: 0
+// EXPECT-STDOUT: 12345678
+// EXPECT-STDOUT: 36
+
+struct Pair { var a: i64; var b: i64; };
+
+function pack(p: Pair, q: Pair, r: Pair, s: Pair) -> i64 {
+    return p.a * 10000000 + p.b * 1000000 + q.a * 100000 + q.b * 10000
+         + r.a * 1000 + r.b * 100 + s.a * 10 + s.b;
+}
+
+function main() {
+    var p: Pair = { .a = 1, .b = 2 };
+    var q: Pair = { .a = 3, .b = 4 };
+    var r: Pair = { .a = 5, .b = 6 };
+    var s: Pair = { .a = 7, .b = 8 };
+    var live1 = 10;
+    var live2 = 11;
+    var live3 = 15;
+    print(pack(p, q, r, s));
+    print(live1 + live2 + live3);
+    return(0);
+}

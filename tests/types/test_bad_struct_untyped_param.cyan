@@ -1,0 +1,10 @@
+// EXPECT-ERROR: argument 1 to 'f' is a struct but the parameter is not declared as one
+
+struct Pair { var a: i64; var b: i64; };
+
+function f(p) { return 1; }
+
+function main() {
+    var p: Pair = { .a = 1, .b = 2 };
+    return(f(p));
+}

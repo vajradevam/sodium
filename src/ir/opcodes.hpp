@@ -96,6 +96,12 @@ enum class IROpcode : uint8_t {
     /// (argument register or stack slot) into a vreg.
     LOAD_PARAM,  // %dst = load_param(param_index)
 
+    /// Store an incoming parameter word straight from its ABI location (argument
+    /// register or stack slot) into a frame slot, without going through a vreg.
+    /// operands = {imm ordinal, imm shift_bits}; imm_arg = fp-relative byte offset;
+    /// dst_width = bytes stored. Used only at function entry.
+    STORE_PARAM, // store_param(ordinal >> shift) -> [fp + imm_arg]
+
     /// Return
     RET,         // ret %val
     RET_VOID,    // ret

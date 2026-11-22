@@ -1,0 +1,33 @@
+// Struct words keep their positions among scalar arguments, whether they land
+// in registers or on the stack (D-012, Y8b1).
+// EXPECT-EXIT: 0
+// EXPECT-STDOUT: 21
+// EXPECT-STDOUT: 4345
+// EXPECT-STDOUT: 28
+
+struct Half { var lo: i32; var hi: i32; };
+
+// Struct is the 6th argument word: last register on x86_64.
+function in_regs(a: i64, b: i64, c: i64, d: i64, e: i64, h: Half) -> i64 {
+    return a + b + c + d + e + h.lo + h.hi;
+}
+
+// Struct first, six scalars after it: the tail spills to the stack.
+function front(h: Half, a: i64, b: i64, c: i64, d: i64, e: i64, f: i64) -> i64 {
+    return h.lo * 1000 + h.hi * 100 + a + b + c + d + e + f;
+}
+
+// Struct is the 7th argument word: on the stack on x86_64.
+function on_stack(a: i64, b: i64, c: i64, d: i64, e: i64, f: i64, h: Half) -> i64 {
+    return a + b + c + d + e + f + h.lo + h.hi;
+}
+
+function main() {
+    var h: Half = { .lo = 3, .hi = 3 };
+    print(in_regs(1, 2, 3, 4, 5, h));
+    var k: Half = { .lo = 4, .hi = 3 };
+    print(front(k, 5, 6, 7, 8, 9, 10));
+    var m: Half = { .lo = 3, .hi = 4 };
+    print(on_stack(1, 2, 3, 4, 5, 6, m));
+    return(0);
+}

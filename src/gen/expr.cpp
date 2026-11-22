@@ -73,7 +73,10 @@ void Generator::gen_expr(const NodeExpr& expr)
             if (is_local) {
                 Type elem_type;
                 uint32_t elem_addr = gen->index_addr(*expr_index, elem_type);
-                uint32_t val = load_typed_field(gen->m_ir, elem_addr, elem_type);
+                // A struct element is a struct value: represented by its address.
+                uint32_t val = elem_type.kind == Type::Struct
+                                   ? elem_addr
+                                   : load_typed_field(gen->m_ir, elem_addr, elem_type);
                 gen->push_vreg(val);
                 gen->m_tstack.back() = elem_type;
                 return;
@@ -210,7 +213,10 @@ void Generator::gen_expr(const NodeExpr& expr)
         {
             Type field_type;
             uint32_t field_addr = gen->field_addr(*field_access, field_type);
-            uint32_t val = load_typed_field(gen->m_ir, field_addr, field_type);
+            // A nested struct field is a struct value: represented by its address.
+            uint32_t val = field_type.kind == Type::Struct
+                               ? field_addr
+                               : load_typed_field(gen->m_ir, field_addr, field_type);
             gen->push_vreg(val);
             gen->m_tstack.back() = field_type;
         }
@@ -471,9 +477,34 @@ void Generator::gen_expr(const NodeExpr& expr)
             }
             gen->check_call_args(*expr_call, expr_call->name.loc);
             // Pop in reverse to get evaluation order
-            for (size_t i = 0; i < expr_call->args.size(); i++) {
-                uint32_t arg = gen->pop_vreg();
-                args.insert(args.begin(), IRValue::vreg(arg));
+            const size_t n_args = expr_call->args.size();
+            std::vector<uint32_t> arg_vregs(n_args);
+            std::vector<Type> arg_types(n_args);
+            for (size_t i = n_args; i-- > 0;) {
+                arg_types[i] = gen->peek_type();
+                arg_vregs[i] = gen->pop_vreg();
+            }
+            // Struct arguments are passed as 8-byte words in consecutive argument
+            // positions (D-012); everything else is one word.
+            const NodeFuncDef* callee = gen->find_func(fname);
+            for (size_t i = 0; i < n_args; i++) {
+                if (arg_types[i].kind != Type::Struct) {
+                    args.push_back(IRValue::vreg(arg_vregs[i]));
+                    continue;
+                }
+                const bool wants_struct = callee && i < callee->param_types.size()
+                    && callee->param_types[i] && callee->param_types[i]->kind == Type::Struct;
+                if (!wants_struct) {
+                    gen->fail(expr_call->name.loc, "argument " + std::to_string(i + 1) + " to '"
+                              + fname + "' is a struct but the parameter is not declared as one");
+                }
+                const std::string& sname = arg_types[i].struct_name;
+                auto info = gen->get_struct_info(sname);
+                if (!info.has_value()) gen->fail(expr_call->name.loc, "Unknown struct type: " + sname);
+                gen->check_struct_by_value(*info, sname, args.size(), expr_call->name.loc);
+                for (size_t w = 0; w < Generator::struct_words(info->size); w++) {
+                    args.push_back(IRValue::vreg(gen->load_struct_word(arg_vregs[i], *info, w)));
+                }
             }
 
             uint32_t result = gen->m_ir.call(fname, args);

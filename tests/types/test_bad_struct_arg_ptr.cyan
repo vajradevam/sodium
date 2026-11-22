@@ -1,0 +1,12 @@
+// A pointer to a struct is not a struct value.
+// EXPECT-ERROR: argument 1 to 'f' has type Point*, expected Point
+
+struct Point { var x: i64; var y: i64; };
+
+function f(p: Point) -> i64 { return p.x; }
+
+function main() {
+    var s: Point = { .x = 1, .y = 2 };
+    var q: Point* = &s;
+    return(f(q));
+}

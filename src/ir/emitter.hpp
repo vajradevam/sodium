@@ -387,6 +387,37 @@ public:
                 break;
             }
 
+            case IROpcode::STORE_PARAM: {
+                // Store parameter word (argument register or stack slot) directly to
+                // its frame slot. Only the scratch register is used as a temporary, so
+                // no argument register that is still unread can be clobbered.
+                const size_t n_arg_regs = m_tri.arg_regs.size();
+                const size_t ordinal = static_cast<size_t>(insn.operands[0].imm);
+                const int64_t shift = insn.operands[1].imm;
+                const std::string tmp = m_tri.name_of(m_tri.scratch_reg);
+                std::string src;
+                if (ordinal < n_arg_regs) {
+                    src = m_tri.name_of(m_tri.arg_regs[ordinal]);
+                } else {
+                    int offset = static_cast<int>(16 + (ordinal - n_arg_regs) * 8);
+                    m_backend.load(tmp, m_backend.addr_fp(offset));
+                    src = tmp;
+                }
+                if (shift != 0) {
+                    if (src != tmp) m_backend.mov(tmp, src);
+                    m_backend.shr(tmp, std::to_string(shift));
+                    src = tmp;
+                }
+                const std::string addr = m_backend.addr_fp(static_cast<int>(insn.imm_arg));
+                switch (insn.dst_width) {
+                    case IRWidth::I8:  m_backend.store_8(addr, src); break;
+                    case IRWidth::I16: m_backend.store_16(addr, src); break;
+                    case IRWidth::I32: m_backend.store_32(addr, src); break;
+                    case IRWidth::I64: m_backend.store(addr, src); break;
+                }
+                break;
+            }
+
             case IROpcode::RET: {
                 // Move return value to return register
                 if (!insn.operands.empty()) {

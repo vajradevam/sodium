@@ -14,6 +14,11 @@ void Generator::load_var_to_vstack(const std::string& name) {
                 // Array-to-pointer decay: yield the address of element 0.
                 uint32_t addr = var_addr(var);
                 push_vreg(addr);
+                if (!var.struct_type.empty()) {
+                    // A struct value is represented by the address of its bytes.
+                    m_tstack.back() = var.type;
+                    return;
+                }
                 Type* pointee = alloc_type(var.type);
                 m_tstack.back() = Type::make_ptr(pointee);
                 return;

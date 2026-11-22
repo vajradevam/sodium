@@ -65,15 +65,14 @@ void Generator::gen_func_def(const NodeFuncDef& func)
     m_current_func_name = func.name.value.value();
     m_func_epilogue_label = ".L" + func.name.value.value() + "_epilogue";
 
-    // Process parameters: allocate frame slots and load from stack
+    // Process parameters: allocate frame slots and load from their ABI locations.
+    // `ordinal` counts argument words: a struct parameter of N bytes occupies
+    // ceil(N/8) consecutive ordinals (D-012).
+    size_t ordinal = 0;
     for (size_t i = 0; i < func.params.size(); i++) {
         std::string param_name = func.params[i].value.value();
         auto& scope = m_scopes.back();
 
-        // Parameters use 8-byte, 8-aligned slots; the value is stored at the
-        // variable's own width so loads through var_addr() see it.
-        uint32_t offset = static_cast<uint32_t>(align_frame(m_next_frame_offset, 8));
-        m_next_frame_offset = offset + 8;
         // Declared types take precedence; otherwise use call-site inference.
         if (i >= func.param_types.size() || !func.param_types[i]) {
             m_diag.warning(func.params[i].loc, "untyped parameter '" + param_name
@@ -88,20 +87,38 @@ void Generator::gen_func_def(const NodeFuncDef& func)
                 param_type = inferred_it->second[i];
             }
         }
+
+        if (param_type.kind == Type::Struct) {
+            auto info = get_struct_info(param_type.struct_name);
+            if (!info.has_value()) fail(func.params[i].loc, "Unknown struct type: " + param_type.struct_name);
+            check_struct_by_value(*info, param_type.struct_name, ordinal, func.params[i].loc);
+            uint32_t slot = alloc_object(info->size);
+            scope.vars[param_name] = Var { .stack_loc = slot, .array_size = info->size,
+                .type = param_type, .struct_type = param_type.struct_name,
+                .decl_loc = func.params[i].loc, .is_param = true, .dim_sizes = {} };
+            scope.var_count += info->size;
+            for (size_t w = 0; w < struct_words(info->size); w++) {
+                store_param_word(scope.vars.at(param_name), *info, w, ordinal++);
+            }
+            continue;
+        }
+
+        // Parameters use 8-byte, 8-aligned slots; the value is stored at the
+        // variable's own width so loads through var_addr() see it.
+        uint32_t offset = static_cast<uint32_t>(align_frame(m_next_frame_offset, 8));
+        m_next_frame_offset = offset + 8;
         scope.vars[param_name] = Var { .stack_loc = offset, .type = param_type, .struct_type = "",
                                         .decl_loc = func.params[i].loc, .is_param = true, .dim_sizes = {} };
         scope.var_count++;
 
-        // Load parameter from ABI-defined location (argument register or stack)
-        // using the target-agnostic LOAD_PARAM opcode.
-        uint32_t param_val = m_ir.load_param(static_cast<int64_t>(i));
-        uint32_t slot_addr = var_addr(scope.vars.at(param_name));
-        switch (param_type.kind == Type::Int ? type_size(param_type) : 8) {
-            case 1:  m_ir.store_8(IRValue::vreg(slot_addr), 0, IRValue::vreg(param_val)); break;
-            case 2:  m_ir.store_16(IRValue::vreg(slot_addr), 0, IRValue::vreg(param_val)); break;
-            case 4:  m_ir.store_32(IRValue::vreg(slot_addr), 0, IRValue::vreg(param_val)); break;
-            default: m_ir.store(IRValue::vreg(slot_addr), 0, IRValue::vreg(param_val)); break;
-        }
+        // Store the incoming word (argument register or stack slot) straight into
+        // the frame slot at the variable's own width (STORE_PARAM, no vreg involved).
+        const Var& pvar = scope.vars.at(param_name);
+        const size_t pbytes = param_type.kind == Type::Int ? type_size(param_type) : 8;
+        m_ir.store_param(static_cast<int64_t>(ordinal++), 0,
+                         -static_cast<int64_t>(pvar.stack_loc + frame_bytes(pvar)),
+                         pbytes == 1 ? IRWidth::I8 : pbytes == 2 ? IRWidth::I16
+                                     : pbytes == 4 ? IRWidth::I32 : IRWidth::I64);
     }
 
     for (const auto& s : func.body->stmts) {
@@ -270,9 +287,11 @@ std::string Generator::gen_prog_impl()
     // Populate struct type information with C-rule byte layout. Earlier
     // structs are laid out first so nested fields use their real sizes.
     std::unordered_map<std::string, size_t> struct_sizes;
+    std::unordered_map<std::string, size_t> struct_aligns;
     for (const auto* sd : m_prog.structs) {
-        StructInfo info = StructInfo::compute_layout(sd->fields, sd->field_types, struct_sizes);
+        StructInfo info = StructInfo::compute_layout(sd->fields, sd->field_types, struct_sizes, struct_aligns);
         struct_sizes[sd->name.value.value()] = info.size;
+        struct_aligns[sd->name.value.value()] = info.align;
         m_struct_types[sd->name.value.value()] = info;
     }
 

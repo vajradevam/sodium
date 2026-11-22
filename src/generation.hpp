@@ -66,12 +66,14 @@ struct StructInfo {
     std::vector<std::string> field_names;
     std::unordered_map<std::string, size_t> field_offsets; // byte offsets from struct base
     std::vector<Type> field_types;
+    size_t align = 1; // alignment in bytes (max field alignment, capped at 8)
 
     /// C-rule layout: natural alignment, internal and trailing padding.
     static StructInfo compute_layout(
         const std::vector<Token>& names,
         const std::vector<std::optional<Type>>& types,
-        const std::unordered_map<std::string, size_t>& struct_sizes = {}) {
+        const std::unordered_map<std::string, size_t>& struct_sizes = {},
+        const std::unordered_map<std::string, size_t>& struct_aligns = {}) {
         StructInfo info;
         size_t offset = 0;
         size_t struct_align = 1;
@@ -84,6 +86,10 @@ struct StructInfo {
                 if (known != struct_sizes.end()) sz = known->second;
             }
             size_t align = sz < 8 ? sz : 8;
+            if (t.kind == Type::Struct) {
+                auto known_align = struct_aligns.find(t.struct_name);
+                if (known_align != struct_aligns.end()) align = known_align->second;
+            }
             offset = (offset + align - 1) & ~(align - 1);
             info.field_names.push_back(names[i].value.value());
             info.field_offsets[names[i].value.value()] = offset;
@@ -92,6 +98,7 @@ struct StructInfo {
             if (align > struct_align) struct_align = align;
         }
         info.size = (offset + struct_align - 1) & ~(struct_align - 1);
+        info.align = struct_align;
         return info;
     }
 };
@@ -148,6 +155,17 @@ public:
     uint32_t var_addr(const Var& var);
     /// Reserve `bytes` of frame storage for an array/struct (8-byte aligned); returns its slot.
     uint32_t alloc_object(size_t bytes);
+
+    /// Struct-by-value ABI (D-012, Y8b): number of 8-byte argument words for a struct.
+    static size_t struct_words(size_t bytes) { return (bytes + 7) / 8; }
+    /// Reject structs that cannot be passed by value at word position `first_word`.
+    void check_struct_by_value(const StructInfo& info, const std::string& name,
+                               size_t first_word, SourceLoc loc) const;
+    /// Read word `word` of the struct at address `base` (only real bytes are read).
+    uint32_t load_struct_word(uint32_t base, const StructInfo& info, size_t word);
+    /// Function entry: store incoming argument word `ordinal` into word `word` of a
+    /// struct parameter's frame slot (only real bytes are written).
+    void store_param_word(const Var& var, const StructInfo& info, size_t word, size_t ordinal);
 
     /// Compute the byte address of a (possibly chained) field access and
     /// return its declared type through `out_type`.
