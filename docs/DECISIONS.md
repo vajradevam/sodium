@@ -174,3 +174,11 @@ used. The runtime provides generic `_sodium_syscall3/4` stubs per backend plus a
 that supplies the per-architecture syscall numbers. RISC-V has no `open`/`unlink` syscall, so those
 map to `openat`/`unlinkat` with `AT_FDCWD`. Flag values use the Linux generic (`asm-generic`) values,
 which coincide on x86_64 and riscv64. Arity is checked at compile time.
+
+## D-018 io.cyan conventions (L4b)
+`cyanlib/io.cyan` builds higher-level helpers on the raw D-017 builtins. `io_write_file` returns
+0 on success and a negative code on open/write failure; `io_read_file` returns a malloc'd,
+NUL-terminated buffer (caller frees it) or null. `io_next_line` truncates to `cap-1` bytes and
+returns the position after the newline (or -1 at EOF). `eprint`/`eprintln` write to fd 2, and
+`io_perror(msg, code)` reports on stderr and returns `code` for `main` to return as the exit status.
+There is no user-facing `exit()` builtin: a program's exit code is its `main` return value.

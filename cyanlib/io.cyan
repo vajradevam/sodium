@@ -1,0 +1,104 @@
+// ──────────────────────────────────────────────────────────────────────────────
+// io.cyan — file and stderr helpers built on the raw syscalls (D-017).
+//
+// Include it with:
+//     #include "io.cyan"
+//
+// Buffers returned by io_read_file() are malloc'd and must be freed by the
+// caller. Status helpers return a code for main to return as the exit code;
+// there is no separate errno variable.
+// ──────────────────────────────────────────────────────────────────────────────
+
+#pragma once
+
+#include "string.cyan"
+
+const IO_RDONLY  = 0;
+const IO_WRONLY  = 1;
+const IO_RDWR    = 2;
+const IO_CREAT   = 64;
+const IO_TRUNC   = 512;
+const IO_APPEND  = 1024;
+const IO_SEEK_SET = 0;
+const IO_SEEK_CUR = 1;
+const IO_SEEK_END = 2;
+const IO_STDIN   = 0;
+const IO_STDOUT  = 1;
+const IO_STDERR  = 2;
+
+// eprint(s) — write a NUL-terminated string to stderr without a newline.
+function eprint(s: u8*) {
+    sys_write(IO_STDERR, s, strlen(s));
+    return(0);
+}
+
+// eprintln(s) — as eprint, with a trailing newline.
+function eprintln(s: u8*) {
+    eprint(s);
+    eprint("\n");
+    return(0);
+}
+
+// io_write_file(path, buf, n) — create/truncate path and write n bytes.
+// Returns 0 on success, -1 if the file could not be opened, -2 on a short
+// write or a failed close.
+function io_write_file(path: u8*, buf: u8*, n: i64) -> i64 {
+    var fd = sys_open(path, IO_WRONLY + IO_CREAT + IO_TRUNC, 420);  // 0644
+    if (fd < 0) { return(-1); }
+    var written = sys_write(fd, buf, n);
+    var closed = sys_close(fd);
+    if (written != n || closed != 0) { return(-2); }
+    return(0);
+}
+
+// io_read_file(path) — read the whole file into a NUL-terminated malloc'd
+// buffer, or null if the file cannot be opened, seeked or fully read.
+function io_read_file(path: u8*) -> u8* {
+    var fd = sys_open(path, IO_RDONLY, 0);
+    if (fd < 0) { return(null); }
+    var size = sys_lseek(fd, 0, IO_SEEK_END);
+    if (size < 0 || sys_lseek(fd, 0, IO_SEEK_SET) != 0) {
+        sys_close(fd);
+        return(null);
+    }
+    var buf = malloc(size + 1);
+    if (buf == null) {
+        sys_close(fd);
+        return(null);
+    }
+    var got = sys_read(fd, buf, size);
+    sys_close(fd);
+    if (got != size) {
+        free(buf);
+        return(null);
+    }
+    *(buf + size) = 0;
+    return(buf);
+}
+
+// io_next_line(buf, pos, out, cap) — copy the line beginning at `pos` into
+// `out` (without its newline), NUL-terminated and truncated to cap-1 bytes.
+// Returns the position just past the newline, or -1 at end of input.
+function io_next_line(buf: u8*, pos: i64, out: u8*, cap: i64) -> i64 {
+    if (cap <= 0 || *(buf + pos) == 0) { return(-1); }
+    var j = 0;
+    while (*(buf + pos + j) != 0 && *(buf + pos + j) != 10) { j = j + 1; }
+    var n = j;
+    if (n > cap - 1) { n = cap - 1; }
+    var i = 0;
+    while (i < n) {
+        *(out + i) = *(buf + pos + i);
+        i = i + 1;
+    }
+    *(out + n) = 0;
+    var next = pos + j;
+    if (*(buf + next) == 10) { next = next + 1; }
+    return(next);
+}
+
+// io_perror(msg, code) — report msg on stderr and return code, so main can
+// write `return(io_perror("failed", 1));`.
+function io_perror(msg: u8*, code: i64) -> i64 {
+    eprintln(msg);
+    return(code);
+}

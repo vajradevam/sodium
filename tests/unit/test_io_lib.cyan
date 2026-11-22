@@ -1,0 +1,49 @@
+// EXPECT-EXIT: 0
+// EXPECT-STDOUT: alpha
+// EXPECT-STDOUT: beta
+// EXPECT-STDOUT:
+// EXPECT-STDOUT: gamma
+// EXPECT-STDOUT: 0
+// ARGS: /tmp/opencode/cyan_l4b_io.txt
+
+// cyanlib/io.cyan: whole-file read/write, line iteration, stderr and status.
+#include "io.cyan"
+
+function main() {
+    var path = argv(1);
+    var msg = "alpha\nbeta\n\ngamma";
+    if (io_write_file(path, msg, strlen(msg)) != 0) { return(1); }
+
+    var data = io_read_file(path);
+    if (data == null) { return(2); }
+    if (strcmp(data, msg) != 0) { return(3); }
+
+    var line: u8[64];
+    var pos = io_next_line(data, 0, line, 64);
+    print("%s", line);
+    pos = io_next_line(data, pos, line, 64);
+    print("%s", line);
+    pos = io_next_line(data, pos, line, 64);
+    print("%s", line);
+    pos = io_next_line(data, pos, line, 64);
+    print("%s", line);
+    if (io_next_line(data, pos, line, 64) != -1) { return(4); }
+    var short_pos = io_next_line(data, 0, line, 3);
+    if (strcmp(line, "al") != 0 || short_pos != 6) { return(9); }
+    if (io_perror("status", 7) != 7) { return(10); }
+    free(data);
+
+    if (sys_unlink(path) != 0) { return(5); }
+    if (io_read_file(path) != null) { return(6); }
+
+    var empty = "";
+    if (io_write_file(path, empty, 0) != 0) { return(7); }
+    var ed = io_read_file(path);
+    if (ed == null) { return(8); }
+    print(strlen(ed));
+    free(ed);
+    sys_unlink(path);
+
+    eprintln("io ok");
+    return(0);
+}
