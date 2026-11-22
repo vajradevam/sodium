@@ -7,6 +7,7 @@
 #include <optional>
 #include <string>
 #include <unordered_map>
+#include <unordered_set>
 #include <variant>
 #include <vector>
 #include <memory>
@@ -106,6 +107,12 @@ public:
     /// AST flow pass: unreachable statements and missing returns (E3c).
     void check_flow_warnings();
 
+    /// Warn when a constant initializer does not fit the declared type (E3d).
+    void check_narrowing_assign(Type target, const NodeExpr* value, SourceLoc loc);
+
+    /// Warn when the result of a pure function call is discarded (E3d).
+    void warn_unused_result(const NodeExpr& expr, SourceLoc loc);
+
     void enter_scope();
     void exit_scope();
 
@@ -171,6 +178,8 @@ private:
     std::unordered_map<std::string, Var> m_global_var_info;
     std::unordered_map<std::string, int64_t> m_constants;
     std::unordered_map<std::string, bool> m_func_names;
+    /// Functions that return a value and have no observable side effects.
+    std::unordered_set<std::string> m_pure_value_funcs;
     std::unordered_map<std::string, StructInfo> m_struct_types;
     std::vector<GlobalInit> m_global_inits;
     struct DataEntry {

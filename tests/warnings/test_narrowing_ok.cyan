@@ -1,0 +1,10 @@
+// NO-WARNING: narrowing assignment
+// NO-WARNING: unused result
+// EXPECT-EXIT: 0
+
+function main() {
+    var x: i8 = 100;
+    x = -5;
+    print(x);
+    return(0);
+}

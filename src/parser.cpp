@@ -672,6 +672,7 @@ NodeBlock* Parser::parse_block()
         if (!cond) {
             error("Expected expression in if condition");
         }
+        warn_assignment_in_condition();
         if (!peek().has_value() || peek().value().type != TokenType::close_paren) {
             error("Expected ')' after if condition");
         }
@@ -708,6 +709,7 @@ std::optional<NodeStmt> Parser::parse_while_stmt()
         if (!cond) {
             error("Expected expression in while condition");
         }
+        warn_assignment_in_condition();
         if (!peek().has_value() || peek().value().type != TokenType::close_paren) {
             error("Expected ')' after while condition");
         }
@@ -740,6 +742,7 @@ std::optional<NodeStmt> Parser::parse_do_while_stmt()
         if (!cond) {
             error("Expected expression in do-while condition");
         }
+        warn_assignment_in_condition();
 
         if (!peek().has_value() || peek().value().type != TokenType::close_paren) {
             error("Expected ')' after do-while condition");
@@ -768,6 +771,7 @@ std::optional<NodeStmt> Parser::parse_switch_stmt()
         if (!expr) {
             error("Expected expression in switch");
         }
+        warn_assignment_in_condition();
         if (!peek().has_value() || peek().value().type != TokenType::close_paren) {
             error("Expected ')' after switch expression");
         }
@@ -1039,6 +1043,7 @@ std::optional<NodeStmt> Parser::parse_for_stmt()
                 error("Invalid expression in for condition");
             }
             cond = c.value();
+            warn_assignment_in_condition();
         }
 
         if (!peek().has_value() || peek().value().type != TokenType::semi) {
@@ -1712,6 +1717,13 @@ std::optional<NodeStmt> Parser::parse_stmt() {
         } else {
             return {};
         }
+}
+
+void Parser::warn_assignment_in_condition() {
+    if (!peek().has_value() || peek().value().type != TokenType::eq) return;
+    Token eq_token = peek().value();
+    m_diag.warning(eq_token.loc, "'=' in condition; did you mean '=='?");
+    m_diag.add_fixit({eq_token.loc, "=="});
 }
 
 std::optional<NodeProg> Parser::parse_prog() {

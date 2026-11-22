@@ -1,0 +1,11 @@
+// COMPILE-FLAGS: -w
+// EXPECT-ERROR: Expected ')' after if condition
+// NO-WARNING: '=' in condition
+
+function main() {
+    var x = 0;
+    if (x = 1) {
+        print(1);
+    }
+    return(0);
+}

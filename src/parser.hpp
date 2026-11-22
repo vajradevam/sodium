@@ -378,6 +378,9 @@ private:
 
     [[noreturn]] void error(const std::string& msg);
 
+    /// Warn when an '=' appears where a comparison was meant in a condition.
+    void warn_assignment_in_condition();
+
     /// Check if a token type is an assignment operator (=, +=, -=, *=, etc.)
     static bool is_assign_op(TokenType t);
     /// Convert an assignment-operator token to the AssignOp enum.

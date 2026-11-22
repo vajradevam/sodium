@@ -1,0 +1,11 @@
+// EXPECT-WARNING: unused result of function 'answer'
+
+function answer() {
+    return(42);
+}
+
+function main() {
+    answer();
+    print(0);
+    return(0);
+}

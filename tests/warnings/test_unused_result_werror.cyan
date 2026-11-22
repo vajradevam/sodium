@@ -1,0 +1,11 @@
+// COMPILE-FLAGS: -Werror
+// EXPECT-ERROR: unused result of function 'answer'
+
+function answer() {
+    return(42);
+}
+
+function main() {
+    answer();
+    return(0);
+}

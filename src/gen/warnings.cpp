@@ -1,5 +1,7 @@
 #include "../generation.hpp"
 
+#include <cstdint>
+
 // ==========================================================================
 // Flow-insensitive warning pass: unreachable code and missing returns (E3c).
 // This runs over the AST before code generation so it cannot perturb IR.
@@ -118,11 +120,100 @@ struct FlowAnalyzer {
     }
 };
 
+// Collect functions that return a value without observable side effects.
+// A discarded call to one of these is almost certainly a bug (E3d).
+struct PureValueScanner {
+    bool returns_value = false;
+    bool impure = false;
+
+    void scan_stmt(const NodeStmt& stmt) {
+        if (auto* r = std::get_if<NodeStmtReturn*>(&stmt.var)) {
+            if ((*r)->expr) returns_value = true;
+        } else if (std::holds_alternative<NodeStmtPrint*>(stmt.var) ||
+                   std::holds_alternative<NodeStmtExit*>(stmt.var) ||
+                   std::holds_alternative<NodeStmtAssign*>(stmt.var) ||
+                   std::holds_alternative<NodeStmtFieldAssign*>(stmt.var) ||
+                   std::holds_alternative<NodeStmtDerefAssign*>(stmt.var) ||
+                   std::holds_alternative<NodeStmtArrAssign*>(stmt.var) ||
+                   std::holds_alternative<NodeStmtExpr*>(stmt.var)) {
+            impure = true;
+        } else if (auto* b = std::get_if<NodeStmtBlock*>(&stmt.var)) {
+            scan_block((*b)->block->stmts);
+        } else if (auto* i = std::get_if<NodeStmtIf*>(&stmt.var)) {
+            scan_block((*i)->then_block->stmts);
+            if ((*i)->else_block) scan_block((*i)->else_block->stmts);
+        } else if (auto* w = std::get_if<NodeStmtWhile*>(&stmt.var)) {
+            scan_block((*w)->body->stmts);
+        } else if (auto* d = std::get_if<NodeStmtDoWhile*>(&stmt.var)) {
+            scan_block((*d)->body->stmts);
+        } else if (auto* f = std::get_if<NodeStmtFor*>(&stmt.var)) {
+            scan_block((*f)->body->stmts);
+        } else if (auto* s = std::get_if<NodeStmtSwitch*>(&stmt.var)) {
+            for (const auto& c : (*s)->cases) scan_block(c.stmts);
+        }
+    }
+
+    void scan_block(const std::vector<NodeStmt>& stmts) {
+        for (const auto& s : stmts) scan_stmt(s);
+    }
+};
+
+const char* int_type_name(IntType t) {
+    switch (t) {
+        case IntType::i8:  return "i8";
+        case IntType::u8:  return "u8";
+        case IntType::i16: return "i16";
+        case IntType::u16: return "u16";
+        case IntType::i32: return "i32";
+        case IntType::u32: return "u32";
+        case IntType::i64: return "i64";
+        case IntType::u64: return "u64";
+    }
+    return "int";
+}
+
 } // namespace
+
+void Generator::check_narrowing_assign(Type target, const NodeExpr* value, SourceLoc loc) {
+    if (!value || target.kind != Type::Int) return;
+    auto constant = eval_const_expr(value);
+    if (!constant.has_value()) return;
+
+    int64_t v = constant.value();
+    int64_t lo = 0, hi = 0;
+    bool bounded = true;
+    switch (target.int_type) {
+        case IntType::i8:  lo = -128;   hi = 127;    break;
+        case IntType::u8:  lo = 0;      hi = 255;    break;
+        case IntType::i16: lo = -32768; hi = 32767;  break;
+        case IntType::u16: lo = 0;      hi = 65535;  break;
+        case IntType::i32: lo = INT32_MIN; hi = INT32_MAX; break;
+        case IntType::u32: lo = 0;      hi = UINT32_MAX;   break;
+        default: bounded = false; break;
+    }
+    if (bounded && (v < lo || v > hi)) {
+        m_diag.warning(loc, std::string("narrowing assignment to ") + int_type_name(target.int_type)
+                            + ": value " + std::to_string(v) + " is out of range");
+    }
+}
+
+void Generator::warn_unused_result(const NodeExpr& expr, SourceLoc loc) {
+    auto* call = std::get_if<NodeExprCall*>(&expr.var);
+    if (!call) return;
+    const std::string& name = (*call)->name.value.value();
+    if (m_pure_value_funcs.contains(name)) {
+        m_diag.warning(loc, "unused result of function '" + name + "'");
+    }
+}
 
 void Generator::check_flow_warnings() {
     FlowAnalyzer analyzer{m_diag};
     for (const auto* func : m_prog.funcs) {
+        PureValueScanner purity;
+        purity.scan_block(func->body->stmts);
+        if (purity.returns_value && !purity.impure) {
+            m_pure_value_funcs.insert(func->name.value.value());
+        }
         Flow flow = analyzer.analyze_block(func->body->stmts);
         // main() is special-cased by the generator: falling off the end is
         // defined to exit(0), so it needs no return warning.

@@ -61,3 +61,12 @@ reset whenever a refill succeeds or buffered data is available.
 Self-hosting is attempted only after: typed params/returns, typed struct fields, arrays of structs,
 nested structs, function pointers, enums, a string library, file I/O, a growable heap. Phase 9 stages
 must each be verified by running the stage-N output against the full test suite.
+
+## D-009 Warning policy (E3)
+Warnings are emitted by default; `-w` suppresses them and `-Werror` promotes them to errors
+(a promoted warning is rendered with severity `error` and makes compilation fail). Implemented
+warnings: unused variable, unused parameter, unreachable code, missing return (functions other
+than `main`, which is defined to exit(0) when it falls off the end), narrowing assignment (a
+compile-time constant does not fit the declared integer type), unused result of a value-returning
+function with no observable side effects, and `=` in condition (with a `==` fix-it). An `=` in a
+condition is still a syntax error; its warning is a hint about the likely typo.

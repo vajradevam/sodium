@@ -1,0 +1,8 @@
+// EXPECT-WARNING: narrowing assignment
+
+function main() {
+    var x: u8 = 1;
+    x = 256;
+    print(x);
+    return(0);
+}

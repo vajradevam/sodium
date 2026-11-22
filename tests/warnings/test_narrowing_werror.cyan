@@ -1,0 +1,8 @@
+// COMPILE-FLAGS: -Werror
+// EXPECT-ERROR: narrowing assignment
+
+function main() {
+    var x: i8 = 300;
+    print(x);
+    return(0);
+}
