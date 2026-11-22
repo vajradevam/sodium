@@ -65,6 +65,7 @@ int main(int argc, char* argv[]) {
     bool print_ast_flag = false;
     bool emit_ir_flag = false;
     bool verify_ir_flag = false;
+    bool dump_regalloc_flag = false;
     bool no_alloc_flag = false;
     int opt_level = 0;           // -O0 (default) or -O1
     bool emit_asm_only = false;     // -S: stop after assembly
@@ -79,7 +80,7 @@ int main(int argc, char* argv[]) {
     bool color_forced_off = false;   // -fno-color-diagnostics or NO_COLOR
 
     auto usage = []() {
-        std::cerr << "Usage: sodium [--target <arch>] [--print-ast] [--emit-ir] [--verify-ir] [-O0|-O1] [--no-alloc] [-o <file>] [-S] [-I <dir>] [--cyanlib-dir <dir>] [-w] [-Werror] [-fcolor-diagnostics] <filename.cyan>" << std::endl;
+        std::cerr << "Usage: sodium [--target <arch>] [--print-ast] [--emit-ir] [--verify-ir] [--dump-regalloc] [-O0|-O1] [--no-alloc] [-o <file>] [-S] [-I <dir>] [--cyanlib-dir <dir>] [-w] [-Werror] [-fcolor-diagnostics] <filename.cyan>" << std::endl;
     };
 
     for (int i = 1; i < argc; i++) {
@@ -89,6 +90,8 @@ int main(int argc, char* argv[]) {
             emit_ir_flag = true;
         } else if (std::strcmp(argv[i], "--verify-ir") == 0) {
             verify_ir_flag = true;
+        } else if (std::strcmp(argv[i], "--dump-regalloc") == 0) {
+            dump_regalloc_flag = true;
         } else if (std::strcmp(argv[i], "-O0") == 0) {
             opt_level = 0;
         } else if (std::strcmp(argv[i], "-O1") == 0) {
@@ -370,6 +373,7 @@ int main(int argc, char* argv[]) {
         generator.set_no_alloc(no_alloc_flag);
         generator.set_emit_ir(emit_ir_flag);
         generator.set_verify_ir(verify_ir_flag);
+        generator.set_dump_regalloc(dump_regalloc_flag);
         generator.set_opt_level(opt_level);
         (void)generator.gen_prog();  // writes to backend stream
         asm_output = asm_stream.str();

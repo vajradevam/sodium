@@ -35,6 +35,11 @@ struct RegisterAllocation {
     /// Total stack slots needed (spills + callee-save pushes).
     uint32_t total_stack_slots = 0;
 
+    /// Counters exposed by --dump-regalloc for allocator benchmarks.
+    size_t vreg_count = 0;
+    size_t spill_count = 0;
+    size_t callee_save_count = 0;
+
     const RegAllocEntry& get(uint32_t vreg) const {
         static RegAllocEntry unallocated;
         auto it = entries.find(vreg);
@@ -131,9 +136,18 @@ public:
             }
         }
 
-        // Step 3: Assign stack slots and allocate scratch register for spills.
-        // Recompute total stack slots.
+        // Step 3: Assign stack slots and count what happened.
         m_allocation.total_stack_slots = m_next_spill_slot;
+        const std::vector<int> callee_save = m_tri.callee_save_regs();
+        for (const auto& [vreg, entry] : m_allocation.entries) {
+            (void)vreg;
+            if (entry.is_spilled()) ++m_allocation.spill_count;
+            else if (std::find(callee_save.begin(), callee_save.end(), entry.preg) !=
+                     callee_save.end()) {
+                ++m_allocation.callee_save_count;
+            }
+        }
+        m_allocation.vreg_count = m_allocation.entries.size();
 
         return m_allocation;
     }

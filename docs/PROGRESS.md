@@ -251,3 +251,11 @@ a MOD, and the allocator placed it in rax, which idiv clobbers. Added `LiveRange
 and made linear scan give those ranges callee-save registers; a C++ case checks both targets.
 `scripts/check.sh --full` green: 669 -> 671 passed, 0 failed, 10 skipped at both levels;
 248 -> 249 C++ cases / 4193 checks; sweep 2040 -> 2046 invocations, 0 crashes; ASan/UBSan clean.
+
+## 2026-11-22 — O6a Regalloc measurement
+Added spill/callee-save/vreg counters to `RegisterAllocation` and a `--dump-regalloc` CLI flag
+that prints one line per function. `scripts/bench_regalloc.sh` compiles a fixed set of five
+programs at -O1 on both targets and reports totals; the current baseline is 248 functions,
+2 spills, 301693 callee-save assignments. Added 4 allocator unit tests (no spills in a simple
+function, pressure with one register, call-spanning and DIV-crossing callee-save use).
+`scripts/check.sh` green; O6b (heuristic improvement) is still pending.

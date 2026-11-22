@@ -188,6 +188,7 @@ public:
     void set_no_alloc(bool v) { m_no_alloc = v; }
     void set_emit_ir(bool v) { m_emit_ir = v; }
     void set_verify_ir(bool v) { m_verify_ir = v; }
+    void set_dump_regalloc(bool v) { m_dump_regalloc = v; }
     void set_opt_level(int level) { m_opt_level = level; }
 
     [[nodiscard]] std::string gen_prog();
@@ -382,6 +383,7 @@ private:
     bool m_no_alloc = false;
     bool m_emit_ir = false;
     bool m_verify_ir = false;
+    bool m_dump_regalloc = false;
     int m_opt_level = 0;
 
     // ---- IR state ----

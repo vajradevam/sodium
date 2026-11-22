@@ -56,6 +56,14 @@ void Generator::flush_function() {
         return alloc.allocate(*func);
     }();
 
+    if (m_dump_regalloc) {
+        std::cerr << "regalloc " << func_name
+                  << " vregs=" << allocation.vreg_count
+                  << " spills=" << allocation.spill_count
+                  << " callee=" << allocation.callee_save_count
+                  << " slots=" << allocation.total_stack_slots << "\n";
+    }
+
     IRRewriter rewriter(*m_tri_ptr, allocation, *func);
     rewriter.rewrite();
 
