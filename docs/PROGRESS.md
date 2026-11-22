@@ -281,3 +281,14 @@ and -O1 on both targets. The IR-effect script now asserts the pass removes at le
 self-move from `test_comprehensive.cyan` and leaves none behind. `scripts/check.sh --full` green:
 671 -> 673 passed, 0 failed, 10 skipped at both levels; 254 -> 263 C++ cases / 4227 checks; sweep
 2046 -> 2052 invocations, 0 crashes; benchmark unchanged (2 spills); ASan/UBSan clean.
+
+## 2026-11-22 — O7b1 Deferred function emission
+Refactored `flush_function` to take an explicit `IRFunction*`, captured frame size and an
+`emit_extern` flag instead of consuming `m_ir.end_function()` itself. Under `-O1` generated
+functions are now moved into `m_pending_functions` and optimized/emitted together after all
+functions are generated, so a later pass can see callee bodies; `-O0` still flushes immediately.
+The extern declaration moved to flush time so the emitted assembly is byte-for-byte identical to
+the old path: verified against a pre-refactor worktree build on three programs at both `-O0` and
+`-O1`. Added an effect check that all functions remain present and in source order.
+`scripts/check.sh` green: 673 passed / 0 failed / 10 skipped at both levels; 263 C++ cases /
+4227 checks. No new tests yet — this is pure infrastructure for O7b2.

@@ -320,8 +320,10 @@ public:
     void load_var_to_vstack(const std::string& name);
     void store_var_from_vstack(const std::string& name, AssignOp op = AssignOp::assign);
 
-    /// Finalize the current IR function: run allocator, rewriter, emit to backend.
-    void flush_function();
+    /// Finalize an IR function: run allocator, rewriter, emit to backend.
+    /// `frame_bytes` is the frame size captured when the function was generated;
+    /// the function object itself is owned by the caller.
+    void flush_function(IRFunction* func, uint32_t frame_bytes, bool emit_extern);
 
     /// Access the backend.
     Backend& backend() const { return *m_backend_ptr; }
@@ -387,6 +389,15 @@ private:
     int m_opt_level = 0;
 
     // ---- IR state ----
+    /// A generated function awaiting optimization and emission (O7b1). The
+    /// frame size is captured at generation time because generation state is
+    /// reset before the deferred function is finally flushed.
+    struct PendingFunction {
+        std::unique_ptr<IRFunction> ir;
+        uint32_t frame_bytes = 0;
+    };
+    std::vector<PendingFunction> m_pending_functions;
+
     IRBuilder m_ir;
     std::vector<uint32_t> m_vstack;
     std::vector<Type> m_tstack;     ///< Type stack, parallel to m_vstack

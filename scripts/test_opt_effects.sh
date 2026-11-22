@@ -91,4 +91,14 @@ if grep -qE '^[[:space:]]*mov[[:space:]]+([a-z0-9]+),[[:space:]]*\1[[:space:]]*$
     exit 1
 fi
 
+# O7b1: deferred emission must keep every function, in source order.
+"$COMPILER" -O1 -S -o "$WORK/defer.s" tests/integration/test_comprehensive.cyan 2>/dev/null
+last_line=0
+for sym in inc_g make_id fib classify grade main; do
+    line=$(grep -nE "^${sym}:" "$WORK/defer.s" | head -1 | cut -d: -f1)
+    [ -n "$line" ] || { echo "effect: $sym missing after deferred emission"; exit 1; }
+    [ "$line" -gt "$last_line" ] || { echo "effect: $sym out of source order"; exit 1; }
+    last_line=$line
+done
+
 echo "Optimization effects: OK"

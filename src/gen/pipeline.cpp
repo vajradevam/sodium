@@ -4,9 +4,9 @@
 // IR function finalization
 // ==========================================================================
 
-void Generator::flush_function() {
-    IRFunction* func = m_ir.current_function();
+void Generator::flush_function(IRFunction* func, uint32_t frame_bytes, bool emit_extern) {
     if (!func) return;
+    m_next_frame_offset = frame_bytes;
 
     // Set stack slot count
     // Round frame size up to 16 bytes for ABI stack alignment
@@ -67,12 +67,13 @@ void Generator::flush_function() {
     IRRewriter rewriter(*m_tri_ptr, allocation, *func);
     rewriter.rewrite();
 
-    // Emit to backend
+    // Emit to backend. The extern declaration is emitted here, next to the
+    // function body, so deferred and immediate emission produce identical text.
+    if (emit_extern) m_backend_ptr->extern_sym(func->name);
     IREmitter emitter(*m_backend_ptr, *m_tri_ptr);
     emitter.emit_function(*func);
 
-    // Reset IR state for next function
-    m_ir.end_function();  // destroys the function
+    // Reset per-function state; the caller owns the IRFunction object.
     m_vstack.clear();
     m_next_frame_offset = 0;
     m_frame_slots = 0;
@@ -90,7 +91,6 @@ void Generator::gen_func_def(const NodeFuncDef& func)
     m_ir.start_function(func.name.value.value());
     m_next_frame_offset = 0;
 
-    m_backend_ptr->extern_sym(func.name.value.value());
     // The entry block is already created by start_function();
     // the emitter will output the label and prologue
 
@@ -227,8 +227,16 @@ void Generator::gen_func_def(const NodeFuncDef& func)
     m_scopes.pop_back();
     m_stack_size = saved_stack_size;
 
-    // Finalize this function: run allocator and emit to backend
-    flush_function();
+    // Under -O1 keep the IR alive so the leaf inliner can see callee bodies;
+    // all functions are optimized and emitted together in gen_prog_impl.
+    if (m_opt_level >= 1) {
+        m_pending_functions.push_back({ m_ir.end_function(), m_next_frame_offset });
+    } else {
+        IRFunction* ir_func = m_ir.current_function();
+        const uint32_t frame_bytes = m_next_frame_offset;
+        flush_function(ir_func, frame_bytes, true);
+        m_ir.end_function();
+    }
 }
 
 // ==========================================================================
@@ -423,7 +431,10 @@ std::string Generator::gen_prog_impl()
         }
 
         m_ir.ret_void();
-        flush_function();
+        IRFunction* init_func = m_ir.current_function();
+        const uint32_t init_frame = m_next_frame_offset;
+        flush_function(init_func, init_frame, false);
+        m_ir.end_function();
     }
 
     // Emit the _start entry point.
@@ -494,6 +505,13 @@ std::string Generator::gen_prog_impl()
             m_scopes.push_back({0, {}});
         }
     }
+
+    // O7b1: functions generated under -O1 were held in the pool so the leaf
+    // inliner (O7b2) can inspect callee bodies. Emit them now, in source order.
+    for (auto& pending : m_pending_functions) {
+        flush_function(pending.ir.get(), pending.frame_bytes, true);
+    }
+    m_pending_functions.clear();
 
     // Data sections
     if (!m_data_entries.empty()) {
