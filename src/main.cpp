@@ -19,6 +19,7 @@
 #include "backend/interface.hpp"
 #include "backend/x86_64/backend.hpp"
 #include "backend/riscv64/backend.hpp"
+#include "backend/peephole.hpp"
 
 // Temp directory to clean up on exit (set after mkdtemp succeeds)
 static std::string g_tmp_dir;
@@ -377,6 +378,14 @@ int main(int argc, char* argv[]) {
         generator.set_opt_level(opt_level);
         (void)generator.gen_prog();  // writes to backend stream
         asm_output = asm_stream.str();
+        if (opt_level >= 1) {
+            PeepholeStats peephole_stats;
+            asm_output = peephole_optimize(asm_output, backend->target_name(), &peephole_stats);
+            if (dump_regalloc_flag) {
+                std::cerr << "peephole self_moves=" << peephole_stats.self_moves_removed
+                          << " dead_moves=" << peephole_stats.dead_moves_removed << "\n";
+            }
+        }
     }
 
     // Write assembly file

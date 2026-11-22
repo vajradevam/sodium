@@ -269,3 +269,15 @@ the sorted positions. `scripts/bench_regalloc.sh` is now part of `scripts/check.
 stays at 248 functions, 2 spills, 301693 callee-save assignments. `scripts/check.sh --full` green:
 671 passed, 0 failed, 10 skipped at both levels; 253 -> 254 C++ cases / 4203 checks; sweep 2046
 invocations, 0 crashes; ASan/UBSan clean.
+
+## 2026-11-22 — O7a Per-target peephole pass
+Added `src/backend/peephole.hpp`: a pure post-emission assembly pass (D-030) with target-specific
+safe rules — self-move/no-op removal (`mov r,r`; `mv r,r`; `addi r,r,0`) and adjacent dead-move
+elimination. Segments are processed independently between labels/directives so no rule crosses a
+control-flow boundary; memory operands and flag-setting instructions are never touched. Wired into
+`main.cpp` under `-O1` only, with counters reported by `--dump-regalloc`. Added 9 C++ cases on
+emitted snippets and `tests/unit/test_peephole.cyan` (copy-heavy locals, calls, loops) run at -O0
+and -O1 on both targets. The IR-effect script now asserts the pass removes at least one real
+self-move from `test_comprehensive.cyan` and leaves none behind. `scripts/check.sh --full` green:
+671 -> 673 passed, 0 failed, 10 skipped at both levels; 254 -> 263 C++ cases / 4227 checks; sweep
+2046 -> 2052 invocations, 0 crashes; benchmark unchanged (2 spills); ASan/UBSan clean.

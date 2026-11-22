@@ -1,0 +1,40 @@
+// EXPECT-EXIT: 0
+// EXPECT-STDOUT: 30
+// EXPECT-STDOUT: 4950
+// EXPECT-STDOUT: 3628800
+
+// O7a: copy-heavy locals and calls exercise the per-target peephole pass.
+// The runner executes this at -O0 and the -O1 suite runs it again.
+
+function add(a, b) -> i64 {
+    return a + b;
+}
+
+function main() {
+    var x = 1;
+    var y = 2;
+    var z = 0;
+    var i = 0;
+    while (i < 10) {
+        z = add(z, add(x, y));
+        i = i + 1;
+    }
+    print("%d", z);
+
+    var sum = 0;
+    var j = 0;
+    while (j < 100) {
+        sum = sum + j;
+        j = j + 1;
+    }
+    print("%d", sum);
+
+    var fact = 1;
+    var k = 1;
+    while (k <= 10) {
+        fact = fact * k;
+        k = k + 1;
+    }
+    print("%d", fact);
+    return 0;
+}

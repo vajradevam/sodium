@@ -78,4 +78,17 @@ if grep -q 'frame_addr' "$WORK/mem1"; then
     exit 1
 fi
 
+# O7a: the per-target peephole pass must actually remove redundant moves from
+# real generated assembly, and none may survive at -O1.
+"$COMPILER" -O1 --dump-regalloc -S -I tests/include -I cyanlib \
+    -o "$WORK/peephole.s" tests/integration/test_comprehensive.cyan 2> "$WORK/peephole.log"
+grep -qE 'peephole self_moves=[1-9]' "$WORK/peephole.log" || {
+    echo "effect: peephole removed no self-moves at -O1"
+    exit 1
+}
+if grep -qE '^[[:space:]]*mov[[:space:]]+([a-z0-9]+),[[:space:]]*\1[[:space:]]*$' "$WORK/peephole.s"; then
+    echo "effect: a self-move survived the peephole pass"
+    exit 1
+fi
+
 echo "Optimization effects: OK"
