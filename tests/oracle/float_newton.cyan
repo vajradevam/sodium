@@ -1,0 +1,24 @@
+// EXPECT-EXIT: 0
+function sqrt_newton(x: f64) -> f64 {
+    var g: f64 = x / 2.0;
+    var i: i64 = 0;
+    while (i < 30) {
+        g = (g + x / g) / 2.0;
+        i = i + 1;
+    }
+    return g;
+}
+
+function main() {
+    print(sqrt_newton(2.0));
+    print(sqrt_newton(144.0));
+    print(sqrt_newton(0.0001));
+    var s: f64 = 0.0;
+    var k: i64 = 1;
+    while (k <= 1000) {
+        s += 1.0 / (k * k);
+        k = k + 1;
+    }
+    print(s);
+    return(0);
+}

@@ -5,7 +5,7 @@ NASM = nasm
 CC   = gcc
 AR   = ar
 ASFLAGS  = -felf64
-CFLAGS   = -ffreestanding -nostdlib -fno-builtin -O2 -c
+CFLAGS   = -ffreestanding -nostdlib -fno-builtin -fno-stack-protector -O2 -c
 
 TARGET = sodium-rt.a
 

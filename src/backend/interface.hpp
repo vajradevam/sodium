@@ -189,6 +189,36 @@ public:
     virtual void syscall() = 0;
 
     // ----------------------------------------------------------------
+    // Floating point (D-038)
+    // FP registers are passed by name ("xmm3", "f3"); `bits` is 32 (float) or 64 (double).
+    // `gpr` arguments name an integer scratch register the backend may clobber.
+    // ----------------------------------------------------------------
+
+    virtual void fp_load(const std::string& freg, const std::string& addr, int bits) = 0;
+    virtual void fp_store(const std::string& addr, const std::string& freg, int bits) = 0;
+    /// Load the float whose IEEE bit pattern is `pattern` (low 32 bits for 32-bit floats).
+    virtual void fp_const(const std::string& freg, uint64_t pattern, int bits,
+                          const std::string& gpr) = 0;
+    /// dst = a OP b for OP in + - * /. `dst` equals `a` and differs from `b`.
+    virtual void fp_arith(char op, const std::string& dst, const std::string& a,
+                          const std::string& b, int bits) = 0;
+    virtual void fp_neg(const std::string& dst, const std::string& src, int bits,
+                        const std::string& gpr) = 0;
+    /// dst_gpr = (a CC b) as 0/1 for CC in eq ne lt le gt ge; any NaN operand makes every
+    /// comparison false except ne.
+    virtual void fp_cmp(const std::string& dst_gpr, const std::string& cc, const std::string& a,
+                        const std::string& b, int bits) = 0;
+    /// Signed 64-bit integer to float of `bits` width.
+    virtual void int_to_fp(const std::string& freg, const std::string& gpr, int bits) = 0;
+    /// Float of `bits` width to signed 64-bit integer, truncating toward zero.
+    virtual void fp_to_int(const std::string& gpr, const std::string& freg, int bits) = 0;
+    /// Convert between 32- and 64-bit floats; the destination has the other width than `from_bits`.
+    virtual void fp_convert(const std::string& dst, const std::string& src, int from_bits) = 0;
+    /// Called before a direct call that passes `count` floats in registers; System V variadic
+    /// callees read the count from al.
+    virtual void note_fp_arg_count(int count) = 0;
+
+    // ----------------------------------------------------------------
     // Labels and directives
     // ----------------------------------------------------------------
 

@@ -1,0 +1,4 @@
+// EXPECT-ERROR: struct 'P' contains floats and cannot be passed or returned by value yet
+struct P { var x: f32; var n: i32; };
+function make() -> P { var p: P; return p; }
+function main() { var p: P = make(); return(0); }

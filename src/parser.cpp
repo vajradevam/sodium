@@ -529,6 +529,14 @@ std::optional<NodeExpr*> Parser::parse_unit_expr()
             return expr;
         }
 
+        if (peek().has_value() && peek().value().type == TokenType::float_lit) {
+            auto expr_float_lit = m_allocator.alloc<NodeExprFloatLit>();
+            expr_float_lit->float_lit = consume();
+            auto expr = m_allocator.alloc<NodeExpr>();
+            expr->var = expr_float_lit;
+            return expr;
+        }
+
         if (peek().has_value() && peek().value().type == TokenType::int_lit) {
             auto expr_int_lit = m_allocator.alloc<NodeExprIntLit>();
             expr_int_lit->int_lit = consume();
@@ -1075,6 +1083,10 @@ std::vector<FormatSpec> Parser::parse_format_string(const std::string& fmt)
                     specs.push_back({FormatSpec::Char, ""});
                     i += 2;
                     break;
+                case 'f':
+                    specs.push_back({FormatSpec::Float, ""});
+                    i += 2;
+                    break;
                 case 'l':
                     // `%ld` is the only length modifier: i64 is already 64-bit,
                     // so it maps to the same specifier as `%d`.
@@ -1214,8 +1226,8 @@ std::optional<NodeStmt> Parser::parse_print_stmt()
             args.push_back(arg.value());
         }
     } else {
-        // Old-style: print(expr) — single expression, print as integer
-        specs.push_back({FormatSpec::Int, ""});
+        // Old-style: print(expr) — single expression, printed by its type
+        specs.push_back({FormatSpec::Any, ""});
         args.push_back(first_expr.value());
     }
 
@@ -1229,6 +1241,8 @@ std::optional<NodeStmt> Parser::parse_print_stmt()
             case FormatSpec::Hex:
             case FormatSpec::Unsigned:
             case FormatSpec::Char:
+            case FormatSpec::Float:
+            case FormatSpec::Any:
                 ++needed_args;
                 break;
             default:
@@ -1510,7 +1524,10 @@ Type Parser::parse_fn_type() {
 std::optional<Type> Parser::parse_full_type() {
     auto base = parse_type();
     Type type;
-    if (base) {
+    if (peek().has_value() && (peek().value().type == TokenType::_f32 ||
+                               peek().value().type == TokenType::_f64)) {
+        type = Type::make_float(consume().type == TokenType::_f32 ? FloatType::f32 : FloatType::f64);
+    } else if (base) {
         type = Type::make_int(*base);
     } else if (peek().has_value() && peek().value().type == TokenType::ident
                && peek().value().value.has_value()
@@ -1634,7 +1651,7 @@ std::optional<NodeStmt> Parser::parse_stmt() {
                 stmt_let->ident = consume();
                 consume(); // :
                 if (auto full = parse_full_type()) {
-                    if (full->kind == Type::Ptr) {
+                    if (full->kind == Type::Ptr || full->kind == Type::Float) {
                         stmt_let->full_type = full;
                     } else if (full->kind == Type::Struct) {
                         stmt_let->struct_type_name = full->struct_name;

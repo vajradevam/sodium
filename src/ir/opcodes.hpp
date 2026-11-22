@@ -120,6 +120,28 @@ enum class IROpcode : uint8_t {
     /// Pop register from stack (callee-save epilogue).
     POP,
 
+    // ---------- floating point (D-038) ----------
+    // A float value lives in a vreg of the FP class (IRFunction::is_fp); its width is carried
+    // by IRValue::width / dst_width as IRWidth::F32 or F64.
+    FCONST,      // %dst = float with raw bit pattern imm_arg (low 32 bits for F32)
+    FCOPY,       // %dst = %src
+    FNEG,        // %dst = -%src
+    FADD,        // %dst = %a + %b
+    FSUB,        // %dst = %a - %b
+    FMUL,        // %dst = %a * %b
+    FDIV,        // %dst = %a / %b
+    FCMP_EQ,     // %dst(int) = %a == %b   (false if either is NaN)
+    FCMP_NE,     // %dst(int) = %a != %b   (true if either is NaN)
+    FCMP_LT,     // %dst(int) = %a <  %b   (false if either is NaN)
+    FCMP_LE,     // %dst(int) = %a <= %b
+    FCMP_GT,     // %dst(int) = %a >  %b
+    FCMP_GE,     // %dst(int) = %a >= %b
+    I2F,         // %dst(fp) = (float) signed 64-bit %src(int)
+    F2I,         // %dst(int) = (int64) %src(fp), truncating toward zero
+    F2F,         // %dst(fp) = %src converted between F32 and F64
+    FLOAD,       // %dst(fp) = [base + imm_arg]; size from dst_width
+    FSTORE,      // [base + imm_arg] = %src(fp); size from the source width
+
     /// Opaque inline assembly (D-036): one verbatim instruction line plus a
     /// list of clobbered physical register numbers.
     ASM,

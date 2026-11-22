@@ -143,3 +143,28 @@ TEST(tokenizer_recognizes_bool_char_null_keywords) {
     for (size_t i = 0; i < t.size() && i < sizeof(want) / sizeof(want[0]); ++i)
         CHECK(t[i].type == want[i]);
 }
+
+TEST(tokenizer_float_type_keywords) {
+    auto t = tok("f32 f64");
+    CHECK_EQ(t.size(), 2u);
+    CHECK(t[0].type == TT::_f32);
+    CHECK(t[1].type == TT::_f64);
+}
+
+TEST(tokenizer_float_literals_keep_source_text) {
+    auto t = tok("1.5 2e-3 3.25E+2 0.5f 1e3f");
+    CHECK_EQ(t.size(), 5u);
+    const char* want[] = {"1.5", "2e-3", "3.25E+2", "0.5f", "1e3f"};
+    for (size_t i = 0; i < t.size() && i < 5; ++i) {
+        CHECK(t[i].type == TT::float_lit);
+        CHECK(*t[i].value == want[i]);
+    }
+}
+
+TEST(tokenizer_integer_followed_by_dot_stays_integer) {
+    // `a.b` field access on a number-like prefix and `1.` must not turn into floats.
+    auto t = tok("1 .x");
+    CHECK_EQ(t.size(), 3u);
+    CHECK(t[0].type == TT::int_lit);
+    CHECK(t[1].type == TT::dot);
+}

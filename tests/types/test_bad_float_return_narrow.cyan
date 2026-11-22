@@ -1,0 +1,4 @@
+// Returning an f64 from an f32 function is rejected (D-038).
+// EXPECT-ERROR: cannot implicitly convert f64 to f32 in the return of function 'f'
+function f(d: f64) -> f32 { return d; }
+function main() { print(f(1.5)); return(0); }

@@ -450,3 +450,26 @@ ASan/UBSan; 298 C++ cases / 4314 checks; sweep 2154 invocations / 0 crashes; ora
 levels; ABI 8/8; benchmark instruction counts within baseline; regalloc benchmark 248 functions /
 2 spills / 301688 callee-save assignments; debug line tables verified with -g on both targets.
 The 10 skips are the 8 ABI interop cases (run by their own script) and 2 include helpers.
+
+## 2026-11-23 — X1 floats unblocked, split (D-038)
+Owner chose the full C-compatible FP ABI. Created branch `phase-7/floats`, recorded D-038, split X1
+into F1a..F5b in PLAN.md and resolved the BLOCKED entry. No code or test changes (tests unchanged).
+
+## 2026-11-23 — F1a float front end (branch phase-7/floats)
+Tokenizer: `float_lit` (`1.5`, `2e-3`, `1.5f`), `f32`/`f64` keywords, errors for a bare `1f` and an
+empty exponent. Parser: `Type::Float`, `NodeExprFloatLit`, float types in params/returns/lets/casts/
+struct fields; AST printer and type inference know floats. Generator rejects any float use with
+"floating-point code generation is not implemented yet (D-038, F2)" so no float is silently treated as
+an integer (tests/types/test_float_*_not_lowered.cyan are scaffolding that F3 replaces with run tests).
+Tests: +5 Cyan types tests (x2 targets), +5 C++ unit cases.
+
+## 2026-11-23 — X1 floats complete: F1b..F5b (branch phase-7/floats, D-039)
+IR: FP opcodes, `IRFunction::is_fp`, F32/F64 widths, verifier class checks; rewriter lowers FP ops through
+scratch FP registers (FP vregs are stack-resident); SSE and RV D/F emission; SysV and LP64D FP argument/
+return ABI incl. overflow rules; gen/float.cpp typing + lowering; exact `%f` formatter in sodium-rt;
+`print`/`%f`; float fields, arrays, pointers. Verified against gcc both directions (tests/abi/float_*,
+12 ABI cases) and 4 oracle comparisons; formatter matches glibc on 24 values. Fixed a pre-existing
+type-stack imbalance and promote narrow int +/- to i32 (D-039). Small float structs by value are a
+compile error (X1b, open). `scripts/check.sh --full` green: integration 714 -> 778 passed (14 skipped, 4 new
+ABI harness files), unit 303 -> 320 cases, sweep 2388 invocations 0 crashes, oracle 62/62 at -O0 and -O1,
+fuzz 1000 inputs 0 crashes, ASan/UBSan clean.

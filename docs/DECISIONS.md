@@ -403,3 +403,79 @@ with its assembler `-g`. These are backend-specific directives behind a common
 `Backend::debug_line` method. The absolute Cyan path is used so gdb still finds the source after
 temporary assembly files are removed. Line markers are emitted only for user statements; runtime
 library frames have no debug info, which is acceptable for stepping Cyan source.
+
+## D-038 Floating point: `f32`/`f64` with the full C-compatible FP ABI (X1)
+Chosen by the owner over a GPR bit-cast shortcut, which would break the documented System V /
+LP64D ABI (D-001, D-012) and `tests/abi/`. Floats are first-class and use real FP registers.
+- **Types and literals:** `f32` (IEEE binary32) and `f64` (IEEE binary64). A decimal literal with a
+  `.` or an exponent (`1.5`, `2e-3`; `.5` and `1.` are not allowed) has type `f64`; the
+  suffix `f` (`1.5f`) gives `f32`. Integer literals stay integers.
+- **Conversions:** int → float and `f32` → `f64` are implicit (widening). `f64` → `f32` and
+  float → int require the language's explicit cast and are a compile error otherwise. Float → int
+  truncates toward zero; out-of-range results follow the target instruction (cvttsd2si /
+  fcvt.l.d rtz) and are documented, not trapped. Mixed arithmetic promotes to the wider operand
+  (int operands to the float operand's type). No `%` on floats (compile error).
+- **Semantics:** IEEE-754, round-to-nearest-even, no fast-math. Comparisons with NaN are false
+  except `!=`. Unary minus flips the sign bit. Float values have no truthiness: `if (x)` on a
+  float is a compile error (write `x != 0.0`). The optimizer never folds or reassociates float
+  operations in F-phase 1 (verifier-safe; folding may be added later with exact tests).
+- **IR:** every vreg has a register class, `int` or `fp`; `IRValue` carries a float width (4 or
+  8). New opcodes: FADD FSUB FMUL FDIV FNEG, FCMP (with a condition), I2F, F2I, F2F, and FP
+  load/store/move plus an FP-constant form materialised from the rodata/literal pool. The
+  verifier rejects class mismatches.
+- **Registers:** x86_64 uses xmm0–xmm15, riscv64 uses ft0–ft11/fa0–fa7/fs0–fs11. Both
+  allocators treat all FP registers as caller-saved for now: an FP vreg live across a call is
+  spilled (correct, slightly slower; callee-save FP is an optimization for later).
+- **Calling convention:** x86_64 System V: the first 8 float/double arguments go in xmm0–7
+  independently of the integer counter, results in xmm0, extra ones on the stack; calls to
+  variadic C functions set `al`. riscv64 LP64D: fa0–fa7 likewise, results in fa0; when fa regs are
+  exhausted floats spill to a0–a7 then the stack. `f32` is passed as a single-precision value.
+  Structs that contain floats stay a compile error ("struct with float fields") until F5.
+- **Runtime:** `print` accepts floats and writes fixed notation with 6 fractional digits
+  (`3.140000`), `inf`, `-inf`, `nan`; `f32` is widened to `f64` first. A freestanding
+  formatter lives in `sodium-rt/` (C, no libc) and a `fmt` helper in `cyanlib/`.
+- **Work split:** F1 front end, F2 IR + regalloc classes, F3 backends + ABI, F4 runtime/print,
+  F5 aggregates + optimizer + oracle (PLAN.md Phase 6b). Developed on branch `phase-7/floats`
+  and merged with `--no-ff` only after `scripts/check.sh --full` is green.
+
+## D-039 Floating point: how D-038 was implemented, and what it does not cover yet (X1)
+Refines D-038 where the implementation chose a simpler route. The ABI and language rules of D-038
+are unchanged and verified against gcc in both directions on both targets (`tests/abi/float_*`).
+- **FP values live in stack homes.** Instead of a class-aware linear scan, every FP vreg is
+  spilled by the allocator and each FP operation is lowered by the rewriter to
+  load-operands / operate / store-result through two scratch FP registers (xmm0/xmm1,
+  ft0/ft1). This keeps liveness, the integer allocator and the callee-save logic untouched, makes
+  FP values trivially safe across calls (all FP registers are caller-saved) and costs only
+  speed. Real FP register allocation is an optimization for later; the IR already carries the
+  register class (`IRFunction::is_fp`) and operand widths (`IRWidth::F32/F64`), so it can be added
+  behind the same interface.
+- **FP constants** are materialised through the integer scratch register (`mov r11, imm; movq
+  xmm0, r11` / `li t0, imm; fmv.d.x`), not a literal pool, so there is no new data section.
+- **Argument placement** (`ArgPlacer::fp_scalar`, `assign_arg_regs`): integer and FP counters are
+  independent; once the 8 FP argument registers are used, System V puts further floats on the stack
+  and LP64D passes them in the next integer argument registers. Float parameters arrive through
+  `STORE_PARAM` with a float width and ordinal `FP_PARAM_ORDINAL_BASE + k`. Direct calls that pass
+  floats in registers set `al` on x86_64 (variadic callees read it). f32 arguments are loaded with
+  `flw`, so they are NaN-boxed as LP64D requires.
+- **Printing:** `print(x)` prints a float by its type, `%f` forces float formatting (an int
+  converts to f64; f32 widens). `%d`, `%x`, `%u`, `%c`, `%s` reject floats. The formatter
+  `_sodium_print_raw_float` (sodium-rt/printfmt.c, freestanding C) is exact: it matches glibc
+  `printf("%f")` including round-half-even, denormals and DBL_MAX (checked on 24 values).
+- **Typing details:** `f32 op int` is f32, `f32 op f64` is f64, int operands convert as signed
+  64-bit integers after extension to their own width (a `u64` above `i64::MAX` converts as
+  negative: documented, not trapped). Compound assignment (`+= -= *= /=`) converts the result back
+  to the target's type like C. The arms of `c ? a : b` must both be floats or both integers (a float
+  result travels through a frame temporary). Floats cannot be globals, global array elements or
+  builtin arguments yet (compile error). Unary minus on a float flips the sign bit (`-0.0`).
+- **Not covered, tracked as X1b in PLAN.md:** a struct of at most 16 bytes that contains floats
+  cannot be passed or returned by value (System V and LP64D classify its words into FP registers;
+  not implemented). It is a compile error naming the struct, never a silent ABI mismatch. Larger
+  structs (memory / by-reference classes) and float fields in memory work, as do arrays of floats
+  and of structs with float fields. No FP register allocation, no float constant folding, no
+  `fmt`/`cyanlib` float helper.
+- **Integer typing fix found on the way:** the generator popped the type stack twice per operand in
+  `+`, `-`, `->` pointer calls and the typed-pointer `let` (`pop_type()` then `pop_vreg()`, which
+  pops a type too), leaving it shorter than the value stack so deeper entries described other
+  values. Fixed. That exposed that a `u8 - u8` result was typed `u8` although its register holds the
+  full 64-bit difference; narrow integer `+`/`-` results are now promoted to `i32` like C
+  (`tests/types/test_int_sub_promotion.cyan`).

@@ -584,6 +584,74 @@ void RISCV64Backend::resq(const std::string& name, size_t count) {
     *m_output << name << ": .zero " << (count * 8) << "\n";
 }
 
+// ---- floating point (D-038) ----
+
+void RISCV64Backend::fp_load(const std::string& freg, const std::string& addr, int bits) {
+    emit_insn(bits == 32 ? "flw" : "fld", freg + ", " + addr);
+}
+
+void RISCV64Backend::fp_store(const std::string& addr, const std::string& freg, int bits) {
+    emit_insn(bits == 32 ? "fsw" : "fsd", freg + ", " + addr);
+}
+
+void RISCV64Backend::fp_const(const std::string& freg, uint64_t pattern, int bits,
+                              const std::string& gpr) {
+    if (bits == 32) {
+        emit_insn("li", gpr + ", " + std::to_string(pattern & 0xFFFFFFFFu));
+        emit_insn("fmv.w.x", freg + ", " + gpr);
+    } else {
+        emit_insn("li", gpr + ", " + std::to_string(static_cast<int64_t>(pattern)));
+        emit_insn("fmv.d.x", freg + ", " + gpr);
+    }
+}
+
+void RISCV64Backend::fp_arith(char op, const std::string& dst, const std::string& a,
+                              const std::string& b, int bits) {
+    const char* name = op == '+' ? "fadd" : op == '-' ? "fsub" : op == '*' ? "fmul" : "fdiv";
+    emit_insn(std::string(name) + (bits == 32 ? ".s" : ".d"), dst + ", " + a + ", " + b);
+}
+
+void RISCV64Backend::fp_neg(const std::string& dst, const std::string& src, int bits,
+                            const std::string& gpr) {
+    (void)gpr;
+    emit_insn(bits == 32 ? "fneg.s" : "fneg.d", dst + ", " + src);
+}
+
+void RISCV64Backend::fp_cmp(const std::string& dst_gpr, const std::string& cc, const std::string& a,
+                            const std::string& b, int bits) {
+    // feq/flt/fle return 0 for unordered operands, which is the required result for every
+    // comparison except ne.
+    const std::string sfx = bits == 32 ? ".s" : ".d";
+    if (cc == "eq" || cc == "ne") {
+        emit_insn("feq" + sfx, dst_gpr + ", " + a + ", " + b);
+        if (cc == "ne") emit_insn("xori", dst_gpr + ", " + dst_gpr + ", 1");
+    } else if (cc == "lt") {
+        emit_insn("flt" + sfx, dst_gpr + ", " + a + ", " + b);
+    } else if (cc == "le") {
+        emit_insn("fle" + sfx, dst_gpr + ", " + a + ", " + b);
+    } else if (cc == "gt") {
+        emit_insn("flt" + sfx, dst_gpr + ", " + b + ", " + a);
+    } else {
+        emit_insn("fle" + sfx, dst_gpr + ", " + b + ", " + a);
+    }
+}
+
+void RISCV64Backend::int_to_fp(const std::string& freg, const std::string& gpr, int bits) {
+    emit_insn(bits == 32 ? "fcvt.s.l" : "fcvt.d.l", freg + ", " + gpr);
+}
+
+void RISCV64Backend::fp_to_int(const std::string& gpr, const std::string& freg, int bits) {
+    emit_insn(bits == 32 ? "fcvt.l.s" : "fcvt.l.d", gpr + ", " + freg + ", rtz");
+}
+
+void RISCV64Backend::fp_convert(const std::string& dst, const std::string& src, int from_bits) {
+    emit_insn(from_bits == 32 ? "fcvt.d.s" : "fcvt.s.d", dst + ", " + src);
+}
+
+void RISCV64Backend::note_fp_arg_count(int count) {
+    (void)count;  // only System V variadic calls need it
+}
+
 // ---- addressing modes ----
 
 std::string RISCV64Backend::addr_label(const std::string& sym) const {

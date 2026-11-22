@@ -95,9 +95,53 @@ inline bool produces_result(IROpcode op) {
         case IROpcode::LOAD_PARAM:
         case IROpcode::CALL:
         case IROpcode::CALL_INDIRECT:
+        case IROpcode::FCONST:
+        case IROpcode::FCOPY:
+        case IROpcode::FNEG:
+        case IROpcode::FADD:
+        case IROpcode::FSUB:
+        case IROpcode::FMUL:
+        case IROpcode::FDIV:
+        case IROpcode::FCMP_EQ:
+        case IROpcode::FCMP_NE:
+        case IROpcode::FCMP_LT:
+        case IROpcode::FCMP_LE:
+        case IROpcode::FCMP_GT:
+        case IROpcode::FCMP_GE:
+        case IROpcode::I2F:
+        case IROpcode::F2I:
+        case IROpcode::F2F:
+        case IROpcode::FLOAD:
             return true;
         default:
             return false;
+    }
+}
+
+/// Register class an FP-family opcode requires for its destination and operands.
+/// `dst`: 0 = not constrained here, 1 = integer, 2 = float. Operands likewise by position.
+struct FpShape { int dst; int op0; int op1; };
+inline bool fp_shape(IROpcode op, FpShape& out) {
+    switch (op) {
+        case IROpcode::FCONST: out = {2, 0, 0}; return true;
+        case IROpcode::FCOPY:
+        case IROpcode::FNEG:
+        case IROpcode::F2F:    out = {2, 2, 0}; return true;
+        case IROpcode::FADD:
+        case IROpcode::FSUB:
+        case IROpcode::FMUL:
+        case IROpcode::FDIV:   out = {2, 2, 2}; return true;
+        case IROpcode::FCMP_EQ:
+        case IROpcode::FCMP_NE:
+        case IROpcode::FCMP_LT:
+        case IROpcode::FCMP_LE:
+        case IROpcode::FCMP_GT:
+        case IROpcode::FCMP_GE: out = {1, 2, 2}; return true;
+        case IROpcode::I2F:    out = {2, 1, 0}; return true;
+        case IROpcode::F2I:    out = {1, 2, 0}; return true;
+        case IROpcode::FLOAD:  out = {2, 1, 0}; return true;
+        case IROpcode::FSTORE: out = {0, 1, 2}; return true;
+        default: return false;
     }
 }
 
@@ -120,7 +164,14 @@ inline size_t operand_count_for(IROpcode op) {
         case IROpcode::SYSCALL:
         case IROpcode::PUSH_FRAME:
         case IROpcode::RET_VOID:
+        case IROpcode::FCONST:
             return 0;
+        case IROpcode::FCOPY:
+        case IROpcode::FNEG:
+        case IROpcode::I2F:
+        case IROpcode::F2I:
+        case IROpcode::F2F:
+        case IROpcode::FLOAD:
         case IROpcode::COPY:
         case IROpcode::NEG:
         case IROpcode::NOT_:
@@ -163,6 +214,17 @@ inline size_t operand_count_for(IROpcode op) {
         case IROpcode::CMP_GT:
         case IROpcode::CMP_GE:
         case IROpcode::RET2:
+        case IROpcode::FSTORE:
+        case IROpcode::FADD:
+        case IROpcode::FSUB:
+        case IROpcode::FMUL:
+        case IROpcode::FDIV:
+        case IROpcode::FCMP_EQ:
+        case IROpcode::FCMP_NE:
+        case IROpcode::FCMP_LT:
+        case IROpcode::FCMP_LE:
+        case IROpcode::FCMP_GT:
+        case IROpcode::FCMP_GE:
             return 2;
         case IROpcode::CALL:
         case IROpcode::CALL_INDIRECT:
@@ -193,7 +255,25 @@ inline bool requires_vreg(IROpcode op, size_t pos, size_t count) {
         case IROpcode::LEA:
         case IROpcode::PUSH:
         case IROpcode::POP:
+        case IROpcode::FCOPY:
+        case IROpcode::FNEG:
+        case IROpcode::F2F:
+        case IROpcode::F2I:
+        case IROpcode::I2F:
+        case IROpcode::FLOAD:
+        case IROpcode::FSTORE:
             return pos == 0;  // base address / source
+        case IROpcode::FADD:
+        case IROpcode::FSUB:
+        case IROpcode::FMUL:
+        case IROpcode::FDIV:
+        case IROpcode::FCMP_EQ:
+        case IROpcode::FCMP_NE:
+        case IROpcode::FCMP_LT:
+        case IROpcode::FCMP_LE:
+        case IROpcode::FCMP_GT:
+        case IROpcode::FCMP_GE:
+            return pos <= 1;
         case IROpcode::CALL_INDIRECT:
             return pos + 1 == count;  // target is the last operand (D-014)
         default:
@@ -211,6 +291,8 @@ inline bool valid_width(IRWidth w) {
         case IRWidth::I16:
         case IRWidth::I32:
         case IRWidth::I64:
+        case IRWidth::F32:
+        case IRWidth::F64:
             return true;
     }
     return false;
@@ -337,6 +419,40 @@ inline IRVerifyResult verify_function(const IRFunction& f) {
                         at("vreg %" + std::to_string(op.vreg_id) + " has inconsistent width");
                     }
                     uses.push_back({bi, ii, op.vreg_id});
+                }
+            }
+
+            // Register classes (D-038): FP-family opcodes fix them; every other opcode is
+            // integer-only except calls and returns, which carry FP values by operand width.
+            {
+                FpShape shape{0, 0, 0};
+                const bool fp_op = fp_shape(insn.op, shape);
+                const bool flexible = insn.op == IROpcode::CALL || insn.op == IROpcode::CALL_INDIRECT ||
+                                      insn.op == IROpcode::RET;
+                auto class_of = [&](uint32_t vreg) { return f.is_fp(vreg) ? 2 : 1; };
+                auto check = [&](int want, uint32_t vreg, const std::string& what) {
+                    if (want != 0 && class_of(vreg) != want) {
+                        at(what + " must be " + std::string(want == 2 ? "a float" : "an integer")
+                           + " vreg (%" + std::to_string(vreg) + ")");
+                    }
+                };
+                if (insn.dst != IRInstruction::NONE_VREG) {
+                    if (fp_op) check(shape.dst, insn.dst, "result");
+                    else if (insn.op == IROpcode::CALL || insn.op == IROpcode::CALL_INDIRECT)
+                        check(is_fp_width(insn.dst_width) ? 2 : 1, insn.dst, "call result");
+                    else check(1, insn.dst, "result");
+                }
+                for (size_t pos = 0; pos < insn.operands.size(); ++pos) {
+                    const IRValue& op = insn.operands[pos];
+                    if (!op.is_vreg()) continue;
+                    if (fp_op) {
+                        check(pos == 0 ? shape.op0 : shape.op1, op.vreg_id, "operand " + std::to_string(pos));
+                    } else if (!flexible) {
+                        check(1, op.vreg_id, "operand " + std::to_string(pos));
+                    }
+                    if (is_fp_width(op.width) != f.is_fp(op.vreg_id)) {
+                        at("operand " + std::to_string(pos) + " width does not match its register class");
+                    }
                 }
             }
 

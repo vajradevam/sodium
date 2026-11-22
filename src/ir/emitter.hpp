@@ -351,14 +351,30 @@ public:
                 // itself live in another argument register, so moves are
                 // ordered so no pending source is overwritten, with cycles
                 // broken through the scratch register. Immediates go last.
-                int start = static_cast<int>((nargs < n_arg_regs) ? nargs : n_arg_regs);
+                // Floats are loaded straight from their homes (arg_loads) into FP argument
+                // registers, or into integer ones once those run out; only integer operands
+                // take part in the parallel move. With floats present the register area can
+                // hold more operands than there are integer argument registers.
+                size_t reg_ops = nargs;
+                if (insn.reg_args >= 0) reg_ops = std::min<size_t>(nargs, static_cast<size_t>(insn.reg_args));
+                else reg_ops = std::min(nargs, n_arg_regs);
+                std::vector<bool> fp_mask;
+                int fp_in_regs = 0;
+                for (size_t i = 0; i < reg_ops; i++) {
+                    fp_mask.push_back(is_fp_width(insn.operands[i].width));
+                }
+                const std::vector<ArgRegAssign> assign = assign_arg_regs(m_tri, fp_mask);
                 struct Move { std::string dst, src; };
                 std::vector<Move> pending;
                 std::vector<Move> imms;
-                for (int i = 0; i < start; i++) {
-                    std::string dst = m_tri.name_of(m_tri.arg_regs[static_cast<size_t>(i)]);
-                    std::string src = operand_name(insn, static_cast<size_t>(i));
-                    if (insn.operands[static_cast<size_t>(i)].is_imm()) imms.push_back({dst, src});
+                for (size_t i = 0; i < reg_ops; i++) {
+                    if (fp_mask[i]) {
+                        if (assign[i].fp) fp_in_regs++;
+                        continue;
+                    }
+                    std::string dst = m_tri.name_of(assign[i].preg);
+                    std::string src = operand_name(insn, i);
+                    if (insn.operands[i].is_imm()) imms.push_back({dst, src});
                     else if (dst != src) pending.push_back({dst, src});
                 }
                 if (indirect) {
@@ -390,9 +406,17 @@ public:
                     }
                 }
                 for (auto& mv : imms) m_backend.mov(mv.dst, mv.src);
-                for (auto& al : insn.arg_loads)
-                    m_backend.load(m_tri.name_of(al.first),
-                                   m_backend.addr_reg_offset(m_tri.name_of(m_tri.fp_reg), al.second));
+                for (auto& al : insn.arg_loads) {
+                    const std::string addr =
+                        m_backend.addr_reg_offset(m_tri.name_of(m_tri.fp_reg), al.second);
+                    if (al.first & FP_REG_FLAG) {
+                        m_backend.fp_load(m_tri.fp_name(al.first & FP_REG_MASK), addr,
+                                          (al.first & FP_SINGLE_FLAG) ? 32 : 64);
+                    } else {
+                        m_backend.load(m_tri.name_of(al.first), addr);
+                    }
+                }
+                if (!indirect && fp_in_regs > 0) m_backend.note_fp_arg_count(fp_in_regs);
 
                 if (indirect) m_backend.call_reg(m_tri.name_of(m_tri.call_target_reg));
                 else m_backend.call(insn.call_target);
@@ -401,6 +425,7 @@ public:
                     m_backend.adjust_stack(static_cast<int64_t>(insn.imm_arg));
                 }
 
+                // A float result stays in the FP result register; the rewriter stores it.
                 if (insn.dst != IRInstruction::NONE_VREG) {
                     std::string dst_name = preg_name(insn.dst);
                     std::string ret_name = m_tri.name_of(m_tri.ret_reg);
@@ -434,7 +459,16 @@ public:
                 // its frame slot. Only the scratch register is used as a temporary, so
                 // no argument register that is still unread can be clobbered.
                 const size_t n_arg_regs = m_tri.arg_regs.size();
-                const size_t ordinal = static_cast<size_t>(insn.operands[0].imm);
+                const int64_t ordinal_raw = insn.operands[0].imm;
+                if (ordinal_raw >= FP_PARAM_ORDINAL_BASE) {
+                    // A float parameter arriving in FP argument register #k: store it directly.
+                    const size_t k = static_cast<size_t>(ordinal_raw - FP_PARAM_ORDINAL_BASE);
+                    assert(k < m_tri.fp_arg_regs.size());
+                    m_backend.fp_store(m_backend.addr_fp(static_cast<int>(insn.imm_arg)),
+                                       m_tri.fp_name(m_tri.fp_arg_regs[k]), width_bits(insn.dst_width));
+                    break;
+                }
+                const size_t ordinal = static_cast<size_t>(ordinal_raw);
                 const int64_t shift = insn.operands[1].imm;
                 const std::string tmp = m_tri.name_of(m_tri.scratch_reg);
                 std::string src;
@@ -454,15 +488,17 @@ public:
                 switch (insn.dst_width) {
                     case IRWidth::I8:  m_backend.store_8(addr, src); break;
                     case IRWidth::I16: m_backend.store_16(addr, src); break;
-                    case IRWidth::I32: m_backend.store_32(addr, src); break;
-                    case IRWidth::I64: m_backend.store(addr, src); break;
+                    case IRWidth::I32:
+                    case IRWidth::F32: m_backend.store_32(addr, src); break;
+                    case IRWidth::I64:
+                    case IRWidth::F64: m_backend.store(addr, src); break;
                 }
                 break;
             }
 
             case IROpcode::RET: {
                 // Move return value to return register
-                if (!insn.operands.empty()) {
+                if (!insn.operands.empty() && !is_fp_width(insn.operands[0].width)) {
                     std::string ret_val = operand_name(insn, 0);
                     std::string ret_name = m_tri.name_of(m_tri.ret_reg);
                     if (ret_val != ret_name) {
@@ -498,6 +534,55 @@ public:
 
             case IROpcode::POP:
                 m_backend.pop(operand_name(insn, 0));
+                break;
+
+            // Floating point (D-038): operands are FP register numbers after lowering.
+            case IROpcode::FCONST:
+                m_backend.fp_const(fp_name(insn.dst), static_cast<uint64_t>(insn.imm_arg),
+                                   width_bits(insn.dst_width), m_tri.name_of(m_tri.scratch_reg));
+                break;
+            case IROpcode::FNEG:
+                m_backend.fp_neg(fp_name(insn.dst), fp_operand(insn, 0), width_bits(insn.dst_width),
+                                 m_tri.name_of(m_tri.scratch_reg));
+                break;
+            case IROpcode::FADD:
+            case IROpcode::FSUB:
+            case IROpcode::FMUL:
+            case IROpcode::FDIV: {
+                const char op = insn.op == IROpcode::FADD ? '+' : insn.op == IROpcode::FSUB ? '-'
+                              : insn.op == IROpcode::FMUL ? '*' : '/';
+                m_backend.fp_arith(op, fp_name(insn.dst), fp_operand(insn, 0), fp_operand(insn, 1),
+                                   width_bits(insn.dst_width));
+                break;
+            }
+            case IROpcode::FCMP_EQ: case IROpcode::FCMP_NE: case IROpcode::FCMP_LT:
+            case IROpcode::FCMP_LE: case IROpcode::FCMP_GT: case IROpcode::FCMP_GE: {
+                const char* cc = insn.op == IROpcode::FCMP_EQ ? "eq" : insn.op == IROpcode::FCMP_NE ? "ne"
+                               : insn.op == IROpcode::FCMP_LT ? "lt" : insn.op == IROpcode::FCMP_LE ? "le"
+                               : insn.op == IROpcode::FCMP_GT ? "gt" : "ge";
+                m_backend.fp_cmp(preg_name(insn.dst), cc, fp_operand(insn, 0), fp_operand(insn, 1),
+                                 width_bits(insn.operands[0].width));
+                break;
+            }
+            case IROpcode::I2F:
+                m_backend.int_to_fp(fp_name(insn.dst), operand_name(insn, 0), width_bits(insn.dst_width));
+                break;
+            case IROpcode::F2I:
+                m_backend.fp_to_int(preg_name(insn.dst), fp_operand(insn, 0),
+                                    width_bits(insn.operands[0].width));
+                break;
+            case IROpcode::F2F:
+                m_backend.fp_convert(fp_name(insn.dst), fp_operand(insn, 0),
+                                     width_bits(insn.operands[0].width));
+                break;
+            case IROpcode::FLOAD:
+                m_backend.fp_load(fp_name(insn.dst), mem_addr(insn), width_bits(insn.dst_width));
+                break;
+            case IROpcode::FSTORE:
+                m_backend.fp_store(mem_addr(insn), fp_operand(insn, 1), width_bits(insn.operands[1].width));
+                break;
+            case IROpcode::FCOPY:
+                assert(false && "FCOPY must be lowered before emission");
                 break;
         }
     }
@@ -548,6 +633,12 @@ private:
         if (label.empty()) return label;
         if (label[0] == '.') return m_func_name + label;
         return label;
+    }
+
+    std::string fp_name(uint32_t freg) const { return m_tri.fp_name(static_cast<int>(freg)); }
+
+    std::string fp_operand(const IRInstruction& insn, size_t idx) const {
+        return fp_name(insn.operands[idx].vreg_id);
     }
 
     std::string preg_name(uint32_t preg) const {

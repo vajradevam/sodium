@@ -11,6 +11,7 @@ namespace {
 
 SourceLoc expr_loc(const NodeExpr& expr) {
     if (auto* e = std::get_if<NodeExprIntLit*>(&expr.var))      return (*e)->int_lit.loc;
+    if (auto* e = std::get_if<NodeExprFloatLit*>(&expr.var))    return (*e)->float_lit.loc;
     if (auto* e = std::get_if<NodeExprIdent*>(&expr.var))       return (*e)->ident.loc;
     if (auto* e = std::get_if<NodeExprCall*>(&expr.var))        return (*e)->name.loc;
     if (auto* e = std::get_if<NodeExprStringLit*>(&expr.var))   return (*e)->value.loc;
@@ -19,6 +20,17 @@ SourceLoc expr_loc(const NodeExpr& expr) {
     if (auto* e = std::get_if<NodeExprAddrOf*>(&expr.var))      return (*e)->ampersand.loc;
     if (auto* e = std::get_if<NodeExprDeref*>(&expr.var))       return (*e)->star.loc;
     if (auto* e = std::get_if<NodeExprRead*>(&expr.var))        return (*e)->loc;
+    if (auto* e = std::get_if<NodeExprCast*>(&expr.var))        return (*e)->loc;
+    if (auto* e = std::get_if<NodeExprTernary*>(&expr.var))     return expr_loc(*(*e)->cond);
+    if (auto* e = std::get_if<NodeExprBitNot*>(&expr.var))      return expr_loc(*(*e)->expr);
+    if (auto* e = std::get_if<NodeExprLogNot*>(&expr.var))      return expr_loc(*(*e)->expr);
+    if (auto* e = std::get_if<BinExpr*>(&expr.var)) {
+        // The leftmost token; a synthetic operand (unary minus's `0`) has no location.
+        return std::visit([](auto* node) {
+            SourceLoc loc = expr_loc(*node->lhs);
+            return loc.line != 0 ? loc : expr_loc(*node->rhs);
+        }, (*e)->var);
+    }
     return {};
 }
 
@@ -231,3 +243,5 @@ void Generator::check_flow_warnings() {
 SourceLoc statement_location(const NodeStmt& stmt) {
     return stmt_loc(stmt);
 }
+
+SourceLoc expr_source_loc(const NodeExpr& expr) { return expr_loc(expr); }

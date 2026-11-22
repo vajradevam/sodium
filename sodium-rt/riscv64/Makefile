@@ -4,8 +4,8 @@
 AS   = riscv64-elf-as
 CC   = riscv64-elf-gcc
 AR   = riscv64-elf-ar
-ASFLAGS = -march=rv64gc -mno-relax
-CFLAGS  = -ffreestanding -nostdlib -fno-builtin -O2 -c
+ASFLAGS = -march=rv64gc -mabi=lp64d -mno-relax
+CFLAGS  = -ffreestanding -nostdlib -fno-builtin -fno-stack-protector -O2 -c
 
 SRCS = crt0.asm exit.asm print.asm read.asm read_str.asm syscalls.asm
 OBJS = $(SRCS:.asm=.o) allocator.o printfmt.o syscall_wrappers.o

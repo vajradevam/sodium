@@ -1,0 +1,3 @@
+// f64 does not convert to f32 implicitly (D-038).
+// EXPECT-ERROR: cannot implicitly convert f64 to f32 in the initializer of 'f'
+function main() { var f: f32 = 1.5; print(f); return(0); }

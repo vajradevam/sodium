@@ -1,0 +1,3 @@
+// exit takes an integer (D-038).
+// EXPECT-ERROR: a builtin argument cannot be a f64
+function main() { exit(1.5); return(0); }

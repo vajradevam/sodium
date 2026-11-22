@@ -1,0 +1,39 @@
+// C-interop (D-038): this program calls functions implemented in C (gcc) with float arguments
+// and results. The Cyan definitions of the c_* functions are deliberately wrong stubs that give
+// the compiler their signatures; scripts/test_abi_interop.sh weakens them so the C definitions
+// win at link time. Exit code N means check N failed.
+// SKIP-TEST: part of scripts/test_abi_interop.sh (needs the C object)
+
+function c_add(a: f64, b: f64) -> f64 { return 0.0; }
+function c_scale(x: f32, k: f64) -> f32 { return 0.0f; }
+function c_mix(a: i64, x: f64, b: i64, y: f32, c: i64) -> f64 { return 0.0; }
+function c_nine(a: f64, b: f64, c: f64, d: f64, e: f64, f: f64, g: f64, h: f64, i: f64) -> f64 { return 0.0; }
+function c_many(a: i64, b: i64, c: i64, d: i64, e: i64, f: i64, g: i64, h: i64, x: f64, y: f64, z: f64) -> f64 {
+    return 0.0;
+}
+function c_twelve(d0: f64, d1: f64, d2: f64, d3: f64, d4: f64, d5: f64, d6: f64, d7: f64,
+                  d8: f64, d9: f64, d10: f64, d11: f64, n: i64, s: f32) -> f64 {
+    return 0.0;
+}
+function c_less(a: f64, b: f64) -> i64 { return 0 - 1; }
+function c_trunc(x: f64) -> i64 { return 0 - 1; }
+function c_from_int(x: i64) -> f64 { return 0.0; }
+function c_narrow(x: f64) -> f32 { return 0.0f; }
+function c_widen(x: f32) -> f64 { return 0.0; }
+
+function main() {
+    if (c_add(1.5, 2.25) != 3.75) { return(1); }
+    if (c_scale(1.5f, 2.0) != 3.0f) { return(2); }
+    if (c_mix(1, 2.0, 3, 4.0f, 5) != 54321.0) { return(3); }
+    if (c_nine(1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0) != 45.0) { return(4); }
+    if (c_many(1, 1, 1, 1, 1, 1, 1, 1, 1.0, 1.0, 1.0) != 42.0) { return(5); }
+    if (c_twelve(1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 100, 0.5f) != 122.5) { return(6); }
+    if (c_less(1.0, 2.0) != 1) { return(7); }
+    if (c_less(2.0, 1.0) != 0) { return(8); }
+    if (c_trunc(0.0 - 7.9) != 0 - 7) { return(9); }
+    if (c_from_int(0 - 3) != 0.0 - 3.0) { return(10); }
+    if (c_narrow(0.1) != 0.1f) { return(11); }
+    if (c_widen(0.1f) == 0.1) { return(12); }
+    if (c_widen(0.5f) != 0.5) { return(13); }
+    return(0);
+}

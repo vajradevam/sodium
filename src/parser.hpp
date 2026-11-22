@@ -12,6 +12,8 @@
 #include "arena.hpp"
 #include "tokenization.hpp"
 
+enum class FloatType { f32, f64 };
+
 enum class IntType {
     i8, i16, i32, i64,
     u8, u16, u32, u64
@@ -23,7 +25,7 @@ enum class IntType {
 
 struct Type {
     // Func is only ever the pointee of a Ptr: a function pointer `fn(A, B) -> R` is Ptr(Func).
-    enum Kind : uint8_t { Int, Ptr, Struct, Func };
+    enum Kind : uint8_t { Int, Ptr, Struct, Func, Float };
     Kind kind;
     IntType int_type;    // valid when kind == Int
     Type* pointee;       // valid when kind == Ptr (arena-allocated via parser allocator)
@@ -31,8 +33,14 @@ struct Type {
     Type* fn_ret = nullptr;      // valid when kind == Func: return type (null = unannotated)
     Type* fn_params = nullptr;   // valid when kind == Func: array of fn_nparams parameter types
     uint32_t fn_nparams = 0;     // valid when kind == Func
+    FloatType float_type = FloatType::f64; // valid when kind == Float
 
     static Type make_int(IntType t) { return {Int, t, nullptr, {}}; }
+    static Type make_float(FloatType f) {
+        Type t{Float, IntType::i64, nullptr, {}};
+        t.float_type = f;
+        return t;
+    }
     static Type make_struct(std::string name) { return {Struct, IntType::i64, nullptr, std::move(name)}; }
     /// A function signature; `params` and `ret` must outlive the type (arena or type pool).
     static Type make_func(Type* params, uint32_t nparams, Type* ret) {
@@ -58,6 +66,7 @@ struct Type {
     bool operator==(const Type& o) const {
         if (kind != o.kind) return false;
         if (kind == Int) return int_type == o.int_type;
+        if (kind == Float) return float_type == o.float_type;
         if (kind == Struct) return struct_name == o.struct_name;
         if (kind == Func) {
             if (fn_nparams != o.fn_nparams) return false;
@@ -78,6 +87,7 @@ struct Type {
 // Return the size in bytes of a value of the given type.
 inline size_t type_size(const Type& t) {
     if (t.kind == Type::Ptr || t.kind == Type::Func) return 8;  // pointers are 8 bytes
+    if (t.kind == Type::Float) return t.float_type == FloatType::f32 ? 4 : 8;
     if (t.kind == Type::Struct) return 8; // fallback; layouts come from StructInfo
     switch (t.int_type) {
         case IntType::i8:  case IntType::u8:  return 1;
@@ -91,6 +101,7 @@ inline size_t type_size(const Type& t) {
 // ── Expression AST nodes ───────────────────────────────────────────────────
 
 struct NodeExprIntLit { Token int_lit; };
+struct NodeExprFloatLit { Token float_lit; };  // text keeps an optional 'f' suffix (f32)
 struct NodeExprIdent { Token ident; };
 
 struct NodeExpr;
@@ -196,7 +207,7 @@ struct NodeExprCast {
 };
 
 struct NodeExpr {
-    std::variant<NodeExprIntLit*, NodeExprIdent*, BinExpr*, NodeExprCall*, NodeExprStringLit*, NodeExprIndex*, NodeExprBitNot*, NodeExprLogNot*, NodeExprTernary*, NodeExprRead*, NodeExprArrLit*, NodeExprFieldAccess*, NodeExprAddrOf*, NodeExprDeref*, NodeExprSizeof*, NodeExprCast*, NodeExprStructLit*> var;
+    std::variant<NodeExprIntLit*, NodeExprFloatLit*, NodeExprIdent*, BinExpr*, NodeExprCall*, NodeExprStringLit*, NodeExprIndex*, NodeExprBitNot*, NodeExprLogNot*, NodeExprTernary*, NodeExprRead*, NodeExprArrLit*, NodeExprFieldAccess*, NodeExprAddrOf*, NodeExprDeref*, NodeExprSizeof*, NodeExprCast*, NodeExprStructLit*> var;
 };
 
 // ── Statement AST nodes ────────────────────────────────────────────────────
@@ -265,7 +276,10 @@ struct NodeStmtBlock {
 };
 
 struct FormatSpec {
-    enum Type : uint8_t { Text, Int, String, LiteralPercent, Hex, Unsigned, Char };
+    enum Type : uint8_t { Text, Int, String, LiteralPercent, Hex, Unsigned, Char,
+                          Float,  ///< %f: a float printed in fixed notation (D-038)
+                          Any     ///< print(expr): an integer or a float, by the argument's type
+    };
     Type type;
     std::string text;  // for Text fragments
 };

@@ -1,0 +1,3 @@
+// A float suffix on a plain integer is rejected.
+// EXPECT-ERROR: The 'f' suffix needs a fraction or exponent
+function main() { var x = 1f; return(0); }

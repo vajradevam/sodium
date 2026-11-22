@@ -87,6 +87,20 @@ public:
     void call_reg(const std::string& reg) override;
     void syscall() override;
 
+    // Floating point (D-038). FP registers are passed by name ("xmm3", "f3"); `bits` is 32 or 64.
+    void fp_load(const std::string& freg, const std::string& addr, int bits) override;
+    void fp_store(const std::string& addr, const std::string& freg, int bits) override;
+    void fp_const(const std::string& freg, uint64_t pattern, int bits, const std::string& gpr) override;
+    void fp_arith(char op, const std::string& dst, const std::string& a, const std::string& b,
+                  int bits) override;
+    void fp_neg(const std::string& dst, const std::string& src, int bits, const std::string& gpr) override;
+    void fp_cmp(const std::string& dst_gpr, const std::string& cc, const std::string& a,
+                const std::string& b, int bits) override;
+    void int_to_fp(const std::string& freg, const std::string& gpr, int bits) override;
+    void fp_to_int(const std::string& gpr, const std::string& freg, int bits) override;
+    void fp_convert(const std::string& dst, const std::string& src, int from_bits) override;
+    void note_fp_arg_count(int count) override;
+
     // Generic instruction emission
     void emit_insn(const std::string& insn, const std::string& ops = "") override;
     void debug_line(const std::string& file, uint32_t line) override;

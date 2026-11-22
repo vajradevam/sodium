@@ -16,9 +16,13 @@ void Generator::gen_stmt(const NodeStmt& stmt)
 
     struct StmtVisitor {
         Generator* gen;
+        static void require_val_not_float(Generator* g, const NodeStmtDerefAssign* d) {
+            g->require_not_float(expr_source_loc(*d->expr), "the value stored through a pointer");
+        }
         void operator()(const NodeStmtExit* stmt_exit) const
         {
             gen->gen_expr(*stmt_exit->expr);
+            gen->require_not_float(expr_source_loc(*stmt_exit->expr), "the exit status");
             uint32_t code = gen->pop_vreg();
             gen->m_ir.call("_sodium_exit", {IRValue::vreg(code)});
             gen->m_emitted_exit = true;
@@ -28,7 +32,6 @@ void Generator::gen_stmt(const NodeStmt& stmt)
         {
             Type var_type = stmt_let->full_type.value_or(
                 Type::make_int(stmt_let->type.value_or(IntType::i64)));
-
             // Handle struct-typed variable
             if (!stmt_let->struct_type_name.empty()) {
                 auto struct_info = gen->get_struct_info(stmt_let->struct_type_name);
@@ -61,6 +64,14 @@ void Generator::gen_stmt(const NodeStmt& stmt)
                                              : Type::make_int(IntType::i64);
                             size_t fsize = type_size(ftype);
                             gen->gen_expr(*field.value);
+                            if (ftype.kind == Type::Float || gen->peek_type().kind == Type::Float) {
+                                gen->coerce_float_top(ftype, field.name.loc, "a struct field initializer");
+                                uint32_t fbase = gen->object_addr(slot, Generator::align_frame(struct_bytes, 8));
+                                uint32_t faddr = gen->m_ir.lea(IRValue::vreg(fbase),
+                                                               static_cast<int64_t>(offset_it->second));
+                                gen->store_float_top(faddr, ftype.float_type);
+                                continue;
+                            }
                             uint32_t val = gen->pop_vreg();
                             if (ftype.kind == Type::Int && fsize < 8) {
                                 if (fsize <= 1)      val = gen->m_ir.and_(IRValue::vreg(val), IRValue::imm_i64(0xFF));
@@ -110,9 +121,30 @@ void Generator::gen_stmt(const NodeStmt& stmt)
                 gen->gen_expr(*stmt_let->expr);
                 gen->check_fn_ptr_assign(var_type, stmt_let->expr, stmt_let->ident.loc,
                                          "initialize '" + stmt_let->ident.value.value() + "'");
+                {
+                    const std::string vname = stmt_let->ident.value.value();
+                    const bool untyped = !stmt_let->full_type && !stmt_let->type;
+                    if (untyped && gen->peek_type().kind == Type::Float) {
+                        // `var x = 1.5;` takes the initializer's float type.
+                        const Type ft = gen->peek_type();
+                        gen->m_scopes.back().vars.at(vname).type = ft;
+                        gen->store_float_top(gen->var_addr(gen->m_scopes.back().vars.at(vname)),
+                                             ft.float_type);
+                        return;
+                    }
+                    if (var_type.kind == Type::Float) {
+                        gen->coerce_float_top(var_type, stmt_let->ident.loc,
+                                              "the initializer of '" + vname + "'");
+                        gen->store_float_top(gen->var_addr(gen->m_scopes.back().vars.at(vname)),
+                                             var_type.float_type);
+                        return;
+                    }
+                    gen->coerce_float_top(var_type, stmt_let->ident.loc,
+                                          "the initializer of '" + vname + "'");
+                }
                 // Check if the expression produced a pointer type — if so, update var's type
                 if (gen->peek_type().kind == Type::Ptr) {
-                    Type expr_type = gen->pop_type();
+                    Type expr_type = gen->peek_type();
                     uint32_t val = gen->pop_vreg();
                     // Update variable type to the pointer type
                     auto& scope = gen->m_scopes.back();
@@ -229,6 +261,7 @@ void Generator::gen_stmt(const NodeStmt& stmt)
         void operator()(const NodeStmtIf* stmt_if) const
         {
             gen->gen_expr(*stmt_if->cond);
+            gen->require_not_float(expr_source_loc(*stmt_if->cond), "a condition");
             uint32_t cond = gen->pop_vreg();
 
             auto label_else = gen->new_label();
@@ -268,6 +301,7 @@ void Generator::gen_stmt(const NodeStmt& stmt)
 
             gen->m_ir.new_block(label_begin);
             gen->gen_expr(*stmt_while->cond);
+            gen->require_not_float(expr_source_loc(*stmt_while->cond), "a condition");
             uint32_t cond = gen->pop_vreg();
 
             auto label_body = gen->new_label();
@@ -306,6 +340,7 @@ void Generator::gen_stmt(const NodeStmt& stmt)
 
             gen->m_ir.new_block(label_cont);
             gen->gen_expr(*stmt_do_while->cond);
+            gen->require_not_float(expr_source_loc(*stmt_do_while->cond), "a condition");
             uint32_t cond = gen->pop_vreg();
             gen->m_ir.br(IRValue::vreg(cond), label_begin, label_end);
 
@@ -403,6 +438,11 @@ void Generator::gen_stmt(const NodeStmt& stmt)
                 Type elem_type;
                 uint32_t addr = gen->index_addr(full, elem_type);
                 gen->gen_expr(*stmt_arr_assign->expr);
+                if (elem_type.kind == Type::Float || gen->peek_type().kind == Type::Float) {
+                    gen->coerce_float_top(elem_type, stmt_arr_assign->name.loc, "array element assignment");
+                    gen->store_float_top(addr, elem_type.float_type);
+                    return;
+                }
                 uint32_t v = gen->pop_vreg();
                 size_t sz = type_size(elem_type);
                 if (elem_type.kind == Type::Int && sz < 8) {
@@ -414,7 +454,26 @@ void Generator::gen_stmt(const NodeStmt& stmt)
                 return;
             }
             gen->gen_expr(*stmt_arr_assign->index);
+            gen->require_not_float(stmt_arr_assign->name.loc, "an array index");
             gen->gen_expr(*stmt_arr_assign->expr);
+            const Var* local = nullptr;
+            for (auto it = gen->m_scopes.rbegin(); it != gen->m_scopes.rend(); ++it) {
+                if (it->vars.contains(name)) { local = &it->vars.at(name); break; }
+            }
+            if (gen->peek_type().kind == Type::Float || (local && local->type.kind == Type::Float)) {
+                if (!local) gen->fail(stmt_arr_assign->name.loc, "global arrays cannot hold floats yet");
+                gen->coerce_float_top(local->type, stmt_arr_assign->name.loc, "array element assignment");
+                uint32_t fv = gen->pop_vreg();
+                uint32_t fidx = gen->pop_vreg();
+                uint32_t fbase = gen->var_addr(*local);
+                uint32_t foff = gen->m_ir.mul(IRValue::vreg(fidx),
+                                              IRValue::imm_i64(static_cast<int64_t>(local->elem_size)));
+                uint32_t faddr = gen->m_ir.add(IRValue::vreg(fbase), IRValue::vreg(foff));
+                gen->m_ir.fstore(IRValue::vreg(faddr), 0,
+                                 IRValue::fvreg(fv, local->type.float_type == FloatType::f32
+                                                        ? IRWidth::F32 : IRWidth::F64));
+                return;
+            }
             uint32_t val = gen->pop_vreg();
             uint32_t idx = gen->pop_vreg();
 
@@ -466,6 +525,15 @@ void Generator::gen_stmt(const NodeStmt& stmt)
                         gen->gen_struct_return(addr, *info);
                         return;
                     }
+                    if (returned.kind == Type::Float) {
+                        if (!gen->m_current_return_type.has_value()) {
+                            gen->fail(stmt_ret->loc, "returning a float requires a declared float return type");
+                        }
+                        uint32_t fv = gen->pop_vreg();
+                        gen->m_ir.ret(IRValue::fvreg(fv, returned.float_type == FloatType::f32
+                                                             ? IRWidth::F32 : IRWidth::F64));
+                        return;
+                    }
                     uint32_t val = gen->pop_vreg();
                     gen->m_ir.ret(IRValue::vreg(val));
                 } else {
@@ -476,6 +544,7 @@ void Generator::gen_stmt(const NodeStmt& stmt)
                     gen->fail(stmt_ret->loc, "return with no value at top level");
                 }
                 gen->gen_expr(*stmt_ret->expr);
+                gen->require_not_float(expr_source_loc(*stmt_ret->expr), "the exit status");
                 uint32_t code = gen->pop_vreg();
                 gen->m_ir.call("_sodium_exit", {IRValue::vreg(code)});
                 gen->m_emitted_exit = true;
@@ -501,32 +570,54 @@ void Generator::gen_stmt(const NodeStmt& stmt)
                         gen->m_ir.call("_sodium_print_raw_str", {IRValue::vreg(addr)});
                         break;
                     }
+                    case FormatSpec::Float:
+                    case FormatSpec::Any:
                     case FormatSpec::Int: {
-                        gen->gen_expr(*stmt_print->args[arg_idx++]);
+                        const NodeExpr& arg = *stmt_print->args[arg_idx++];
+                        gen->gen_expr(arg);
+                        const bool is_float = gen->peek_type().kind == Type::Float;
+                        if (spec.type == FormatSpec::Float || (spec.type == FormatSpec::Any && is_float)) {
+                            // Integers convert to f64 and f32 widens, then the value is
+                            // printed in fixed notation (D-038).
+                            gen->coerce_float_top(Type::make_float(FloatType::f64),
+                                                  expr_source_loc(arg), "a '%f' argument");
+                            uint32_t fv = gen->pop_vreg();
+                            gen->m_ir.call("_sodium_print_raw_float", {IRValue::fvreg(fv, IRWidth::F64)});
+                            break;
+                        }
+                        gen->require_not_float(expr_source_loc(arg), "a '%d' argument (use '%f')");
                         uint32_t val = gen->pop_vreg();
                         gen->m_ir.call("_sodium_print_raw_int", {IRValue::vreg(val)});
                         break;
                     }
                     case FormatSpec::String: {
-                        gen->gen_expr(*stmt_print->args[arg_idx++]);
+                        gen->gen_expr(*stmt_print->args[arg_idx]);
+                        gen->require_not_float(expr_source_loc(*stmt_print->args[arg_idx]), "this format argument (use '%f')");
+                        arg_idx++;
                         uint32_t ptr = gen->pop_vreg();
                         gen->m_ir.call("_sodium_print_raw_str", {IRValue::vreg(ptr)});
                         break;
                     }
                     case FormatSpec::Hex: {
-                        gen->gen_expr(*stmt_print->args[arg_idx++]);
+                        gen->gen_expr(*stmt_print->args[arg_idx]);
+                        gen->require_not_float(expr_source_loc(*stmt_print->args[arg_idx]), "this format argument (use '%f')");
+                        arg_idx++;
                         uint32_t val = gen->pop_vreg();
                         gen->m_ir.call("_sodium_print_raw_hex", {IRValue::vreg(val)});
                         break;
                     }
                     case FormatSpec::Unsigned: {
-                        gen->gen_expr(*stmt_print->args[arg_idx++]);
+                        gen->gen_expr(*stmt_print->args[arg_idx]);
+                        gen->require_not_float(expr_source_loc(*stmt_print->args[arg_idx]), "this format argument (use '%f')");
+                        arg_idx++;
                         uint32_t val = gen->pop_vreg();
                         gen->m_ir.call("_sodium_print_raw_uint", {IRValue::vreg(val)});
                         break;
                     }
                     case FormatSpec::Char: {
-                        gen->gen_expr(*stmt_print->args[arg_idx++]);
+                        gen->gen_expr(*stmt_print->args[arg_idx]);
+                        gen->require_not_float(expr_source_loc(*stmt_print->args[arg_idx]), "this format argument (use '%f')");
+                        arg_idx++;
                         uint32_t val = gen->pop_vreg();
                         gen->m_ir.call("_sodium_print_raw_char", {IRValue::vreg(val)});
                         break;
@@ -573,6 +664,7 @@ void Generator::gen_stmt(const NodeStmt& stmt)
 
             if (stmt_for->cond) {
                 gen->gen_expr(*stmt_for->cond);
+                gen->require_not_float(expr_source_loc(*stmt_for->cond), "a condition");
                 uint32_t cond = gen->pop_vreg();
                 auto label_body = gen->new_label();
                 gen->m_ir.br(IRValue::vreg(cond), label_body, label_end);
@@ -637,8 +729,15 @@ void Generator::gen_stmt(const NodeStmt& stmt)
                                   field_type.int_type == IntType::i16 ||
                                   field_type.int_type == IntType::i32));
 
+            if (field_type.kind == Type::Float) {
+                gen->gen_expr(*stmt_field->expr);
+                gen->store_float_at(field_addr, field_type.float_type, stmt_field->op,
+                                    stmt_field->field_name.loc);
+                return;
+            }
             if (stmt_field->op == AssignOp::assign) {
                 gen->gen_expr(*stmt_field->expr);
+                gen->coerce_float_top(field_type, stmt_field->field_name.loc, "assignment to a field");
                 uint32_t val = gen->pop_vreg();
                 if (field_type.kind == Type::Int && field_size < 8) {
                     if (field_size <= 1)      val = gen->m_ir.and_(IRValue::vreg(val), IRValue::imm_i64(0xFF));
@@ -649,6 +748,7 @@ void Generator::gen_stmt(const NodeStmt& stmt)
             } else {
                 uint32_t old_val = typed_load_val(field_addr, field_size, field_signed);
                 gen->gen_expr(*stmt_field->expr);
+                gen->coerce_float_top(field_type, stmt_field->field_name.loc, "assignment to a field");
                 uint32_t rhs = gen->pop_vreg();
                 uint32_t result = old_val;
                 switch (stmt_field->op) {
@@ -747,8 +847,15 @@ void Generator::gen_stmt(const NodeStmt& stmt)
             uint32_t field_addr = gen->m_ir.lea(IRValue::vreg(base_addr),
                                                 static_cast<int64_t>(offset_it->second));
 
+            if (field_type.kind == Type::Float) {
+                gen->gen_expr(*stmt_arrow->expr);
+                gen->store_float_at(field_addr, field_type.float_type, stmt_arrow->op,
+                                    stmt_arrow->field_name.loc);
+                return;
+            }
             if (stmt_arrow->op == AssignOp::assign) {
                 gen->gen_expr(*stmt_arrow->expr);
+                gen->coerce_float_top(field_type, stmt_arrow->field_name.loc, "assignment to a field");
                 uint32_t val = gen->pop_vreg();
                 if (field_type.kind == Type::Int && field_size < 8) {
                     if (field_size <= 1)      val = gen->m_ir.and_(IRValue::vreg(val), IRValue::imm_i64(0xFF));
@@ -759,6 +866,7 @@ void Generator::gen_stmt(const NodeStmt& stmt)
             } else {
                 uint32_t old_val = typed_load_val(field_addr, field_size, field_signed);
                 gen->gen_expr(*stmt_arrow->expr);
+                gen->coerce_float_top(field_type, stmt_arrow->field_name.loc, "assignment to a field");
                 uint32_t rhs = gen->pop_vreg();
                 uint32_t result = old_val;
                 switch (stmt_arrow->op) {
@@ -790,6 +898,19 @@ void Generator::gen_stmt(const NodeStmt& stmt)
                 gen->gen_expr(*stmt_deref->ptr_expr);
                 Type ptr_type = gen->peek_type();
                 uint32_t ptr = gen->pop_vreg();
+                if (ptr_type.kind == Type::Ptr && ptr_type.pointee) {
+                    if (gen->coerce_float_top(*ptr_type.pointee, expr_source_loc(*stmt_deref->expr),
+                                              "assignment through a pointer")) {
+                        if (ptr_type.pointee->kind == Type::Float) {
+                            uint32_t fv = gen->pop_vreg();
+                            gen->m_ir.fstore(IRValue::vreg(ptr), 0,
+                                             IRValue::fvreg(fv, ptr_type.pointee->float_type == FloatType::f32
+                                                                    ? IRWidth::F32 : IRWidth::F64));
+                            return;
+                        }
+                    }
+                }
+                require_val_not_float(gen, stmt_deref);
                 uint32_t val = gen->pop_vreg();
                 if (ptr_type.kind == Type::Ptr && ptr_type.pointee) {
                     typed_store(ptr, val, type_size(*ptr_type.pointee));
@@ -800,6 +921,12 @@ void Generator::gen_stmt(const NodeStmt& stmt)
                 gen->gen_expr(*stmt_deref->ptr_expr);
                 Type ptr_type = gen->peek_type();
                 uint32_t ptr = gen->pop_vreg();
+                if (ptr_type.kind == Type::Ptr && ptr_type.pointee && ptr_type.pointee->kind == Type::Float) {
+                    gen->gen_expr(*stmt_deref->expr);
+                    gen->store_float_at(ptr, ptr_type.pointee->float_type, stmt_deref->op,
+                                        expr_source_loc(*stmt_deref->expr));
+                    return;
+                }
 
                 size_t elem_size = 8;
                 bool is_signed = false;
@@ -813,6 +940,7 @@ void Generator::gen_stmt(const NodeStmt& stmt)
 
                 uint32_t old_val = typed_load_val(ptr, elem_size, is_signed);
                 gen->gen_expr(*stmt_deref->expr);
+                gen->require_not_float(expr_source_loc(*stmt_deref->expr), "the right side of this compound assignment");
                 uint32_t rhs = gen->pop_vreg();
                 uint32_t result = old_val;
                 switch (stmt_deref->op) {

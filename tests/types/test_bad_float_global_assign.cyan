@@ -1,0 +1,4 @@
+// Globals cannot hold floats yet (D-038).
+// EXPECT-ERROR: global variables cannot hold floats yet
+global var g = 0;
+function main() { g = 1.5; return(0); }

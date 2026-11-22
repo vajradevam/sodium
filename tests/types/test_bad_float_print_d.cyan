@@ -1,0 +1,3 @@
+// %d does not accept a float (D-038).
+// EXPECT-ERROR: a '%d' argument (use '%f') cannot be a f64
+function main() { print("%d", 1.5); return(0); }

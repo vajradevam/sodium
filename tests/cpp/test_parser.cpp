@@ -304,3 +304,26 @@ TEST(parser_function_pointer_type_in_declaration) {
     CHECK(g.pointee != nullptr && g.pointee->kind == Type::Func);
     if (g.pointee) CHECK(g.pointee->fn_ret == nullptr);   // no `->`: unannotated
 }
+
+TEST(parser_float_literal_shape) {
+    ExprFixture f("2.5f");
+    CHECK(f.expr != nullptr);
+    auto* lit = f.expr ? std::get_if<NodeExprFloatLit*>(&f.expr->var) : nullptr;
+    CHECK(lit != nullptr);
+    if (lit) CHECK((*lit)->float_lit.value.value() == "2.5f");
+}
+
+TEST(parser_float_types_in_signature) {
+    NodeProg prog = parse_program("function g(a: f64, b: f32) -> f32 { return(0); }\n"
+                                  "function main() { return(0); }");
+    CHECK_EQ(prog.funcs.size(), 2u);
+    if (prog.funcs.size() == 2) {
+        const NodeFuncDef* g = prog.funcs[0];
+        CHECK(g->param_types[0].has_value() && g->param_types[0]->kind == Type::Float);
+        CHECK(g->param_types[0]->float_type == FloatType::f64);
+        CHECK(g->param_types[1]->float_type == FloatType::f32);
+        CHECK(g->return_type.has_value() && g->return_type->float_type == FloatType::f32);
+        CHECK_EQ(type_size(*g->param_types[0]), 8u);
+        CHECK_EQ(type_size(*g->param_types[1]), 4u);
+    }
+}

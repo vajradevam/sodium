@@ -9,6 +9,7 @@
 
 std::string type_name(const Type& t) {
     if (t.kind == Type::Struct) return t.struct_name;
+    if (t.kind == Type::Float) return t.float_type == FloatType::f32 ? "f32" : "f64";
     if (t.kind == Type::Func) {
         std::string s = "fn(";
         for (uint32_t i = 0; i < t.fn_nparams; i++) {
@@ -112,6 +113,8 @@ void Generator::check_call_args(const NodeExprCall& call, SourceLoc loc, const s
         const Type want = *param_types[i];
         const Type got = m_tstack[base + i];
         if (want == got) continue;
+        if (coerce_float_at(base + i, want, loc,
+                            "argument " + std::to_string(i + 1) + " to " + what)) continue;
 
         auto constant = eval_const_expr(call.args[i]);
         if (constant.has_value() && want.kind == Type::Int &&
@@ -154,6 +157,7 @@ void Generator::check_return_type(const NodeExpr& expr, SourceLoc loc) {
     const Type want = *m_current_return_type;
     const Type got = m_tstack.back();
     if (want == got) return;
+    if (coerce_float_top(want, loc, "the return of function '" + m_current_func_name + "'")) return;
 
     // `0` is a valid null pointer literal for any pointer return type (D-003).
     if (want.kind == Type::Ptr && got.kind == Type::Int) {

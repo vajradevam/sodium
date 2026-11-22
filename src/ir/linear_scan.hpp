@@ -120,6 +120,13 @@ public:
         auto all_regs = m_tri.allocatable_regs();
 
         for (auto& range : ranges) {
+            // Floats (D-038) live in stack homes: the rewriter loads them into scratch FP
+            // registers around each operation, so they never compete for a register.
+            if (func.is_fp(range.vreg)) {
+                m_allocation.entries[range.vreg] = make_spill_entry();
+                continue;
+            }
+
             // 2a. Expire old intervals.
             expire_old_intervals(range.start);
 
