@@ -193,8 +193,11 @@ private:
                 // later loads overwrite earlier argument values.
                 if (insn.op == IROpcode::CALL) {
                     const size_t n_arg_regs = m_tri.arg_regs.size();
-                    const int stack_args =
-                        static_cast<int>(insn.operands.size() - n_arg_regs);
+                    const size_t n_reg = insn.reg_args >= 0
+                        ? static_cast<size_t>(insn.reg_args)
+                        : std::min(insn.operands.size(), n_arg_regs);
+                    assert(n_reg <= n_arg_regs && n_reg <= insn.operands.size());
+                    const int stack_args = static_cast<int>(insn.operands.size() - n_reg);
                     if (stack_args > 0) {
                         // Padding (if any) is pushed FIRST so it sits above
                         // the stack arguments in memory and does not shift
@@ -206,7 +209,7 @@ private:
                             dummy.operands.push_back(IRValue::vreg(static_cast<uint32_t>(scratch)));
                             new_insns.push_back(dummy);
                         }
-                        for (size_t i = insn.operands.size(); i-- > n_arg_regs;) {
+                        for (size_t i = insn.operands.size(); i-- > n_reg;) {
                             auto& op = insn.operands[i];
                             if (op.is_vreg()) {
                                 auto it = m_alloc.entries.find(op.vreg_id);
@@ -229,7 +232,7 @@ private:
                         // Keep SP 16-byte aligned at the call: the prologue
                         // leaves it aligned and every push toggles parity.
                         insn.imm_arg = (stack_args + pad) * 8;
-                        insn.operands.resize(n_arg_regs);
+                        insn.operands.resize(n_reg);
                     }
                 }
 

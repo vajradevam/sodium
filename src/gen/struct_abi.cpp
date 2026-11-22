@@ -23,24 +23,12 @@ size_t chunk_size(size_t remaining, size_t align) {
 
 } // namespace
 
-void Generator::check_struct_by_value(const StructInfo& info, const std::string& name,
-                                      size_t first_word, SourceLoc loc) const {
-    const TargetRegisterInfo& tri = *m_tri_ptr;
-    if (info.size > 16) {
-        // Passed as one pointer word to a caller-made copy where the ABI says so.
-        if (!tri.large_struct_by_ref && !tri.arg_regs.empty()) {
-            fail(loc, "struct '" + name + "' (" + std::to_string(info.size)
-                          + " bytes) cannot be passed by value yet");
-        }
-        return;
-    }
-    const size_t regs = tri.arg_regs.size();
+std::vector<ArgPlacement> Generator::place_struct_arg(ArgPlacer& placer,
+                                                      const StructInfo& info) const {
     const size_t words = struct_words(info.size);
-    if (regs != 0 && !tri.split_struct_args && first_word < regs && first_word + words > regs) {
-        fail(loc, "struct '" + name + "' would be split between argument registers and the "
-                      "stack, which this target's ABI does not allow; move it earlier in the "
-                      "parameter list");
-    }
+    if (info.size <= 16) return placer.small_struct(words);
+    if (m_tri_ptr->large_struct_by_ref) return {placer.scalar()};
+    return placer.stack_struct(words);
 }
 
 uint32_t Generator::load_struct_word(uint32_t base, const StructInfo& info, size_t word) {
@@ -127,10 +115,10 @@ void Generator::gen_struct_return(uint32_t addr, const StructInfo& info) {
 
 void Generator::gen_struct_call(const std::string& fname, const std::vector<IRValue>& args,
                                 const std::string& struct_name, const StructInfo& info,
-                                std::optional<uint32_t> hidden_result) {
+                                std::optional<uint32_t> hidden_result, int reg_args) {
     if (hidden_result) {
-        // `args` already starts with the hidden result pointer; the callee fills it.
-        m_ir.call(fname, args);
+        // `args` already carries the hidden result pointer; the callee fills it.
+        m_ir.call(fname, args, reg_args);
         push_vreg(*hidden_result);
         m_tstack.back() = Type::make_struct(struct_name);
         return;
@@ -139,9 +127,9 @@ void Generator::gen_struct_call(const std::string& fname, const std::vector<IRVa
     uint32_t first = 0;
     uint32_t second = 0;
     if (words == 2) {
-        first = m_ir.call2(fname, args, second);
+        first = m_ir.call2(fname, args, second, reg_args);
     } else {
-        first = m_ir.call(fname, args);
+        first = m_ir.call(fname, args, reg_args);
     }
     // The result lives in a temporary frame object; the expression's value is its address.
     uint32_t slot = alloc_object(info.size);

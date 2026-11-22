@@ -104,6 +104,54 @@ struct StructInfo {
     }
 };
 
+/// Where an argument word travels (D-012). Shared by call sites and function entry so
+/// the two always agree: a word is either the n-th register argument or the n-th
+/// stack word.
+struct ArgPlacement {
+    bool on_stack = false;
+    size_t index = 0;
+};
+
+class ArgPlacer {
+public:
+    explicit ArgPlacer(const TargetRegisterInfo& tri) : m_tri(tri) {}
+
+    /// One word: a scalar, a pointer, or a by-reference struct.
+    ArgPlacement scalar() {
+        if (m_regs_used < m_tri.arg_regs.size()) return {false, m_regs_used++};
+        return {true, m_stack_used++};
+    }
+
+    /// A struct of 1-2 words that is eligible for registers. RISC-V splits it between the
+    /// last register and the stack; System V keeps it whole, so one that does not fit
+    /// goes entirely on the stack and later scalars still use the free registers.
+    std::vector<ArgPlacement> small_struct(size_t words) {
+        std::vector<ArgPlacement> out;
+        const bool fits = m_regs_used + words <= m_tri.arg_regs.size();
+        for (size_t w = 0; w < words; w++) {
+            out.push_back(m_tri.split_struct_args || fits ? scalar() : ArgPlacement{true, m_stack_used++});
+        }
+        return out;
+    }
+
+    /// A struct passed in memory: every word goes on the stack.
+    std::vector<ArgPlacement> stack_struct(size_t words) {
+        std::vector<ArgPlacement> out;
+        for (size_t w = 0; w < words; w++) out.push_back({true, m_stack_used++});
+        return out;
+    }
+
+    /// The `ordinal` STORE_PARAM expects: register index, or register count + stack index.
+    size_t ordinal(const ArgPlacement& p) const {
+        return p.on_stack ? m_tri.arg_regs.size() + p.index : p.index;
+    }
+
+private:
+    const TargetRegisterInfo& m_tri;
+    size_t m_regs_used = 0;
+    size_t m_stack_used = 0;
+};
+
 class Generator {
 public:
     explicit Generator(NodeProg root, Backend& backend, const TargetRegisterInfo& tri,
@@ -159,9 +207,9 @@ public:
 
     /// Struct-by-value ABI (D-012, Y8b): number of 8-byte argument words for a struct.
     static size_t struct_words(size_t bytes) { return (bytes + 7) / 8; }
-    /// Reject structs that cannot be passed by value at word position `first_word`.
-    void check_struct_by_value(const StructInfo& info, const std::string& name,
-                               size_t first_word, SourceLoc loc) const;
+    /// Placement of each argument word of a struct passed by value (D-012). A struct larger
+    /// than 16 bytes is one pointer word where the ABI passes it by reference, else memory.
+    std::vector<ArgPlacement> place_struct_arg(ArgPlacer& placer, const StructInfo& info) const;
     /// Read word `word` of the struct at address `base` (only real bytes are read).
     uint32_t load_struct_word(uint32_t base, const StructInfo& info, size_t word);
     /// Write word `word` of the struct at address `base` from a vreg (only real bytes are written).
@@ -176,7 +224,7 @@ public:
     /// do not fit in registers (the callee fills it).
     void gen_struct_call(const std::string& fname, const std::vector<IRValue>& args,
                          const std::string& struct_name, const StructInfo& info,
-                         std::optional<uint32_t> hidden_result = std::nullopt);
+                         std::optional<uint32_t> hidden_result = std::nullopt, int reg_args = -1);
     /// Function entry: store incoming argument word `ordinal` into word `word` of a
     /// struct parameter's frame slot (only real bytes are written).
     void store_param_word(const Var& var, const StructInfo& info, size_t word, size_t ordinal);

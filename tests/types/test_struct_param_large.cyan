@@ -1,13 +1,14 @@
-// RISC-V LP64 passes structs larger than 16 bytes by reference to a caller-made
-// copy: the callee may modify its parameter without affecting the caller
-// (D-012, Y8b3).
-// TARGETS: riscv64
+// Structs larger than 16 bytes: copied to the stack on x86_64, passed by reference
+// to a caller-made copy on riscv64. Either way the callee may modify its parameter
+// without affecting the caller, and the scalars around it keep their positions
+// (D-012, Y8b3/Y8b4a).
 // EXPECT-EXIT: 0
 // EXPECT-STDOUT: 6
 // EXPECT-STDOUT: 999
 // EXPECT-STDOUT: 1
 // EXPECT-STDOUT: 33
 // EXPECT-STDOUT: 105
+// EXPECT-STDOUT: 41309020
 
 struct Big { var a: i64; var b: i64; var c: i64; };
 struct Five { var a: i32; var b: i32; var c: i32; var d: i32; var e: i32; };
@@ -30,6 +31,12 @@ function make() -> Big {
     return r;
 }
 
+// Large structs between scalars: on x86_64 the structs go on the stack while the
+// scalars use registers 1..3.
+function between(a: i64, b: Big, c: i64, d: Big, e: i64) -> i64 {
+    return a * 10000000 + b.a * 1000000 + c * 100000 + d.c * 1000 + e * 10 + b.c - 3;
+}
+
 function main() {
     var b: Big = { .a = 1, .b = 2, .c = 3 };
     print(total(b));
@@ -40,5 +47,8 @@ function main() {
     print(relay(b, 3) + total(make()));
     var f: Five = { .a = 1, .b = 2, .c = 3, .d = 4, .e = 5 };
     print(five_sum(f, 7));
+
+    var d: Big = { .a = 7, .b = 8, .c = 9 };
+    print(between(4, b, 3, d, 2));
     return(0);
 }

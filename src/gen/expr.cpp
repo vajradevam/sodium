@@ -471,7 +471,6 @@ void Generator::gen_expr(const NodeExpr& expr)
             }
 
             // Collect arguments (in evaluation order)
-            std::vector<IRValue> args;
             for (size_t i = 0; i < expr_call->args.size(); i++) {
                 gen->gen_expr(*expr_call->args[i]);
             }
@@ -484,9 +483,16 @@ void Generator::gen_expr(const NodeExpr& expr)
                 arg_types[i] = gen->peek_type();
                 arg_vregs[i] = gen->pop_vreg();
             }
-            // Struct arguments are passed as 8-byte words in consecutive argument
-            // positions (D-012); everything else is one word.
+            // Argument words are placed by the target ABI (D-012): scalars take one word,
+            // structs up to 16 bytes take their 8-byte words, larger ones go in memory or by
+            // reference. Register words come first in `args`, then the stack words in order.
             const NodeFuncDef* callee = gen->find_func(fname);
+            ArgPlacer placer(*gen->m_tri_ptr);
+            std::vector<IRValue> reg_words;
+            std::vector<IRValue> stack_words;
+            auto push_word = [&](const ArgPlacement& place, uint32_t vreg) {
+                (place.on_stack ? stack_words : reg_words).push_back(IRValue::vreg(vreg));
+            };
 
             // A struct result larger than 16 bytes comes back through a buffer whose
             // address is passed as the hidden first argument.
@@ -499,12 +505,12 @@ void Generator::gen_expr(const NodeExpr& expr)
                 if (ret_info->size > 16) {
                     uint32_t slot = gen->alloc_object(ret_info->size);
                     hidden_result = gen->object_addr(slot, Generator::align_frame(ret_info->size, 8));
-                    args.push_back(IRValue::vreg(*hidden_result));
+                    push_word(placer.scalar(), *hidden_result);
                 }
             }
             for (size_t i = 0; i < n_args; i++) {
                 if (arg_types[i].kind != Type::Struct) {
-                    args.push_back(IRValue::vreg(arg_vregs[i]));
+                    push_word(placer.scalar(), arg_vregs[i]);
                     continue;
                 }
                 const bool wants_struct = callee && i < callee->param_types.size()
@@ -516,27 +522,30 @@ void Generator::gen_expr(const NodeExpr& expr)
                 const std::string& sname = arg_types[i].struct_name;
                 auto info = gen->get_struct_info(sname);
                 if (!info.has_value()) gen->fail(expr_call->name.loc, "Unknown struct type: " + sname);
-                gen->check_struct_by_value(*info, sname, args.size(), expr_call->name.loc);
-                if (info->size > 16) {
+                const std::vector<ArgPlacement> places = gen->place_struct_arg(placer, *info);
+                if (info->size > 16 && places.size() == 1) {
                     // By reference to a caller-made copy.
                     uint32_t slot = gen->alloc_object(info->size);
                     uint32_t copy = gen->object_addr(slot, Generator::align_frame(info->size, 8));
                     gen->copy_memory(copy, arg_vregs[i], info->size, info->align);
-                    args.push_back(IRValue::vreg(copy));
+                    push_word(places[0], copy);
                     continue;
                 }
-                for (size_t w = 0; w < Generator::struct_words(info->size); w++) {
-                    args.push_back(IRValue::vreg(gen->load_struct_word(arg_vregs[i], *info, w)));
+                for (size_t w = 0; w < places.size(); w++) {
+                    push_word(places[w], gen->load_struct_word(arg_vregs[i], *info, w));
                 }
             }
+            const int reg_count = static_cast<int>(reg_words.size());
+            std::vector<IRValue> args = reg_words;
+            args.insert(args.end(), stack_words.begin(), stack_words.end());
 
             if (ret_info) {
                 gen->gen_struct_call(fname, args, callee->return_type->struct_name, *ret_info,
-                                     hidden_result);
+                                     hidden_result, reg_count);
                 return;
             }
 
-            uint32_t result = gen->m_ir.call(fname, args);
+            uint32_t result = gen->m_ir.call(fname, args, reg_count);
             gen->push_vreg(result);
         }
 

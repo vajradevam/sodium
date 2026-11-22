@@ -216,19 +216,25 @@ public:
         emit(IRInstruction::br(cond, t, f));
     }
 
-    uint32_t call(const std::string& func, const std::vector<IRValue>& args) {
+    /// `reg_args` (>= 0) says how many leading arguments go in registers; the rest are
+    /// stack words (-1: fill the argument registers first).
+    uint32_t call(const std::string& func, const std::vector<IRValue>& args, int reg_args = -1) {
         auto dst = new_vreg();
-        emit(IRInstruction::call(dst, func, args));
+        auto insn = IRInstruction::call(dst, func, args);
+        insn.reg_args = reg_args;
+        emit(insn);
         return dst;
     }
 
     /// Call returning a two-word value: the first word is the result, the second is
     /// written to `second`.
-    uint32_t call2(const std::string& func, const std::vector<IRValue>& args, uint32_t& second) {
+    uint32_t call2(const std::string& func, const std::vector<IRValue>& args, uint32_t& second,
+                   int reg_args = -1) {
         auto dst = new_vreg();
         second = new_vreg();
         auto insn = IRInstruction::call(dst, func, args);
         insn.dst2 = second;
+        insn.reg_args = reg_args;
         emit(insn);
         return dst;
     }

@@ -1,0 +1,52 @@
+// A struct that does not fit in the remaining argument registers goes entirely on
+// the stack on x86_64 while later scalars still use the free registers; riscv64
+// splits it between the last register and the stack. Both must deliver every value
+// to the right parameter (D-012, Y8b4a). Weights make each parameter's position visible.
+// EXPECT-EXIT: 0
+// EXPECT-STDOUT: 87654321
+// EXPECT-STDOUT: 987654321
+// EXPECT-STDOUT: 87654321
+// EXPECT-STDOUT: 987654321
+
+struct Pair { var a: i64; var b: i64; };
+
+// Five scalars leave one register: the pair cannot fit, the trailing scalar can.
+function five_pair_one(a: i64, b: i64, c: i64, d: i64, e: i64, p: Pair, g: i64) -> i64 {
+    return a + b * 10 + c * 100 + d * 1000 + e * 10000 + p.a * 100000 + p.b * 1000000
+         + g * 10000000;
+}
+
+// Six scalars then a pair; riscv64 still has a6/a7 free.
+function six_pair(a: i64, b: i64, c: i64, d: i64, e: i64, f: i64, p: Pair, g: i64) -> i64 {
+    return a + b * 10 + c * 100 + d * 1000 + e * 10000 + f * 100000 + p.a * 1000000
+         + p.b * 10000000 + g * 100000000;
+}
+
+// Three scalars, two pairs: the second pair cannot fit on x86_64.
+function two_pairs(a: i64, b: i64, c: i64, p: Pair, q: Pair, d: i64) -> i64 {
+    return a + b * 10 + c * 100 + p.a * 1000 + p.b * 10000 + q.a * 100000 + q.b * 1000000
+         + d * 10000000;
+}
+
+function mix(p: Pair, a: i64, q: Pair, b: i64, r: Pair, c: i64) -> i64 {
+    return p.a + p.b * 10 + a * 100 + q.a * 1000 + q.b * 10000 + b * 100000
+         + r.a * 1000000 + r.b * 10000000 + c * 100000000;
+}
+
+function main() {
+    var p6: Pair = { .a = 6, .b = 7 };
+    print(five_pair_one(1, 2, 3, 4, 5, p6, 8));
+
+    var p7: Pair = { .a = 7, .b = 8 };
+    print(six_pair(1, 2, 3, 4, 5, 6, p7, 9));
+
+    var p4: Pair = { .a = 4, .b = 5 };
+    var q6: Pair = { .a = 6, .b = 7 };
+    print(two_pairs(1, 2, 3, p4, q6, 8));
+
+    var m1: Pair = { .a = 1, .b = 2 };
+    var m4: Pair = { .a = 4, .b = 5 };
+    var m7: Pair = { .a = 7, .b = 8 };
+    print(mix(m1, 3, m4, 6, m7, 9));
+    return(0);
+}

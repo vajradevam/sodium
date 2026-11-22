@@ -40,6 +40,10 @@ struct IRInstruction {
     /// register (NONE_VREG otherwise). `dst` receives the first.
     uint32_t dst2 = UINT32_MAX;
 
+    /// For CALL: how many leading operands travel in argument registers; the rest are
+    /// pushed on the stack in order. -1 means "as many as there are argument registers".
+    int reg_args = -1;
+
     /// Sentinel for "no destination register".
     static constexpr uint32_t NONE_VREG = UINT32_MAX;
 
