@@ -7,8 +7,8 @@ AR   = riscv64-elf-ar
 ASFLAGS = -march=rv64gc -mno-relax
 CFLAGS  = -ffreestanding -nostdlib -fno-builtin -O2 -c
 
-SRCS = crt0.asm exit.asm print.asm read.asm read_str.asm
-OBJS = $(SRCS:.asm=.o) allocator.o printfmt.o
+SRCS = crt0.asm exit.asm print.asm read.asm read_str.asm syscalls.asm
+OBJS = $(SRCS:.asm=.o) allocator.o printfmt.o syscall_wrappers.o
 
 all: sodium-rt.a
 
@@ -16,6 +16,8 @@ all: sodium-rt.a
 allocator.o: ../allocator.c
 	$(CC) $(CFLAGS) -o $@ $<
 printfmt.o: ../printfmt.c
+	$(CC) $(CFLAGS) -o $@ $<
+syscall_wrappers.o: ../syscalls.c
 	$(CC) $(CFLAGS) -o $@ $<
 
 # Assembly files

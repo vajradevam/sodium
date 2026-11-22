@@ -24,6 +24,27 @@ uint32_t load_typed_field(IRBuilder& ir, uint32_t ptr, const Type& t) {
     if (sz == 2) return sgn ? ir.load_s16(IRValue::vreg(ptr), 0) : ir.load_u16(IRValue::vreg(ptr), 0);
     return sgn ? ir.load_s8(IRValue::vreg(ptr), 0) : ir.load_u8(IRValue::vreg(ptr), 0);
 }
+
+// Raw file-descriptor builtins (L4a): Cyan name -> runtime symbol and arity.
+struct SysBuiltin {
+    const char* cyan_name;
+    const char* runtime_name;
+    size_t arity;
+};
+
+const SysBuiltin* sys_builtin_for(const std::string& name) {
+    static const SysBuiltin table[] = {
+        {"sys_open",   "_sodium_sys_open",   3},
+        {"sys_close",  "_sodium_sys_close",  1},
+        {"sys_read",   "_sodium_sys_read",   3},
+        {"sys_write",  "_sodium_sys_write",  3},
+        {"sys_lseek",  "_sodium_sys_lseek",  3},
+        {"sys_unlink", "_sodium_sys_unlink", 1},
+    };
+    for (const auto& b : table)
+        if (name == b.cyan_name) return &b;
+    return nullptr;
+}
 } // namespace
 
 void Generator::gen_expr(const NodeExpr& expr)
@@ -409,6 +430,25 @@ void Generator::gen_expr(const NodeExpr& expr)
         {
             const auto& fname = expr_call->name.value.value();
 
+            if (const SysBuiltin* sys = sys_builtin_for(fname)) {
+                if (expr_call->args.size() != sys->arity) {
+                    gen->fail(expr_call->name.loc,
+                              fname + "() takes exactly " + std::to_string(sys->arity)
+                              + " argument(s), got " + std::to_string(expr_call->args.size()));
+                }
+                for (auto it = expr_call->args.rbegin(); it != expr_call->args.rend(); ++it) {
+                    gen->gen_expr(**it);
+                }
+                std::vector<IRValue> argv;
+                argv.reserve(sys->arity);
+                for (size_t i = 0; i < sys->arity; i++) {
+                    argv.push_back(IRValue::vreg(gen->pop_vreg()));
+                }
+                uint32_t result = gen->m_ir.call(sys->runtime_name, argv);
+                gen->push_vreg(result);
+                gen->m_tstack.back() = Type::make_int(IntType::i64);
+                return;
+            }
             if (fname == "malloc") {
                 // Call _sodium_malloc with the size argument
                 for (auto it = expr_call->args.rbegin(); it != expr_call->args.rend(); ++it) {

@@ -76,7 +76,9 @@ Type Generator::infer_expr_type(
                 result = Type::make_ptr(pointee);
                 return;
             }
-            if (fname == "free" || fname == "argc") {
+            if (fname == "free" || fname == "argc" || fname == "sys_open" ||
+                fname == "sys_close" || fname == "sys_read" || fname == "sys_write" ||
+                fname == "sys_lseek" || fname == "sys_unlink") {
                 result = Type::make_int(IntType::i64);
                 return;
             }

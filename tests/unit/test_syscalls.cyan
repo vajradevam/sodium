@@ -1,0 +1,35 @@
+// EXPECT-EXIT: 0
+// EXPECT-STDOUT: 5
+// EXPECT-STDOUT: 0
+// EXPECT-STDOUT: 0
+// EXPECT-STDOUT: 5
+// EXPECT-STDOUT: hello
+// EXPECT-STDOUT: 0
+// EXPECT-STDOUT: 0
+// EXPECT-STDOUT: -1
+// ARGS: /tmp/opencode/cyan_l4a_syscalls.txt
+
+// Raw file syscalls (L4a): write, seek, read back and unlink.
+#include "string.cyan"
+
+function main() {
+    var path = argv(1);
+    var fd = sys_open(path, 577, 420);  // O_WRONLY|O_CREAT|O_TRUNC, mode 0644
+    if (fd < 0) { return(1); }
+    print(sys_write(fd, "hello", 5));
+    print(sys_close(fd));
+
+    var rfd = sys_open(path, 0, 0);     // O_RDONLY
+    if (rfd < 0) { return(2); }
+    print(sys_lseek(rfd, 0, 0));
+    var buf = malloc(16);
+    memset(buf, 0, 16);
+    print(sys_read(rfd, buf, 5));
+    print("%s", buf);
+    print(sys_close(rfd));
+    print(sys_unlink(path));
+
+    if (sys_open(path, 0, 0) >= 0) { return(3); }
+    print(-1);
+    return(0);
+}

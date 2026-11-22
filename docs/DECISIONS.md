@@ -164,3 +164,13 @@ backend's `print.asm`), not in generated IR, so both targets share the same form
   `mem_live_count()` reports it. Setting the constant to 0 removes the tracking. This is deliberately
   a Cyan-level count, not a flag read from the environment: the freestanding runtime has no env
   access on either backend.
+
+## D-017 Raw file syscalls (L4a)
+Cyan exposes six thin builtins that map directly to freestanding runtime syscalls on both targets:
+`sys_open(path, flags, mode)`, `sys_close(fd)`, `sys_read(fd, buf, n)`, `sys_write(fd, buf, n)`,
+`sys_lseek(fd, offset, whence)` and `sys_unlink(path)`. They return the raw syscall result
+(non-negative on success, negative errno-style value on failure) as an i64; no errno variable is
+used. The runtime provides generic `_sodium_syscall3/4` stubs per backend plus a shared C wrapper
+that supplies the per-architecture syscall numbers. RISC-V has no `open`/`unlink` syscall, so those
+map to `openat`/`unlinkat` with `AT_FDCWD`. Flag values use the Linux generic (`asm-generic`) values,
+which coincide on x86_64 and riscv64. Arity is checked at compile time.

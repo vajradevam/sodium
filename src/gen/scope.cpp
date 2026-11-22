@@ -60,6 +60,12 @@ std::string Generator::did_you_mean(const std::string& name) const {
     candidates.insert("free");
     candidates.insert("argc");
     candidates.insert("argv");
+    candidates.insert("sys_open");
+    candidates.insert("sys_close");
+    candidates.insert("sys_read");
+    candidates.insert("sys_write");
+    candidates.insert("sys_lseek");
+    candidates.insert("sys_unlink");
 
     // Find the closest match
     std::string best;

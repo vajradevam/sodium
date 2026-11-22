@@ -1,0 +1,7 @@
+// EXPECT-ERROR: sys_close() takes exactly 1 argument(s)
+
+// A raw syscall builtin checks its arity at compile time.
+function main() {
+    sys_close();
+    return(0);
+}

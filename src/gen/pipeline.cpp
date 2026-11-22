@@ -347,6 +347,12 @@ std::string Generator::gen_prog_impl()
     m_backend_ptr->extern_sym("_sodium_malloc");
     m_backend_ptr->extern_sym("_sodium_free");
     m_backend_ptr->extern_sym("_sodium_print_str");
+    m_backend_ptr->extern_sym("_sodium_sys_open");
+    m_backend_ptr->extern_sym("_sodium_sys_close");
+    m_backend_ptr->extern_sym("_sodium_sys_read");
+    m_backend_ptr->extern_sym("_sodium_sys_write");
+    m_backend_ptr->extern_sym("_sodium_sys_lseek");
+    m_backend_ptr->extern_sym("_sodium_sys_unlink");
     m_backend_ptr->extern_sym("__sodium_argc");
     m_backend_ptr->extern_sym("__sodium_argv");
 
