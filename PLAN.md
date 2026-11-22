@@ -69,7 +69,10 @@ anyway, tick the box, and note "not reproducible" in PROGRESS.md.
 - [x] **E0c Migrate codegen to the engine (split from E0).** Pass the engine to Generator, migrate gen/* error sites, remove the remaining global diagnostic state; tick E0.
 - [x] **E1 Parser error recovery** (sync on `;` `}` keywords); report up to N errors, no cascades. Tests with 3 independent errors in one file.
 - [x] **E2 Semantic error recovery** in `src/gen/*`: undeclared identifiers, wrong arg counts, redeclarations continue to the end of the function/file.
-- [ ] **E3 Warnings:** unused variable/parameter, unreachable code, missing return in non-void path, narrowing assign, unused result, `=` in condition; `-Werror`, `-w`.
+- [ ] **E3a Warning infrastructure (split from E3).** `DiagnosticEngine` warning config (`-w` disables, `-Werror` promotes to errors); CLI flags; render warnings (not just errors) in CLI path, keep LSP collecting them; test-runner headers `EXPECT-WARNING`, `COMPILE-FLAGS`, `EXPECT-NO-WARNING`; C++ unit tests for config. Gate green before real warnings.
+- [ ] **E3b Unused variable/parameter warnings (split from E3).** Track reads in `Var`; warn at scope exit and for unused params; positive + `-Werror` + `-w` tests on both targets.
+- [ ] **E3c Unreachable code + missing return warnings (split from E3).** AST-based flow analysis; warn after `return`/`exit`/`break`/`continue` and for functions whose body can fall off the end; tests on both targets.
+- [ ] **E3d Narrowing assign + unused result + `=` in condition warnings (split from E3).** Warn on out-of-range/widening stores, discarded pure expression results, and `=` used where `==` is meant in conditions; tests on both targets; tick E3.
 - [ ] **E4 Notes** ("previous declaration here", "did you mean …"), `-fcolor-diagnostics`/NO_COLOR.
 - [ ] **E5 LSP uses the engine** (multiple diagnostics, severities); add LSP protocol tests (scripted stdio session) to `tests/lsp/`.
 - [ ] **P2-END** `check.sh --full`, tag.
