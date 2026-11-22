@@ -37,6 +37,7 @@ void Generator::flush_function() {
 
     if (m_opt_level >= 1) {
         fold_function(*func);
+        promote_locals(*func);
         cse_function(*func);
         cleanup_function(*func);
     }

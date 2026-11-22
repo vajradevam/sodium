@@ -112,7 +112,9 @@ public:
             // are clobbered by the callee. If no callee-save register can be
             // had, the value is spilled to the stack (see spill()).
             std::vector<int> preferred;
-            if (range.spans_call) {
+            if (range.spans_call || range.crosses_div) {
+                // Callee-save registers survive both calls and idiv's implicit
+                // rax/rdx clobber.
                 preferred = m_tri.callee_save_regs();
             } else {
                 preferred = all_regs;

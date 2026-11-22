@@ -240,3 +240,14 @@ pointers, accessed at a nonzero offset, or read before a dominating store are le
 Added 9 C++ cases covering straight-line promotion, narrow widths, loop locals whose interval
 spans a call, address-taken locals, missing dominance, several frame addrs for one slot and
 non-frame memory. `scripts/check.sh` green; pass is not yet wired into the pipeline (O5b).
+
+## 2026-11-22 — O5b mem2reg integration
+Wired `promote_locals` into the -O1 pipeline after folding and before CSE, with a verifier check
+after all passes. Added `tests/unit/test_mem2reg.cyan` (loop locals, i8/u8 narrow types, an
+address-taken local written through a pointer, and an array) run at -O0 and -O1 on both targets,
+and an IR-dump effect check that scalar locals have no frame slots at -O1. The -O1 suite hung on
+`tests/integration/test_comprehensive.cyan`: mem2reg extended a loop variable's live range across
+a MOD, and the allocator placed it in rax, which idiv clobbers. Added `LiveRange::crosses_div`
+and made linear scan give those ranges callee-save registers; a C++ case checks both targets.
+`scripts/check.sh --full` green: 669 -> 671 passed, 0 failed, 10 skipped at both levels;
+248 -> 249 C++ cases / 4193 checks; sweep 2040 -> 2046 invocations, 0 crashes; ASan/UBSan clean.

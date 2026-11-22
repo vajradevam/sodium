@@ -13,7 +13,8 @@ struct LiveRange {
     uint32_t vreg = 0;
     uint32_t start = 0;   ///< first instruction index where live
     uint32_t end = 0;     ///< one past last instruction index where live
-    bool spans_call = false;  ///< range includes a CALL instruction
+    bool spans_call = false;    ///< range includes a CALL instruction
+    bool crosses_div = false;   ///< range includes a DIV/MOD, whose rax/rdx clobber is implicit
 
     bool overlaps(const LiveRange& other) const {
         return start < other.end && other.start < end;
@@ -142,6 +143,7 @@ inline LiveRanges compute_live_ranges(const IRFunction& func) {
     };
     std::map<uint32_t, Extent> extents;
     std::set<uint32_t> call_positions;
+    std::set<uint32_t> div_positions;
     auto extend = [&](uint32_t vreg, uint32_t pos) {
         auto& e = extents[vreg];
         if (!e.seen) { e.seen = true; e.first = pos; e.last = pos; }
@@ -155,6 +157,7 @@ inline LiveRanges compute_live_ranges(const IRFunction& func) {
     for (size_t bi = 0; bi < block_count; ++bi) {
         for (const auto& insn : func.blocks[bi].instructions) {
             if (is_call(insn.op)) call_positions.insert(idx);
+            if (insn.op == IROpcode::DIV || insn.op == IROpcode::MOD) div_positions.insert(idx);
             if (insn.dst != IRInstruction::NONE_VREG) extend(insn.dst, idx);
             if (insn.dst2 != IRInstruction::NONE_VREG) extend(insn.dst2, idx);
             for (const auto& op : insn.operands) {
@@ -186,6 +189,12 @@ inline LiveRanges compute_live_ranges(const IRFunction& func) {
             // A call that defines the value itself (cp == start) does not make
             // it live across a call; a later call within the interval does.
             if (cp > r.start && cp + 1 < r.end) { r.spans_call = true; break; }
+        }
+        // idiv writes rax/rdx without the allocator knowing. A value live
+        // across it must use a register idiv does not touch, just like a value
+        // live across a call.
+        for (uint32_t dp : div_positions) {
+            if (dp > r.start && dp + 1 < r.end) { r.crosses_div = true; break; }
         }
         ranges.push_back(r);
     }

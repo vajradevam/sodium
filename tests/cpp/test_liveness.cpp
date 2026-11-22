@@ -245,3 +245,29 @@ TEST(liveness_if_else_value_covers_both_arms) {
     CHECK(r.start == 0u);
     CHECK(r.end >= 5u);  // covers the use in the second arm (pos 4)
 }
+
+TEST(liveness_value_across_mod_needs_callee_save) {
+    IRFunction f("divclobber");
+    auto* b = f.add_block(".entry");
+    b->emit(IRInstruction::load_i64(1, 7));
+    b->emit(IRInstruction::load_i64(2, 2));
+    b->emit(IRInstruction::binary(IROpcode::MOD, 3, IRValue::vreg(1), IRValue::vreg(2)));
+    b->emit(IRInstruction::copy(4, IRValue::vreg(1)));  // use after the MOD
+    b->emit(IRInstruction::ret(IRValue::vreg(4)));
+
+    auto r = range_for(compute_live_ranges(f), 1);
+    CHECK(r.crosses_div);
+    CHECK(!r.spans_call);
+
+    const TargetRegisterInfo targets[] = {
+        TargetRegisterInfo::x86_64_systemv(),
+        TargetRegisterInfo::riscv64_lp64(),
+    };
+    for (const auto& tri : targets) {
+        LinearScanAllocator alloc(tri);
+        RegisterAllocation allocation = alloc.allocate(f);
+        const std::vector<int> callee_save = tri.callee_save_regs();
+        CHECK(std::find(callee_save.begin(), callee_save.end(), allocation.preg_of(1)) !=
+              callee_save.end());
+    }
+}

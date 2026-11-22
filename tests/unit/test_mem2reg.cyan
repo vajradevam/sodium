@@ -1,0 +1,40 @@
+// EXPECT-EXIT: 0
+// EXPECT-STDOUT: 4950
+// EXPECT-STDOUT: -1
+// EXPECT-STDOUT: 255
+// EXPECT-STDOUT: 7
+// EXPECT-STDOUT: 21
+
+// O5b: promoted scalar locals, narrow types and address-taken locals must all
+// keep their values. The runner executes this at -O0 and the -O1 suite again.
+
+function one() -> i64 {
+    return 1;
+}
+
+function main() {
+    var sum = 0;
+    var i = 0;
+    while (i < 100) {
+        sum = sum + i;
+        i = i + one();
+    }
+    print("%d", sum);
+
+    var b: i8 = -1;
+    print("%d", b);
+    var u: u8 = 255;
+    print("%d", u);
+
+    var x = 42;
+    var p = &x;
+    *p = 7;
+    print("%d", x);
+
+    var arr[3];
+    arr[0] = 5;
+    arr[1] = 7;
+    arr[2] = 9;
+    print("%d", arr[0] + arr[1] + arr[2]);
+    return 0;
+}

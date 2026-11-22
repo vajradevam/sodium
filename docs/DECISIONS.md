@@ -269,3 +269,11 @@ local, which is exactly what the O0 loop-aware liveness fix makes correct. Promo
 as an IR pass over frame slots whose addresses never escape; a slot is only promoted when every
 load is dominated by a store to that slot, so uninitialized reads keep their frame behaviour and
 no zero-initialization is invented.
+
+## D-028 DIV/MOD live ranges need callee-save registers
+`idiv` writes rax and rdx without the register allocator seeing a definition, so any other value
+live across a DIV/MOD cannot occupy those registers. `LiveRange::crosses_div` records this (with
+the same "a call that defines the value does not count" rule as `spans_call`), and linear scan
+restricts such ranges to callee-save registers just like call-spanning ones. Variable shifts are
+already handled by the backends, which save and restore the count register. This became visible
+when O5 promoted a loop variable whose live range then crossed a modulo in `test_comprehensive`.

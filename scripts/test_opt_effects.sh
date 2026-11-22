@@ -62,4 +62,20 @@ copy1=$(grep -c 'copy ' "$WORK/cse1")
 copy0=$(grep -c 'copy ' "$WORK/cse0")
 [ "$copy1" -gt "$copy0" ] || { echo "effect: duplicate expression was not CSE'd"; exit 1; }
 
+cat > "$WORK/mem2reg.cyan" <<'CYAN'
+function main() {
+    var x = 7;
+    var y = x + 1;
+    return y;
+}
+CYAN
+
+"$COMPILER" -O1 --emit-ir -S -o "$WORK/out.s" "$WORK/mem2reg.cyan" 2> "$WORK/mem1"
+"$COMPILER" -O0 --emit-ir -S -o "$WORK/out.s" "$WORK/mem2reg.cyan" 2> "$WORK/mem0"
+grep -q 'frame_addr' "$WORK/mem0" || { echo "effect: -O0 did not use frame slots"; exit 1; }
+if grep -q 'frame_addr' "$WORK/mem1"; then
+    echo "effect: scalar local was not promoted to a vreg"
+    exit 1
+fi
+
 echo "Optimization effects: OK"

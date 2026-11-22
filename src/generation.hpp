@@ -27,6 +27,7 @@ struct GenAbort {};
 #include "ir/fold.hpp"
 #include "ir/cleanup.hpp"
 #include "ir/cse.hpp"
+#include "ir/mem2reg.hpp"
 #include <list>
 #include "ir/emitter.hpp"
 
