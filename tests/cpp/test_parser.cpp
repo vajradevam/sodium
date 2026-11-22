@@ -178,3 +178,53 @@ TEST(parser_print_statement_splits_format_specifiers) {
     CHECK_EQ((*p)->specs.size(), 3u); // Int, Text(" "), String
     CHECK_EQ((*p)->args.size(), 2u);
 }
+
+TEST(parser_typed_signature_with_pointer_param) {
+    NodeProg prog = parse_program("function f(a: i32, p: u8*) -> i64 { return(0); }");
+    CHECK_EQ(prog.funcs.size(), size_t(1));
+    if (prog.funcs.empty()) return;
+    const NodeFuncDef& f = *prog.funcs[0];
+    CHECK_EQ(f.params.size(), size_t(2));
+    CHECK_EQ(f.param_types.size(), size_t(2));
+    CHECK(f.param_types[0].has_value());
+    CHECK(f.param_types[1].has_value());
+    if (f.param_types[0]) CHECK(*f.param_types[0] == Type::make_int(IntType::i32));
+    if (f.param_types[1]) {
+        CHECK_EQ(f.param_types[1]->kind, Type::Ptr);
+        CHECK(f.param_types[1]->pointee != nullptr);
+        if (f.param_types[1]->pointee)
+            CHECK(*f.param_types[1]->pointee == Type::make_int(IntType::u8));
+    }
+    CHECK(f.return_type.has_value());
+    if (f.return_type) CHECK(*f.return_type == Type::make_int(IntType::i64));
+}
+
+TEST(parser_untyped_signature_has_no_types) {
+    NodeProg prog = parse_program("function f(a, b) { return(a); }");
+    CHECK_EQ(prog.funcs.size(), size_t(1));
+    if (prog.funcs.empty()) return;
+    const NodeFuncDef& f = *prog.funcs[0];
+    CHECK_EQ(f.params.size(), size_t(2));
+    CHECK_EQ(f.param_types.size(), size_t(2));
+    CHECK(!f.param_types[0].has_value());
+    CHECK(!f.param_types[1].has_value());
+    CHECK(!f.return_type.has_value());
+}
+
+TEST(parser_nested_pointer_type_is_nestable) {
+    NodeProg prog = parse_program("function f(p: i32**) -> u8* { return(0); }");
+    CHECK_EQ(prog.funcs.size(), size_t(1));
+    if (prog.funcs.empty()) return;
+    const NodeFuncDef& f = *prog.funcs[0];
+    CHECK(f.param_types[0].has_value());
+    if (f.param_types[0]) {
+        CHECK_EQ(f.param_types[0]->kind, Type::Ptr);
+        CHECK(f.param_types[0]->pointee != nullptr);
+        if (f.param_types[0]->pointee) {
+            CHECK_EQ(f.param_types[0]->pointee->kind, Type::Ptr);
+            CHECK(f.param_types[0]->pointee->pointee != nullptr);
+        }
+    }
+    CHECK(f.return_type.has_value());
+    if (f.return_type) CHECK_EQ(f.return_type->kind, Type::Ptr);
+}

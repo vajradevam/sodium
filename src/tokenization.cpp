@@ -495,6 +495,9 @@ std::vector<Token> Tokenizer::tokenize() {
             } else if (peek().has_value() && peek().value() == '=') {
                 consume();
                 tokens.push_back({ .type = TokenType::minuseq, .loc = loc });
+            } else if (peek().has_value() && peek().value() == '>') {
+                consume();
+                tokens.push_back({ .type = TokenType::arrow, .loc = loc });
             } else {
                 tokens.push_back({ .type = TokenType::minus, .loc = loc });
             }

@@ -289,6 +289,9 @@ struct NodeStmtFor {
 struct NodeFuncDef {
     Token name;
     std::vector<Token> params;
+    // Parallel to params; an empty optional means the parameter is untyped.
+    std::vector<std::optional<Type>> param_types;
+    std::optional<Type> return_type; // empty = untyped (inferred/void-like)
     NodeBlock* body;
 };
 
@@ -367,6 +370,8 @@ public:
     NodeFuncDef*            parse_func_def();
     NodeStructDef*          parse_struct_def();
     std::optional<IntType>  parse_type();
+    /// Parse an integer type with any number of trailing '*' pointer levels.
+    std::optional<Type>     parse_full_type();
     std::optional<std::string> parse_struct_type_name();
 
 private:

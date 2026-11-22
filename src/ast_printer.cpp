@@ -7,6 +7,27 @@ template<class... Ts> Overloaded(Ts...) -> Overloaded<Ts...>;
 
 void print_ast_expr(const NodeExpr* expr, int indent);
 
+static const char* int_type_name(IntType t) {
+    switch (t) {
+        case IntType::i8:  return "i8";
+        case IntType::u8:  return "u8";
+        case IntType::i16: return "i16";
+        case IntType::u16: return "u16";
+        case IntType::i32: return "i32";
+        case IntType::u32: return "u32";
+        case IntType::i64: return "i64";
+        case IntType::u64: return "u64";
+    }
+    return "?";
+}
+
+static std::string type_string(const Type& t) {
+    if (t.kind == Type::Ptr) {
+        return t.pointee ? type_string(*t.pointee) + "*" : "?*";
+    }
+    return int_type_name(t.int_type);
+}
+
 void print_ast_expr(const NodeExpr& expr, int indent) {
     std::visit(Overloaded{
         [indent](const NodeExprIntLit* e) {
@@ -244,9 +265,13 @@ void dump_ast(const NodeProg& prog) {
     for (const auto* func : prog.funcs) {
         std::cout << "  Function(" << func->name.value.value() << ")\n";
         std::cout << "    params:";
-        for (const auto& p : func->params) {
-            std::cout << " " << p.value.value();
+        for (size_t i = 0; i < func->params.size(); i++) {
+            std::cout << " " << func->params[i].value.value();
+            if (i < func->param_types.size() && func->param_types[i]) {
+                std::cout << ":" << type_string(*func->param_types[i]);
+            }
         }
+        if (func->return_type) std::cout << " -> " << type_string(*func->return_type);
         std::cout << "\n";
         std::cout << "    body:\n";
         for (const auto& s : func->body->stmts) {

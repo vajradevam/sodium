@@ -87,7 +87,8 @@ enum class TokenType {
     _u32,
     _u64,
     _struct,
-    dot
+    dot,
+    arrow   // ->, used by typed function return types
 };
 
 struct Token {

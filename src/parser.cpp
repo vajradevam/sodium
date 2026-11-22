@@ -1178,8 +1178,20 @@ NodeFuncDef* Parser::parse_func_def()
                 error("Expected parameter name");
             }
             func->params.push_back(consume());
+
+            // Optional `: type` annotation (int base with pointer stars).
+            std::optional<Type> param_type;
+            if (peek().has_value() && peek().value().type == TokenType::colon) {
+                consume();
+                param_type = parse_full_type();
+                if (!param_type.has_value()) error("Expected parameter type after ':'");
+            }
+            func->param_types.push_back(param_type);
+
             if (peek().has_value() && peek().value().type == TokenType::comma) {
                 consume();
+            } else if (peek().has_value() && peek().value().type != TokenType::close_paren) {
+                error("Expected ',' or ')' after parameter");
             }
         }
 
@@ -1188,8 +1200,28 @@ NodeFuncDef* Parser::parse_func_def()
         }
         consume(); // )
 
+        // Optional `-> type` return annotation.
+        if (peek().has_value() && peek().value().type == TokenType::arrow) {
+            consume();
+            func->return_type = parse_full_type();
+            if (!func->return_type.has_value()) error("Expected type after '->'");
+        }
+
         func->body = parse_block();
         return func;
+}
+
+std::optional<Type> Parser::parse_full_type() {
+    auto base = parse_type();
+    if (!base) return {};
+    Type type = Type::make_int(*base);
+    while (peek().has_value() && peek().value().type == TokenType::star) {
+        consume();
+        Type* pointee = m_allocator.alloc<Type>();
+        *pointee = type;
+        type = Type::make_ptr(pointee);
+    }
+    return type;
 }
 
 std::optional<NodeStmt> Parser::parse_return_stmt()

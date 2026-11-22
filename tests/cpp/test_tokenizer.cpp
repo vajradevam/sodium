@@ -129,3 +129,9 @@ TEST(tokenizer_line_directive_updates_location) {
     CHECK_EQ(t.front().loc.line, 42u);
     CHECK(t.front().loc.file == "other.cyan");
 }
+
+TEST(tokenizer_recognizes_arrow_for_return_types) {
+    auto t = tok("->");
+    CHECK_EQ(t.size(), 1u);
+    CHECK(t[0].type == TT::arrow);
+}
