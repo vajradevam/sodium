@@ -1,0 +1,8 @@
+// EXPECT-EXIT: 0
+// EXPECT-STDOUT: 6
+
+function main() {
+    var a: i16[3];
+    print(sizeof(a));
+    return(0);
+}

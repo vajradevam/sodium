@@ -65,10 +65,12 @@ void Generator::gen_expr(const NodeExpr& expr)
                     gen->mark_var_used(name);
                     const auto& var = it->vars.at(name);
                     uint32_t base_addr = gen->m_ir.frame_addr(static_cast<int64_t>(var.stack_loc));
-                    uint32_t offset = gen->m_ir.mul(IRValue::vreg(idx), IRValue::imm_i64(8));
+                    uint32_t offset = gen->m_ir.mul(IRValue::vreg(idx),
+                                                   IRValue::imm_i64(static_cast<int64_t>(var.elem_size)));
                     uint32_t elem_addr = gen->m_ir.sub(IRValue::vreg(base_addr), IRValue::vreg(offset));
-                    uint32_t val = gen->m_ir.load(IRValue::vreg(elem_addr), 0);
+                    uint32_t val = load_typed_field(gen->m_ir, elem_addr, var.type);
                     gen->push_vreg(val);
+                    gen->m_tstack.back() = var.type;
                     return;
                 }
             }
@@ -277,11 +279,11 @@ void Generator::gen_expr(const NodeExpr& expr)
                         gen->mark_var_used(name);
                         const auto& var = it->vars.at(name);
                         uint32_t base_addr = gen->m_ir.frame_addr(static_cast<int64_t>(var.stack_loc));
-                        uint32_t offset = gen->m_ir.mul(IRValue::vreg(idx), IRValue::imm_i64(8));
+                        uint32_t offset = gen->m_ir.mul(IRValue::vreg(idx),
+                            IRValue::imm_i64(static_cast<int64_t>(var.elem_size)));
                         uint32_t elem_addr = gen->m_ir.sub(IRValue::vreg(base_addr), IRValue::vreg(offset));
                         gen->push_vreg(elem_addr);
-                        // Array elements are i64 (8-byte slots)
-                        Type* pointee = gen->alloc_type(Type::make_int(IntType::i64));
+                        Type* pointee = gen->alloc_type(var.type);
                         gen->m_tstack.back() = Type::make_ptr(pointee);
                         return;
                     }

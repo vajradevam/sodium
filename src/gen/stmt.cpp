@@ -34,10 +34,7 @@ void Generator::gen_stmt(const NodeStmt& stmt)
                 scope.vars[stmt_let->ident.value.value()] = Var { .stack_loc = slot, .array_size = struct_info.value().size, .struct_type = stmt_let->struct_type_name, .decl_loc = stmt_let->ident.loc };
                 scope.var_count += struct_info.value().size;
                 // Zero-initialize the whole struct (including padding).
-                for (size_t byte = 0; byte < struct_bytes; byte += 8) {
-                    uint32_t addr = gen->m_ir.frame_addr(static_cast<int64_t>(slot + byte));
-                    gen->m_ir.store(IRValue::vreg(addr), 0, IRValue::imm_i64(0));
-                }
+                zero_bytes(slot, struct_bytes);
                 return;
             }
 
@@ -301,17 +298,17 @@ void Generator::gen_stmt(const NodeStmt& stmt)
                 gen->fail(stmt_arr->loc, "Array size must be a compile-time constant expression");
             }
             size_t size = static_cast<size_t>(const_size.value());
+            Type elem_type = stmt_arr->elem_type.value_or(Type::make_int(IntType::i64));
+            size_t elem_size = type_size(elem_type);
             auto& scope = gen->m_scopes.back();
             uint32_t slot = gen->m_next_frame_offset;
-            uint32_t arr_bytes = static_cast<uint32_t>(size * 8);
+            uint32_t arr_bytes = static_cast<uint32_t>(size * elem_size);
             gen->m_next_frame_offset += arr_bytes;
-            scope.vars[stmt_arr->name.value.value()] = Var { .stack_loc = slot, .array_size = size, .struct_type = "", .decl_loc = stmt_arr->loc };
+            scope.vars[stmt_arr->name.value.value()] = Var { .stack_loc = slot, .array_size = size,
+                .type = elem_type, .struct_type = "", .decl_loc = stmt_arr->loc, .elem_size = elem_size };
             scope.var_count += size;
             // Zero-initialize array elements linearly
-            for (size_t i = 0; i < size; i++) {
-                uint32_t addr = gen->m_ir.frame_addr(static_cast<int64_t>(slot + i * 8));
-                gen->m_ir.store(IRValue::vreg(addr), 0, IRValue::imm_i64(0));
-            }
+            zero_bytes(slot, arr_bytes);
         }
 
         void operator()(const NodeStmtArrAssign* stmt_arr_assign) const
@@ -325,10 +322,16 @@ void Generator::gen_stmt(const NodeStmt& stmt)
             for (auto it = gen->m_scopes.rbegin(); it != gen->m_scopes.rend(); ++it) {
                 if (it->vars.contains(name)) {
                     const auto& var = it->vars.at(name);
+                    int64_t elem_bytes = static_cast<int64_t>(var.elem_size);
                     uint32_t base_addr = gen->m_ir.frame_addr(static_cast<int64_t>(var.stack_loc));
-                    uint32_t offset = gen->m_ir.mul(IRValue::vreg(idx), IRValue::imm_i64(8));
+                    uint32_t offset = gen->m_ir.mul(IRValue::vreg(idx), IRValue::imm_i64(elem_bytes));
                     uint32_t elem_addr = gen->m_ir.sub(IRValue::vreg(base_addr), IRValue::vreg(offset));
-                    gen->m_ir.store(IRValue::vreg(elem_addr), 0, IRValue::vreg(val));
+                    if (var.type.kind == Type::Int && elem_bytes < 8) {
+                        if (elem_bytes <= 1)      val = gen->m_ir.and_(IRValue::vreg(val), IRValue::imm_i64(0xFF));
+                        else if (elem_bytes <= 2) val = gen->m_ir.and_(IRValue::vreg(val), IRValue::imm_i64(0xFFFF));
+                        else                      val = gen->m_ir.zext(IRValue::vreg(val), IRWidth::I32);
+                    }
+                    typed_store(elem_addr, val, elem_bytes);
                     return;
                 }
             }
@@ -564,6 +567,30 @@ void Generator::gen_stmt(const NodeStmt& stmt)
             else if (elem_size >= 2) gen->m_ir.store_16(IRValue::vreg(ptr), 0, IRValue::vreg(val));
             else                     gen->m_ir.store_8(IRValue::vreg(ptr), 0, IRValue::vreg(val));
         }
+        void zero_bytes(uint32_t base_slot, size_t bytes) const {
+            uint32_t zero = gen->m_ir.load_i64(0);
+            size_t pos = 0;
+            while (bytes - pos >= 8) {
+                uint32_t addr = gen->m_ir.frame_addr(static_cast<int64_t>(base_slot + pos));
+                gen->m_ir.store(IRValue::vreg(addr), 0, IRValue::vreg(zero));
+                pos += 8;
+            }
+            if (bytes - pos >= 4) {
+                uint32_t addr = gen->m_ir.frame_addr(static_cast<int64_t>(base_slot + pos));
+                gen->m_ir.store_32(IRValue::vreg(addr), 0, IRValue::vreg(zero));
+                pos += 4;
+            }
+            if (bytes - pos >= 2) {
+                uint32_t addr = gen->m_ir.frame_addr(static_cast<int64_t>(base_slot + pos));
+                gen->m_ir.store_16(IRValue::vreg(addr), 0, IRValue::vreg(zero));
+                pos += 2;
+            }
+            if (bytes - pos >= 1) {
+                uint32_t addr = gen->m_ir.frame_addr(static_cast<int64_t>(base_slot + pos));
+                gen->m_ir.store_8(IRValue::vreg(addr), 0, IRValue::vreg(zero));
+            }
+        }
+
         uint32_t typed_load_val(uint32_t ptr, size_t elem_size, bool is_signed) const {
             if (elem_size >= 8)      return gen->m_ir.load(IRValue::vreg(ptr), 0);
             else if (elem_size == 4) return is_signed ? gen->m_ir.load_s32(IRValue::vreg(ptr), 0) : gen->m_ir.load_u32(IRValue::vreg(ptr), 0);

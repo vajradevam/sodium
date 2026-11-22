@@ -1,0 +1,13 @@
+// EXPECT-EXIT: 0
+// EXPECT-STDOUT: 65
+
+function first(p: i8*) {
+    return(*p);
+}
+
+function main() {
+    var a: i8[2];
+    a[0] = 65;
+    print(first(a));
+    return(0);
+}

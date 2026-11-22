@@ -1351,6 +1351,28 @@ std::optional<NodeStmt> Parser::parse_stmt() {
                 consume(); // :
                 if (auto type = parse_type()) {
                     stmt_let->type = type.value();
+                    // Typed array: `var a: i32[10];`
+                    if (peek().has_value() && peek().value().type == TokenType::open_square) {
+                        auto stmt_arr = m_allocator.alloc<NodeStmtArrDecl>();
+                        stmt_arr->name = stmt_let->ident;
+                        stmt_arr->loc = stmt_let->ident.loc;
+                        stmt_arr->elem_type = Type::make_int(type.value());
+                        consume(); // [
+                        if (auto sz = parse_expr()) {
+                            stmt_arr->size = sz.value();
+                        } else {
+                            error("Expected array size");
+                        }
+                        if (!peek().has_value() || peek().value().type != TokenType::close_square) {
+                            error("Expected ']' after array size");
+                        }
+                        consume(); // ]
+                        if (!peek().has_value() || peek().value().type != TokenType::semi) {
+                            error("Expected ';' after array declaration");
+                        }
+                        consume();
+                        return NodeStmt { .var = stmt_arr };
+                    }
                     if (!peek().has_value() || peek().value().type != TokenType::eq) {
                         error("Expected '=' after type");
                     }

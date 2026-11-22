@@ -11,10 +11,11 @@ void Generator::load_var_to_vstack(const std::string& name) {
             it->vars.at(name).used = true;
             const auto& var = it->vars.at(name);
             if (var.array_size > 0) {
+                // Array-to-pointer decay: yield the address of element 0.
                 uint32_t addr = m_ir.frame_addr(static_cast<int64_t>(var.stack_loc));
-                uint32_t val = m_ir.load(IRValue::vreg(addr), 0);
-                push_vreg(val);
-                m_tstack.back() = Type::make_int(IntType::i64);
+                push_vreg(addr);
+                Type* pointee = alloc_type(var.type);
+                m_tstack.back() = Type::make_ptr(pointee);
                 return;
             } else if (var.type.kind == Type::Ptr || var.type.int_type == IntType::i64 || var.type.int_type == IntType::u64) {
                 uint32_t addr = m_ir.frame_addr(static_cast<int64_t>(var.stack_loc));

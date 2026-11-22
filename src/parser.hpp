@@ -168,6 +168,7 @@ struct NodeStmtArrDecl {
     Token name;
     NodeExpr* size;
     SourceLoc loc {};
+    std::optional<Type> elem_type; // empty = i64 elements
 };
 
 struct NodeStmtArrAssign {

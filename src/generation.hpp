@@ -36,6 +36,7 @@ struct Var {
     SourceLoc decl_loc{};    // for unused-variable/parameter warnings
     bool used = false;       // set when the variable is read
     bool is_param = false;   // parameters get a different warning message
+    size_t elem_size = 8;    // array element size in bytes (arrays only)
 };
 
 struct Scope {

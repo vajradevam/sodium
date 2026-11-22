@@ -577,7 +577,10 @@ void Generator::collect_call_types()
             for (auto it = m_scopes.rbegin(); it != m_scopes.rend(); ++it) {
                 auto found = it->vars.find(name);
                 if (found != it->vars.end()) {
-                    t = found->second.type;
+                    const Var& var = found->second;
+                    if (var.array_size > 0)
+                        return static_cast<int64_t>(var.array_size * var.elem_size);
+                    t = var.type;
                     break;
                 }
             }
