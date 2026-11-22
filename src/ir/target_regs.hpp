@@ -22,6 +22,7 @@ struct TargetRegisterInfo {
     std::vector<int> arg_regs;   ///< physical register numbers for args
 
     int ret_reg = 0;             ///< return value register (typically rax)
+    int ret_reg2 = 0;            ///< second return register for two-word results (rdx / a1)
     int scratch_reg = 0;         ///< scratch register for spills
     int fp_reg = 0;              ///< frame pointer register
     /// A multi-word struct argument may straddle the last argument register and the stack
@@ -113,6 +114,7 @@ struct TargetRegisterInfo {
 
         info.arg_regs = {5, 4, 3, 2, 8, 9};  // rdi, rsi, rdx, rcx, r8, r9
         info.ret_reg = 0;   // rax
+        info.ret_reg2 = 3;  // rdx
         info.fp_reg = 6;     // rbp
         info.scratch_reg = 0;  // rax (also used for return, so be careful)
         // Use r11 as dedicated scratch for spills (caller-save, not an arg)
@@ -176,6 +178,7 @@ struct TargetRegisterInfo {
 
         info.arg_regs = {10, 11, 12, 13, 14, 15, 16, 17};  // a0-a7
         info.ret_reg = 10;   // a0
+        info.ret_reg2 = 11;  // a1
         info.fp_reg = 8;     // s0
         info.split_struct_args = true;
         info.fp_bias = -16;  // locals use addr_fp() (offset - 16); spill slots must match

@@ -432,6 +432,11 @@ public:
                 break;
             }
 
+            case IROpcode::RET2:
+                // Lowered to register moves + RET_VOID by the rewriter.
+                assert(false && "RET2 must be lowered before emission");
+                break;
+
             case IROpcode::RET_VOID:
                 m_backend.func_epilogue();
                 m_backend.ret();

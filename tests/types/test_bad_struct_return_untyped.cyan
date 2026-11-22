@@ -1,0 +1,10 @@
+// EXPECT-ERROR: returning a struct requires a declared struct return type
+
+struct Point { var x: i64; var y: i64; };
+
+function make() {
+    var p: Point = { .x = 1, .y = 2 };
+    return p;
+}
+
+function main() { return(0); }

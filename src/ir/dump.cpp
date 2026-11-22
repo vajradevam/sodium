@@ -59,6 +59,7 @@ const char* ir_opcode_name(IROpcode op) {
         case IROpcode::LOAD_PARAM:  return "load_param";
         case IROpcode::STORE_PARAM: return "store_param";
         case IROpcode::RET:         return "ret";
+        case IROpcode::RET2:        return "ret2";
         case IROpcode::RET_VOID:    return "ret_void";
         case IROpcode::SYSCALL:     return "syscall";
         case IROpcode::PUSH:        return "push";
@@ -278,6 +279,7 @@ size_t IRInstruction::operand_count() const {
         case IROpcode::CMP_GT:
         case IROpcode::CMP_GE:
         case IROpcode::BR:
+        case IROpcode::RET2:
             return 2;
         case IROpcode::CALL:
             return operands.size();

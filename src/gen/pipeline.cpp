@@ -65,6 +65,12 @@ void Generator::gen_func_def(const NodeFuncDef& func)
     m_current_func_name = func.name.value.value();
     m_func_epilogue_label = ".L" + func.name.value.value() + "_epilogue";
 
+    if (func.return_type && func.return_type->kind == Type::Struct) {
+        auto ret_info = get_struct_info(func.return_type->struct_name);
+        if (!ret_info.has_value()) fail(func.name.loc, "Unknown struct type: " + func.return_type->struct_name);
+        check_struct_return(*ret_info, func.return_type->struct_name, func.name.loc);
+    }
+
     // Process parameters: allocate frame slots and load from their ABI locations.
     // `ordinal` counts argument words: a struct parameter of N bytes occupies
     // ceil(N/8) consecutive ordinals (D-012).

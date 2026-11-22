@@ -68,6 +68,104 @@ private:
         return -(m_frame_base + (slot + 1) * 8) + m_tri.fp_bias;
     }
 
+    /// Where a value lives after allocation.
+    struct Loc {
+        bool imm = false;
+        int64_t imm_val = 0;
+        bool spilled = false;
+        int preg = -1;
+        int spill_off = 0;
+    };
+
+    Loc locate(const IRValue& v) const {
+        Loc l;
+        if (v.is_imm()) {
+            l.imm = true;
+            l.imm_val = v.imm;
+            return l;
+        }
+        auto it = m_alloc.entries.find(v.vreg_id);
+        assert(it != m_alloc.entries.end());
+        if (it->second.is_spilled()) {
+            l.spilled = true;
+            l.spill_off = spill_offset(it->second.spill_slot);
+        } else {
+            l.preg = it->second.preg;
+        }
+        return l;
+    }
+
+    Loc locate_vreg(uint32_t vreg) const { return locate(IRValue::vreg(vreg)); }
+
+    static IRInstruction phys_copy(int dst, int src) {
+        IRInstruction c;
+        c.op = IROpcode::COPY;
+        c.dst = static_cast<uint32_t>(dst);
+        c.operands.push_back(IRValue::vreg(static_cast<uint32_t>(src)));
+        return c;
+    }
+
+    IRInstruction phys_load_slot(int dst, int offset) const {
+        IRInstruction l;
+        l.op = IROpcode::LOAD;
+        l.dst = static_cast<uint32_t>(dst);
+        l.dst_width = IRWidth::I64;
+        l.operands.push_back(IRValue::vreg(static_cast<uint32_t>(m_tri.fp_reg)));
+        l.imm_arg = offset;
+        return l;
+    }
+
+    IRInstruction phys_store_slot(int offset, int src) const {
+        IRInstruction st;
+        st.op = IROpcode::STORE;
+        st.operands.push_back(IRValue::vreg(static_cast<uint32_t>(m_tri.fp_reg)));
+        st.imm_arg = offset;
+        st.operands.push_back(IRValue::vreg(static_cast<uint32_t>(src)));
+        return st;
+    }
+
+    /// RET2 lo, hi  =>  moves into the two return registers, then RET_VOID.
+    /// The low value is parked in the scratch register first so that either
+    /// operand may already live in the other's return register.
+    void lower_ret2(const IRInstruction& insn, std::vector<IRInstruction>& out) const {
+        const int scratch = m_tri.scratch_reg;
+        const int r1 = m_tri.ret_reg;
+        const int r2 = m_tri.ret_reg2;
+        const Loc lo = locate(insn.operands[0]);
+        const Loc hi = locate(insn.operands[1]);
+        if (!lo.imm) {
+            out.push_back(lo.spilled ? phys_load_slot(scratch, lo.spill_off)
+                                     : phys_copy(scratch, lo.preg));
+        }
+        if (hi.imm) {
+            out.push_back(IRInstruction::load_i64(static_cast<uint32_t>(r2), hi.imm_val));
+        } else {
+            out.push_back(hi.spilled ? phys_load_slot(r2, hi.spill_off) : phys_copy(r2, hi.preg));
+        }
+        if (lo.imm) {
+            out.push_back(IRInstruction::load_i64(static_cast<uint32_t>(r1), lo.imm_val));
+        } else {
+            out.push_back(phys_copy(r1, scratch));
+        }
+        out.push_back(IRInstruction::ret_void());
+    }
+
+    /// Moves that capture a two-word call result (rax:rdx / a0:a1) into the homes
+    /// of `dst` and `dst2`. The second word is parked in scratch first, so a home
+    /// that is itself a return register cannot clobber the other word.
+    std::vector<IRInstruction> capture_call_results(uint32_t dst, uint32_t dst2) const {
+        const int scratch = m_tri.scratch_reg;
+        const int r1 = m_tri.ret_reg;
+        const int r2 = m_tri.ret_reg2;
+        const Loc d1 = locate_vreg(dst);
+        const Loc d2 = locate_vreg(dst2);
+        std::vector<IRInstruction> seq;
+        seq.push_back(phys_copy(scratch, r2));
+        seq.push_back(d1.spilled ? phys_store_slot(d1.spill_off, r1) : phys_copy(d1.preg, r1));
+        seq.push_back(d2.spilled ? phys_store_slot(d2.spill_off, scratch) : phys_copy(d2.preg, scratch));
+        return seq;
+    }
+
     /// Insert spill code for vregs that were spilled to stack slots.
     ///
     /// For each instruction, for every source operand that references a
@@ -133,6 +231,19 @@ private:
                         insn.imm_arg = (stack_args + pad) * 8;
                         insn.operands.resize(n_arg_regs);
                     }
+                }
+
+                if (insn.op == IROpcode::RET2) {
+                    lower_ret2(insn, new_insns);
+                    continue;
+                }
+
+                // A two-word call result is captured by explicit moves after the call.
+                std::vector<IRInstruction> result_moves;
+                if (insn.op == IROpcode::CALL && insn.dst2 != IRInstruction::NONE_VREG) {
+                    result_moves = capture_call_results(insn.dst, insn.dst2);
+                    insn.dst = IRInstruction::NONE_VREG;
+                    insn.dst2 = IRInstruction::NONE_VREG;
                 }
 
                 uint32_t orig_dst = insn.dst;
@@ -248,6 +359,8 @@ private:
                         IRValue::vreg(static_cast<uint32_t>(scratch)));
                     new_insns.push_back(store_insn);
                 }
+
+                for (auto& move : result_moves) new_insns.push_back(move);
             }
             block.instructions = new_insns;
         }

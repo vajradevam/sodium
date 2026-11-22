@@ -222,6 +222,17 @@ public:
         return dst;
     }
 
+    /// Call returning a two-word value: the first word is the result, the second is
+    /// written to `second`.
+    uint32_t call2(const std::string& func, const std::vector<IRValue>& args, uint32_t& second) {
+        auto dst = new_vreg();
+        second = new_vreg();
+        auto insn = IRInstruction::call(dst, func, args);
+        insn.dst2 = second;
+        emit(insn);
+        return dst;
+    }
+
     uint32_t load_param(int64_t param_index) {
         auto dst = new_vreg();
         emit(IRInstruction::load_param(dst, param_index));
@@ -230,6 +241,10 @@ public:
 
     void ret(IRValue val) {
         emit(IRInstruction::ret(val));
+    }
+
+    void ret2(IRValue lo, IRValue hi) {
+        emit(IRInstruction::ret2(lo, hi));
     }
 
     void ret_void() {

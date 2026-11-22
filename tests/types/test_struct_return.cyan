@@ -1,0 +1,96 @@
+// Structs <= 16 bytes returned by value: rax / rax:rdx on x86_64, a0 / a0:a1 on
+// riscv64 (D-012, Y8b2).
+// EXPECT-EXIT: 0
+// EXPECT-STDOUT: 11
+// EXPECT-STDOUT: 22
+// EXPECT-STDOUT: 5
+// EXPECT-STDOUT: 6
+// EXPECT-STDOUT: -7
+// EXPECT-STDOUT: 9
+// EXPECT-STDOUT: 100
+// EXPECT-STDOUT: 200
+// EXPECT-STDOUT: 300
+// EXPECT-STDOUT: 7
+// EXPECT-STDOUT: 8
+// EXPECT-STDOUT: 9
+// EXPECT-STDOUT: 40
+// EXPECT-STDOUT: 30
+// EXPECT-STDOUT: 12
+// EXPECT-STDOUT: 21
+
+struct Pair { var a: i64; var b: i64; };
+struct Half { var lo: i32; var hi: i32; };
+struct Tiny { var v: i8; };
+struct Mixed { var a: i8; var b: i16; var c: i8; };
+struct Tri { var x: i32; var y: i32; var z: i32; };
+
+function make_pair(a: i64, b: i64) -> Pair {
+    var p: Pair = { .a = a, .b = b };
+    return p;
+}
+
+function make_half(lo: i32, hi: i32) -> Half {
+    var h: Half = { .lo = lo, .hi = hi };
+    return h;
+}
+
+function make_tiny(v: i8) -> Tiny {
+    var t: Tiny = { .v = v };
+    return t;
+}
+
+function make_mixed(a: i8, b: i16, c: i8) -> Mixed {
+    var m: Mixed = { .a = a, .b = b, .c = c };
+    return m;
+}
+
+function make_tri(x: i32, y: i32, z: i32) -> Tri {
+    var t: Tri = { .x = x, .y = y, .z = z };
+    return t;
+}
+
+function swap(p: Pair) -> Pair {
+    var r: Pair = { .a = p.b, .b = p.a };
+    return r;
+}
+
+// Returns its own parameter.
+function same(p: Pair) -> Pair { return p; }
+
+function pair_sum(p: Pair) -> i64 { return p.a + p.b; }
+
+function main() {
+    var p: Pair = make_pair(11, 22);
+    print(p.a);
+    print(p.b);
+
+    var h: Half = make_half(5, 6);
+    print(h.lo);
+    print(h.hi);
+
+    var t: Tiny = make_tiny(-7);
+    print(t.v);
+
+    var m: Mixed = make_mixed(2, 5, 2);
+    print(m.a + m.b + m.c);
+
+    var q: Tri = make_tri(100, 200, 300);
+    print(q.x);
+    print(q.y);
+    print(q.z);
+
+    // Assignment from a call result, and call results as arguments.
+    var r: Pair = make_pair(1, 2);
+    r = make_pair(7, 8);
+    print(r.a);
+    print(r.b);
+    print(pair_sum(make_pair(4, 5)));
+
+    var s: Pair = swap(make_pair(30, 40));
+    print(s.a);
+    print(s.b);
+    var u: Pair = swap(swap(same(make_pair(12, 21))));
+    print(u.a);
+    print(u.b);
+    return(0);
+}

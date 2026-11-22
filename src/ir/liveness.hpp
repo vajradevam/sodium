@@ -83,6 +83,14 @@ inline LiveRanges compute_live_ranges(const IRFunction& func) {
                 all_vregs.insert(insn.dst);
             }
 
+            // Second destination (two-word call results)
+            if (insn.dst2 != IRInstruction::NONE_VREG) {
+                if (first_pos.find(insn.dst2) == first_pos.end())
+                    first_pos[insn.dst2] = idx;
+                last_pos[insn.dst2] = idx;
+                all_vregs.insert(insn.dst2);
+            }
+
             // Source operands (uses)
             for (auto& op : insn.operands) {
                 if (op.is_vreg()) {

@@ -507,6 +507,15 @@ void Generator::gen_expr(const NodeExpr& expr)
                 }
             }
 
+            if (callee && callee->return_type && callee->return_type->kind == Type::Struct) {
+                const std::string& sname = callee->return_type->struct_name;
+                auto info = gen->get_struct_info(sname);
+                if (!info.has_value()) gen->fail(expr_call->name.loc, "Unknown struct type: " + sname);
+                gen->check_struct_return(*info, sname, expr_call->name.loc);
+                gen->gen_struct_call(fname, args, sname, *info);
+                return;
+            }
+
             uint32_t result = gen->m_ir.call(fname, args);
             gen->push_vreg(result);
         }

@@ -1,0 +1,9 @@
+// EXPECT-ERROR: return type mismatch in function 'make': expected Point, got i64
+
+struct Point { var x: i64; var y: i64; };
+
+function make() -> Point {
+    return 5;
+}
+
+function main() { return(0); }

@@ -163,6 +163,15 @@ public:
                                size_t first_word, SourceLoc loc) const;
     /// Read word `word` of the struct at address `base` (only real bytes are read).
     uint32_t load_struct_word(uint32_t base, const StructInfo& info, size_t word);
+    /// Write word `word` of the struct at address `base` from a vreg (only real bytes are written).
+    void store_struct_word(uint32_t base, const StructInfo& info, size_t word, uint32_t value);
+    /// Reject struct return types that are not supported yet.
+    void check_struct_return(const StructInfo& info, const std::string& name, SourceLoc loc) const;
+    /// `return <struct value at addr>`: one word in the return register, two in the pair.
+    void gen_struct_return(uint32_t addr, const StructInfo& info);
+    /// Emit a call whose result is a struct and push the temporary holding it as a struct value.
+    void gen_struct_call(const std::string& fname, const std::vector<IRValue>& args,
+                         const std::string& struct_name, const StructInfo& info);
     /// Function entry: store incoming argument word `ordinal` into word `word` of a
     /// struct parameter's frame slot (only real bytes are written).
     void store_param_word(const Var& var, const StructInfo& info, size_t word, size_t ordinal);

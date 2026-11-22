@@ -1,0 +1,14 @@
+// EXPECT-ERROR: Struct initializer must be a struct literal or a 'Point' value
+
+struct Point { var x: i64; var y: i64; };
+struct Color { var r: i64; var g: i64; };
+
+function make() -> Color {
+    var c: Color = { .r = 1, .g = 2 };
+    return c;
+}
+
+function main() {
+    var p: Point = make();
+    return(p.x);
+}

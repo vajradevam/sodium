@@ -65,7 +65,15 @@ void Generator::gen_stmt(const NodeStmt& stmt)
                             typed_store(addr, val, fsize);
                         }
                     } else {
-                        gen->fail(stmt_let->ident.loc, "Struct initializer must be a struct literal");
+                        gen->gen_expr(*stmt_let->expr);
+                        const Type got = gen->peek_type();
+                        if (got.kind != Type::Struct || got.struct_name != stmt_let->struct_type_name) {
+                            gen->fail(stmt_let->ident.loc, "Struct initializer must be a struct literal or a '"
+                                      + stmt_let->struct_type_name + "' value");
+                        }
+                        uint32_t src = gen->pop_vreg();
+                        copy_bytes(gen->var_addr(scope.vars.at(stmt_let->ident.value.value())), src,
+                                   struct_info.value().size);
                     }
                 }
                 return;
@@ -162,6 +170,11 @@ void Generator::gen_stmt(const NodeStmt& stmt)
                     const auto& var = it->vars.at(name);
                     if (!var.struct_type.empty() && stmt_assign->op == AssignOp::assign) {
                         gen->gen_expr(*stmt_assign->expr);
+                        const Type got = gen->peek_type();
+                        if (got.kind != Type::Struct || got.struct_name != var.struct_type) {
+                            gen->fail(stmt_assign->ident.loc, "Cannot assign to struct '" + var.struct_type
+                                      + "' a value that is not a '" + var.struct_type + "'");
+                        }
                         uint32_t src = gen->pop_vreg();
                         auto info = gen->get_struct_info(var.struct_type);
                         if (!info.has_value()) {
@@ -430,6 +443,18 @@ void Generator::gen_stmt(const NodeStmt& stmt)
                 if (stmt_ret->expr) {
                     gen->gen_expr(*stmt_ret->expr);
                     gen->check_return_type(*stmt_ret->expr, stmt_ret->loc);
+                    const Type returned = gen->peek_type();
+                    if (returned.kind == Type::Struct) {
+                        if (!gen->m_current_return_type.has_value()) {
+                            gen->fail(stmt_ret->loc, "returning a struct requires a declared struct return type");
+                        }
+                        auto info = gen->get_struct_info(returned.struct_name);
+                        if (!info.has_value()) gen->fail(stmt_ret->loc, "Unknown struct type: " + returned.struct_name);
+                        gen->check_struct_return(*info, returned.struct_name, stmt_ret->loc);
+                        uint32_t addr = gen->pop_vreg();
+                        gen->gen_struct_return(addr, *info);
+                        return;
+                    }
                     uint32_t val = gen->pop_vreg();
                     gen->m_ir.ret(IRValue::vreg(val));
                 } else {

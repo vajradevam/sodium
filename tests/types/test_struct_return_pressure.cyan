@@ -1,0 +1,34 @@
+// Struct results while many values are live: the call result words must land in
+// their homes without disturbing live registers or spill slots (D-012, Y8b2).
+// EXPECT-EXIT: 0
+// EXPECT-STDOUT: 2399
+// EXPECT-STDOUT: 2079
+
+struct Pair { var a: i64; var b: i64; };
+
+function make(a: i64, b: i64) -> Pair {
+    var p: Pair = { .a = a, .b = b };
+    return p;
+}
+
+function weigh(p: Pair) -> i64 { return p.a * 100 + p.b; }
+
+function main() {
+    var v1 = 1;
+    var v2 = 2;
+    var v3 = 3;
+    var v4 = 4;
+    var v5 = 5;
+    var v6 = 6;
+    var v7 = 7;
+    var v8 = 8;
+    var v9 = 9;
+    var v10 = 10;
+    var v11 = 11;
+    var v12 = 12;
+    // Everything below is live while the nested struct calls run.
+    var total = v1 + (v2 + (v3 + (v4 + (v5 + (v6 + (v7 + (v8 + (v9 + (v10 + (v11 + (v12 + weigh(make(20, 1)))))))))))));
+    print(weigh(make(23, 99)));
+    print(total);
+    return(0);
+}

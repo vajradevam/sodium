@@ -104,6 +104,7 @@ enum class IROpcode : uint8_t {
 
     /// Return
     RET,         // ret %val
+    RET2,        // ret2 %lo, %hi (two-word value in the two return registers)
     RET_VOID,    // ret
 
     /// Syscall (architecture-specific; the backend handles it)

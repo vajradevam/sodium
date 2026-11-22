@@ -98,7 +98,7 @@ anyway, tick the box, and note "not reproducible" in PROGRESS.md.
 - [x] **Y2d C memory layout (inserted before Y8b; prerequisite of D-012).** Frame objects (arrays, structs) are 8-byte aligned/granular with ascending addresses, narrow (16/32-bit) loads and stores are plain little-endian, `base + offset` addresses fields/elements, pointer arithmetic on decayed arrays walks forward; fixes neighbour corruption for sub-8-byte arrays/structs/scalars. Regression tests on both targets.
 - [ ] **Y8b Struct params/returns (split from Y8).** ABI chosen in D-012 (platform ABI per target). Sub-tasks below; tick Y8b when all are done.
   - [x] **Y8b1** Struct values as call arguments (<= 16 bytes, in registers) and `p: Point` parameters; struct-valued expressions evaluate to an address with `Type::Struct`; tests on both targets.
-  - [ ] **Y8b2** Struct returns <= 16 bytes: `RET2`, `dst2` on CALL, `ret_reg2` in target info; tests incl. sizes 1..16 and spilled values on both targets.
+  - [x] **Y8b2** Struct returns <= 16 bytes: `RET2`, `dst2` on CALL, `ret_reg2` in target info; tests incl. sizes 1..16 and spilled values on both targets.
   - [ ] **Y8b3** Returns > 16 bytes through a hidden first-argument pointer; riscv64 params > 16 bytes by reference.
   - [ ] **Y8b4** x86_64 params > 16 bytes on the stack, register-straddling rule, and a C-interop test (gcc-compiled caller/callee linked with Cyan output) on both targets.
 - [x] **Y9a Multi-dimensional arrays (split from Y9).** Parse `var a: i32[2][3]` and `a[i][j]`; row-major layout with compile-time dimension sizes; reads/writes on both targets.

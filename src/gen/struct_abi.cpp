@@ -76,3 +76,64 @@ void Generator::store_param_word(const Var& var, const StructInfo& info, size_t 
         pos += c;
     }
 }
+
+void Generator::store_struct_word(uint32_t base, const StructInfo& info, size_t word,
+                                  uint32_t value) {
+    const size_t off = word * 8;
+    const size_t n = std::min<size_t>(8, info.size - off);
+    if (n == 8 && info.align >= 8) {
+        m_ir.store(IRValue::vreg(base), static_cast<int64_t>(off), IRValue::vreg(value));
+        return;
+    }
+    for (size_t pos = 0; pos < n;) {
+        const size_t c = chunk_size(n - pos, info.align);
+        const int64_t at = static_cast<int64_t>(off + pos);
+        uint32_t v = pos == 0 ? value
+                              : m_ir.shr(IRValue::vreg(value),
+                                         IRValue::imm_i64(static_cast<int64_t>(pos * 8)));
+        if (c == 4)      m_ir.store_32(IRValue::vreg(base), at, IRValue::vreg(v));
+        else if (c == 2) m_ir.store_16(IRValue::vreg(base), at, IRValue::vreg(v));
+        else             m_ir.store_8(IRValue::vreg(base), at, IRValue::vreg(v));
+        pos += c;
+    }
+}
+
+void Generator::check_struct_return(const StructInfo& info, const std::string& name,
+                                    SourceLoc loc) const {
+    if (info.size > 16) {
+        fail(loc, "struct '" + name + "' (" + std::to_string(info.size)
+                      + " bytes) cannot be returned by value yet");
+    }
+}
+
+void Generator::gen_struct_return(uint32_t addr, const StructInfo& info) {
+    const size_t words = struct_words(info.size);
+    if (words == 0) {
+        m_ir.ret_void();
+    } else if (words == 1) {
+        m_ir.ret(IRValue::vreg(load_struct_word(addr, info, 0)));
+    } else {
+        uint32_t lo = load_struct_word(addr, info, 0);
+        uint32_t hi = load_struct_word(addr, info, 1);
+        m_ir.ret2(IRValue::vreg(lo), IRValue::vreg(hi));
+    }
+}
+
+void Generator::gen_struct_call(const std::string& fname, const std::vector<IRValue>& args,
+                                const std::string& struct_name, const StructInfo& info) {
+    const size_t words = struct_words(info.size);
+    uint32_t first = 0;
+    uint32_t second = 0;
+    if (words == 2) {
+        first = m_ir.call2(fname, args, second);
+    } else {
+        first = m_ir.call(fname, args);
+    }
+    // The result lives in a temporary frame object; the expression's value is its address.
+    uint32_t slot = alloc_object(info.size);
+    uint32_t base = object_addr(slot, align_frame(info.size, 8));
+    if (words >= 1) store_struct_word(base, info, 0, first);
+    if (words == 2) store_struct_word(base, info, 1, second);
+    push_vreg(base);
+    m_tstack.back() = Type::make_struct(struct_name);
+}
