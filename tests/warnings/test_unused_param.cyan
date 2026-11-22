@@ -1,0 +1,10 @@
+// EXPECT-WARNING: unused parameter 'b'
+
+function add(a, b) {
+    return(a + 1);
+}
+
+function main() {
+    print(add(3, 4));
+    return(0);
+}

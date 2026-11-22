@@ -1,0 +1,8 @@
+// EXPECT-WARNING: unused variable 'written'
+
+function main() {
+    var written = 0;
+    written = 5;
+    print(1);
+    return(0);
+}

@@ -45,6 +45,7 @@ void Generator::gen_expr(const NodeExpr& expr)
             // Try local scope first
             for (auto it = gen->m_scopes.rbegin(); it != gen->m_scopes.rend(); ++it) {
                 if (it->vars.contains(name)) {
+                    gen->mark_var_used(name);
                     const auto& var = it->vars.at(name);
                     uint32_t base_addr = gen->m_ir.frame_addr(static_cast<int64_t>(var.stack_loc));
                     uint32_t offset = gen->m_ir.mul(IRValue::vreg(idx), IRValue::imm_i64(8));
@@ -128,6 +129,7 @@ void Generator::gen_expr(const NodeExpr& expr)
                     // Try local scope first
                     for (auto it = gen->m_scopes.rbegin(); it != gen->m_scopes.rend(); ++it) {
                         if (it->vars.contains(name)) {
+                            gen->mark_var_used(name);
                             const auto& var = it->vars.at(name);
                             if (var.array_size == 0) {
                                 gen->fail((*ident)->ident.loc,
@@ -218,6 +220,7 @@ void Generator::gen_expr(const NodeExpr& expr)
                 const auto& name = (*ident)->ident.value.value();
                 for (auto it = gen->m_scopes.rbegin(); it != gen->m_scopes.rend(); ++it) {
                     if (it->vars.contains(name)) {
+                        gen->mark_var_used(name);
                         const auto& var = it->vars.at(name);
                         uint32_t addr = gen->m_ir.frame_addr(static_cast<int64_t>(var.stack_loc));
                         gen->push_vreg(addr);
@@ -249,6 +252,7 @@ void Generator::gen_expr(const NodeExpr& expr)
                 // Try local scope first
                 for (auto it = gen->m_scopes.rbegin(); it != gen->m_scopes.rend(); ++it) {
                     if (it->vars.contains(name)) {
+                        gen->mark_var_used(name);
                         const auto& var = it->vars.at(name);
                         uint32_t base_addr = gen->m_ir.frame_addr(static_cast<int64_t>(var.stack_loc));
                         uint32_t offset = gen->m_ir.mul(IRValue::vreg(idx), IRValue::imm_i64(8));

@@ -32,6 +32,9 @@ struct Var {
     size_t array_size = 0;
     Type type = Type::make_int(IntType::i64);
     std::string struct_type; // empty if not a struct type
+    SourceLoc decl_loc{};    // for unused-variable/parameter warnings
+    bool used = false;       // set when the variable is read
+    bool is_param = false;   // parameters get a different warning message
 };
 
 struct Scope {
@@ -87,6 +90,8 @@ public:
 
     void declare_var(const std::string& name, Type type = Type::make_int(IntType::i64), SourceLoc loc = {});
     Var lookup_var(const std::string& name, SourceLoc loc = {});
+    /// Mark a local variable (or parameter) as read, for -Wunused warnings.
+    void mark_var_used(const std::string& name);
 
     /// Suggest a close match for an undeclared identifier, or empty string if none found.
     std::string did_you_mean(const std::string& name) const;

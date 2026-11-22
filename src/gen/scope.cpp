@@ -87,9 +87,27 @@ void Generator::enter_scope()
 
 void Generator::exit_scope()
 {
+    if (!m_scopes.empty()) {
+        for (const auto& [name, var] : m_scopes.back().vars) {
+            if (!var.used && !var.is_param) {
+                m_diag.warning(var.decl_loc, "unused variable '" + name + "'");
+            }
+        }
+    }
     // var_count counts the number of *variables*, not bytes.
     // Stack size is tracked separately in m_stack_size (bytes).
     m_scopes.pop_back();
+}
+
+void Generator::mark_var_used(const std::string& name)
+{
+    for (auto it = m_scopes.rbegin(); it != m_scopes.rend(); ++it) {
+        auto found = it->vars.find(name);
+        if (found != it->vars.end()) {
+            found->second.used = true;
+            return;
+        }
+    }
 }
 
 // Align value up to the given alignment (must be power of 2).
@@ -106,7 +124,7 @@ void Generator::declare_var(const std::string& name, Type type, SourceLoc loc) {
     size_t align = size < 8 ? size : 8;  // natural alignment, capped at 8
     uint32_t offset = static_cast<uint32_t>(align_up(m_next_frame_offset, align));
     m_next_frame_offset = offset + static_cast<uint32_t>(size);
-    scope.vars[name] = Var { .stack_loc = offset, .type = type, .struct_type = "" };
+    scope.vars[name] = Var { .stack_loc = offset, .type = type, .struct_type = "", .decl_loc = loc };
     scope.var_count++;
     m_stack_size += size;
 }
@@ -114,6 +132,7 @@ void Generator::declare_var(const std::string& name, Type type, SourceLoc loc) {
 Var Generator::lookup_var(const std::string& name, SourceLoc loc) {
     for (auto it = m_scopes.rbegin(); it != m_scopes.rend(); ++it) {
         if (it->vars.contains(name)) {
+            it->vars.at(name).used = true;
             return it->vars.at(name);
         }
     }

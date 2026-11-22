@@ -8,6 +8,7 @@ void Generator::load_var_to_vstack(const std::string& name) {
     // Try local scope first
     for (auto it = m_scopes.rbegin(); it != m_scopes.rend(); ++it) {
         if (it->vars.contains(name)) {
+            it->vars.at(name).used = true;
             const auto& var = it->vars.at(name);
             if (var.array_size > 0) {
                 uint32_t addr = m_ir.frame_addr(static_cast<int64_t>(var.stack_loc));

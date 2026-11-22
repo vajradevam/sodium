@@ -1,0 +1,8 @@
+// COMPILE-FLAGS: -Werror
+// EXPECT-ERROR: unused variable 'dead'
+
+function main() {
+    var dead = 1;
+    print(9);
+    return(0);
+}

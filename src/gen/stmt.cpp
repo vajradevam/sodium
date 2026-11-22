@@ -31,7 +31,7 @@ void Generator::gen_stmt(const NodeStmt& stmt)
                 uint32_t struct_bytes = static_cast<uint32_t>(struct_info.value().size * 8);
                 uint32_t slot = gen->m_next_frame_offset;
                 gen->m_next_frame_offset += struct_bytes;
-                scope.vars[stmt_let->ident.value.value()] = Var { .stack_loc = slot, .array_size = struct_info.value().size, .struct_type = stmt_let->struct_type_name };
+                scope.vars[stmt_let->ident.value.value()] = Var { .stack_loc = slot, .array_size = struct_info.value().size, .struct_type = stmt_let->struct_type_name, .decl_loc = stmt_let->ident.loc };
                 scope.var_count += struct_info.value().size;
                 // Zero-initialize all fields (each 8 bytes)
                 for (size_t i = 0; i < struct_info.value().size; i++) {
@@ -46,7 +46,7 @@ void Generator::gen_stmt(const NodeStmt& stmt)
                 uint32_t arr_bytes = static_cast<uint32_t>((*arr_lit)->elements.size() * 8);
                 uint32_t slot = gen->m_next_frame_offset;
                 gen->m_next_frame_offset += arr_bytes;
-                scope.vars[stmt_let->ident.value.value()] = Var { .stack_loc = slot, .array_size = (*arr_lit)->elements.size(), .type = var_type, .struct_type = "" };
+                scope.vars[stmt_let->ident.value.value()] = Var { .stack_loc = slot, .array_size = (*arr_lit)->elements.size(), .type = var_type, .struct_type = "", .decl_loc = stmt_let->ident.loc };
                 scope.var_count += (*arr_lit)->elements.size();
                 // Evaluate array literal elements
                 gen->gen_expr(*stmt_let->expr);
@@ -67,9 +67,8 @@ void Generator::gen_stmt(const NodeStmt& stmt)
                     uint32_t val = gen->pop_vreg();
                     // Update variable type to the pointer type
                     auto& scope = gen->m_scopes.back();
-                    scope.vars[stmt_let->ident.value.value()] = 
-                        Var { .stack_loc = scope.vars.at(stmt_let->ident.value.value()).stack_loc,
-                              .type = expr_type, .struct_type = "" };
+                    Var& existing = scope.vars.at(stmt_let->ident.value.value());
+                    existing.type = expr_type;
                     uint32_t addr = gen->m_ir.frame_addr(static_cast<int64_t>(scope.vars.at(stmt_let->ident.value.value()).stack_loc));
                     gen->m_ir.store(IRValue::vreg(addr), 0, IRValue::vreg(val));
                 } else {
@@ -301,7 +300,7 @@ void Generator::gen_stmt(const NodeStmt& stmt)
             uint32_t slot = gen->m_next_frame_offset;
             uint32_t arr_bytes = static_cast<uint32_t>(size * 8);
             gen->m_next_frame_offset += arr_bytes;
-            scope.vars[stmt_arr->name.value.value()] = Var { .stack_loc = slot, .array_size = size, .struct_type = "" };
+            scope.vars[stmt_arr->name.value.value()] = Var { .stack_loc = slot, .array_size = size, .struct_type = "", .decl_loc = stmt_arr->loc };
             scope.var_count += size;
             // Zero-initialize array elements linearly
             for (size_t i = 0; i < size; i++) {

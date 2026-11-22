@@ -1,0 +1,10 @@
+// EXPECT-WARNING: unused variable 'shadow'
+
+function main() {
+    var keep = 1;
+    if (keep == 1) {
+        var shadow = 2;
+    }
+    print(keep);
+    return(0);
+}

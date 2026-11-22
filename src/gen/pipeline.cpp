@@ -76,7 +76,8 @@ void Generator::gen_func_def(const NodeFuncDef& func)
         if (inferred_it != m_inferred_param_types.end() && i < inferred_it->second.size()) {
             param_type = inferred_it->second[i];
         }
-        scope.vars[param_name] = Var { .stack_loc = offset, .type = param_type, .struct_type = "" };
+        scope.vars[param_name] = Var { .stack_loc = offset, .type = param_type, .struct_type = "",
+                                        .decl_loc = func.params[i].loc, .is_param = true };
         scope.var_count++;
 
         // Load parameter from ABI-defined location (argument register or stack)
@@ -108,7 +109,18 @@ void Generator::gen_func_def(const NodeFuncDef& func)
     m_in_function = false;
     m_func_epilogue_label.clear();
 
-    m_scopes.pop_back();
+    // Warn for declarations in the function scope never read (E3b).
+    if (!m_scopes.empty()) {
+        for (const auto& [name, var] : m_scopes.back().vars) {
+            if (!var.used) {
+                if (var.is_param)
+                    m_diag.warning(var.decl_loc, "unused parameter '" + name + "'");
+                else
+                    m_diag.warning(var.decl_loc, "unused variable '" + name + "'");
+            }
+        }
+    }
+    exit_scope();
     m_stack_size = saved_stack_size;
 
     // Finalize this function: run allocator and emit to backend

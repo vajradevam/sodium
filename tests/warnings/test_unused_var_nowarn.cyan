@@ -1,0 +1,9 @@
+// COMPILE-FLAGS: -w
+// NO-WARNING: unused variable
+// EXPECT-EXIT: 0
+
+function main() {
+    var dead = 1;
+    print(9);
+    return(0);
+}
