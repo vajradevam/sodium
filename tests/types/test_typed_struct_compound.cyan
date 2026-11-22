@@ -1,0 +1,15 @@
+// EXPECT-EXIT: 0
+// EXPECT-STDOUT: 14
+// EXPECT-STDOUT: 300
+
+struct Q { var a: u8; var b: i16; };
+
+function main() {
+    var s: Q;
+    s.a = 250;
+    s.a += 20;
+    s.b = 300;
+    print(s.a);
+    print(s.b);
+    return(0);
+}

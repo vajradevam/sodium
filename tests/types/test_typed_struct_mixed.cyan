@@ -1,0 +1,13 @@
+// EXPECT-EXIT: 0
+// EXPECT-STDOUT: 1008
+
+struct Q { var a: i8; var b: i64; var c: i16; };
+
+function main() {
+    var s: Q;
+    s.a = 1;
+    s.b = 1000;
+    s.c = 7;
+    print(s.a + s.b + s.c);
+    return(0);
+}

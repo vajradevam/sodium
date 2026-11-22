@@ -1,0 +1,17 @@
+// EXPECT-EXIT: 0
+// EXPECT-STDOUT: 10
+// EXPECT-STDOUT: 20
+// EXPECT-STDOUT: 30
+
+struct P { var a: i8; var b: i8; var c: i8; };
+
+function main() {
+    var s: P;
+    s.a = 10;
+    s.b = 20;
+    s.c = 30;
+    print(s.a);
+    print(s.b);
+    print(s.c);
+    return(0);
+}

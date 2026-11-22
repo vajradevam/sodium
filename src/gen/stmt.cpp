@@ -506,15 +506,32 @@ void Generator::gen_stmt(const NodeStmt& stmt)
                 gen->fail(stmt_field->field_name.loc, "Unknown field '" + field_name + "' in struct '" + var.struct_type + "'");
             }
             size_t field_offset = offset_it->second;
+            size_t field_index = 0;
+            for (; field_index < struct_info.value().field_names.size(); field_index++) {
+                if (struct_info.value().field_names[field_index] == field_name) break;
+            }
+            Type field_type = field_index < struct_info.value().field_types.size()
+                                  ? struct_info.value().field_types[field_index]
+                                  : Type::make_int(IntType::i64);
+            size_t field_size = type_size(field_type);
+            bool field_signed = (field_type.kind == Type::Int &&
+                                 (field_type.int_type == IntType::i8 ||
+                                  field_type.int_type == IntType::i16 ||
+                                  field_type.int_type == IntType::i32));
             uint32_t base_addr = gen->m_ir.frame_addr(static_cast<int64_t>(var.stack_loc));
             uint32_t field_addr = gen->m_ir.lea(IRValue::vreg(base_addr), -static_cast<int64_t>(field_offset));
 
             if (stmt_field->op == AssignOp::assign) {
                 gen->gen_expr(*stmt_field->expr);
                 uint32_t val = gen->pop_vreg();
-                gen->m_ir.store(IRValue::vreg(field_addr), 0, IRValue::vreg(val));
+                if (field_type.kind == Type::Int && field_size < 8) {
+                    if (field_size <= 1)      val = gen->m_ir.and_(IRValue::vreg(val), IRValue::imm_i64(0xFF));
+                    else if (field_size <= 2) val = gen->m_ir.and_(IRValue::vreg(val), IRValue::imm_i64(0xFFFF));
+                    else                      val = gen->m_ir.zext(IRValue::vreg(val), IRWidth::I32);
+                }
+                typed_store(field_addr, val, field_size);
             } else {
-                uint32_t old_val = gen->m_ir.load(IRValue::vreg(field_addr), 0);
+                uint32_t old_val = typed_load_val(field_addr, field_size, field_signed);
                 gen->gen_expr(*stmt_field->expr);
                 uint32_t rhs = gen->pop_vreg();
                 uint32_t result = old_val;
@@ -531,7 +548,12 @@ void Generator::gen_stmt(const NodeStmt& stmt)
                     case AssignOp::shr_assign:     result = gen->m_ir.ashr(IRValue::vreg(old_val), IRValue::vreg(rhs)); break;
                     default: break;
                 }
-                gen->m_ir.store(IRValue::vreg(field_addr), 0, IRValue::vreg(result));
+                if (field_type.kind == Type::Int && field_size < 8) {
+                    if (field_size <= 1)      result = gen->m_ir.and_(IRValue::vreg(result), IRValue::imm_i64(0xFF));
+                    else if (field_size <= 2) result = gen->m_ir.and_(IRValue::vreg(result), IRValue::imm_i64(0xFFFF));
+                    else                      result = gen->m_ir.zext(IRValue::vreg(result), IRWidth::I32);
+                }
+                typed_store(field_addr, result, field_size);
             }
         }
 

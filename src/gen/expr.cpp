@@ -1,4 +1,21 @@
 #include "../generation.hpp"
+
+namespace {
+bool int_signed(IntType t) {
+    return t == IntType::i8 || t == IntType::i16 ||
+           t == IntType::i32 || t == IntType::i64;
+}
+
+uint32_t load_typed_field(IRBuilder& ir, uint32_t ptr, const Type& t) {
+    size_t sz = type_size(t);
+    bool sgn = int_signed(t.int_type);
+    if (sz >= 8) return ir.load(IRValue::vreg(ptr), 0);
+    if (sz == 4) return sgn ? ir.load_s32(IRValue::vreg(ptr), 0) : ir.load_u32(IRValue::vreg(ptr), 0);
+    if (sz == 2) return sgn ? ir.load_s16(IRValue::vreg(ptr), 0) : ir.load_u16(IRValue::vreg(ptr), 0);
+    return sgn ? ir.load_s8(IRValue::vreg(ptr), 0) : ir.load_u8(IRValue::vreg(ptr), 0);
+}
+} // namespace
+
 void Generator::gen_expr(const NodeExpr& expr)
 {
     struct ExprVisitor {
@@ -201,15 +218,20 @@ void Generator::gen_expr(const NodeExpr& expr)
                 gen->fail(field_access->field_name.loc, "Unknown field '" + field_name + "' in struct '" + var.struct_type + "'");
             }
             size_t field_offset = offset_it->second;
-            // struct fields are stored after the base variable: slot - field_offset
-            // (field 0 is at the same address as the struct base, field 1 is at base-8, etc.)
+            // Struct storage grows downward from the base slot; byte offset 0
+            // is the base itself, field k lives at base - offset(k).
             uint32_t base_addr = gen->m_ir.frame_addr(static_cast<int64_t>(var.stack_loc));
             uint32_t field_addr = gen->m_ir.lea(IRValue::vreg(base_addr), -static_cast<int64_t>(field_offset));
-            // Actually the fields go from base downward. Let me use: base - field_offset
-            // Actually lea with negative offset from base_addr
-            // Wait, LEA computes base_addr + offset. We want base_addr - field_offset*8
-            uint32_t val = gen->m_ir.load(IRValue::vreg(field_addr), 0);
+            size_t index = 0;
+            for (; index < struct_info.value().field_names.size(); index++) {
+                if (struct_info.value().field_names[index] == field_name) break;
+            }
+            Type field_type = index < struct_info.value().field_types.size()
+                                  ? struct_info.value().field_types[index]
+                                  : Type::make_int(IntType::i64);
+            uint32_t val = load_typed_field(gen->m_ir, field_addr, field_type);
             gen->push_vreg(val);
+            gen->m_tstack.back() = field_type;
         }
 
         void operator()(const NodeExprAddrOf* addr_of) const
@@ -300,8 +322,14 @@ void Generator::gen_expr(const NodeExpr& expr)
                 uint32_t base_addr = gen->m_ir.frame_addr(static_cast<int64_t>(var.stack_loc));
                 uint32_t field_addr = gen->m_ir.lea(IRValue::vreg(base_addr), -static_cast<int64_t>(field_offset));
                 gen->push_vreg(field_addr);
-                // Struct fields are i64 (8-byte slots)
-                Type* pointee = gen->alloc_type(Type::make_int(IntType::i64));
+                size_t index = 0;
+                for (; index < struct_info.value().field_names.size(); index++) {
+                    if (struct_info.value().field_names[index] == field_name) break;
+                }
+                Type field_type = index < struct_info.value().field_types.size()
+                                      ? struct_info.value().field_types[index]
+                                      : Type::make_int(IntType::i64);
+                Type* pointee = gen->alloc_type(field_type);
                 gen->m_tstack.back() = Type::make_ptr(pointee);
             } else {
                 gen->fail(addr_of->ampersand.loc, "Cannot take address of this expression");
