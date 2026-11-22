@@ -330,6 +330,7 @@ public:
 
     /// Apply the command-line warning policy (`-w`, `-Werror`).
     void set_warn_config(WarnConfig cfg) { m_diag.set_warn_config(cfg); }
+    void set_color(bool v) { m_diag.set_color(v); }
 
     /// Record an error at an explicit location and report it.
     [[noreturn]] void fail_at(const SourceLoc& loc, const std::string& msg);

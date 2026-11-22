@@ -66,7 +66,7 @@ void Generator::gen_expr(const NodeExpr& expr)
             }
             std::string suggestion = gen->did_you_mean(name);
             if (!suggestion.empty()) {
-                gen->fail(expr_index->name.loc, "Undeclared identifier: " + name + " (did you mean '" + suggestion + "'?)");
+                gen->fail_with_suggestion(expr_index->name.loc, "Undeclared identifier: " + name + " (did you mean '" + suggestion + "'?)", suggestion);
             } else {
                 gen->fail(expr_index->name.loc, "Undeclared identifier: " + name);
             }
@@ -166,7 +166,7 @@ void Generator::gen_expr(const NodeExpr& expr)
                     }
                     std::string suggestion = gen->did_you_mean(name);
                     if (!suggestion.empty()) {
-                        gen->fail((*ident)->ident.loc, "Undeclared identifier: " + name + " (did you mean '" + suggestion + "'?)");
+                        gen->fail_with_suggestion((*ident)->ident.loc, "Undeclared identifier: " + name + " (did you mean '" + suggestion + "'?)", suggestion);
                     } else {
                         gen->fail((*ident)->ident.loc, "Undeclared identifier: " + name);
                     }
@@ -240,7 +240,7 @@ void Generator::gen_expr(const NodeExpr& expr)
                 }
                 std::string suggestion = gen->did_you_mean(name);
                 if (!suggestion.empty()) {
-                    gen->fail(addr_of->ampersand.loc, "Undeclared identifier: " + name + " (did you mean '" + suggestion + "'?)");
+                    gen->fail_with_suggestion(addr_of->ampersand.loc, "Undeclared identifier: " + name + " (did you mean '" + suggestion + "'?)", suggestion);
                 } else {
                     gen->fail(addr_of->ampersand.loc, "Undeclared identifier: " + name);
                 }
@@ -276,7 +276,7 @@ void Generator::gen_expr(const NodeExpr& expr)
                 }
                 std::string suggestion = gen->did_you_mean(name);
                 if (!suggestion.empty()) {
-                    gen->fail((*arr_idx)->name.loc, "Undeclared identifier: " + name + " (did you mean '" + suggestion + "'?)");
+                    gen->fail_with_suggestion((*arr_idx)->name.loc, "Undeclared identifier: " + name + " (did you mean '" + suggestion + "'?)", suggestion);
                 } else {
                     gen->fail((*arr_idx)->name.loc, "Undeclared identifier: " + name);
                 }
@@ -412,7 +412,7 @@ void Generator::gen_expr(const NodeExpr& expr)
             if (!gen->m_func_names.contains(fname)) {
                 std::string suggestion = gen->did_you_mean(fname);
                 if (!suggestion.empty()) {
-                    gen->fail(expr_call->name.loc, "Undefined function: " + fname + " (did you mean '" + suggestion + "'?)");
+                    gen->fail_with_suggestion(expr_call->name.loc, "Undefined function: " + fname + " (did you mean '" + suggestion + "'?)", suggestion);
                 } else {
                     gen->fail(expr_call->name.loc, "Undefined function: " + fname);
                 }

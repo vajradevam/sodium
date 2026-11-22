@@ -118,7 +118,13 @@ static inline size_t align_up(size_t val, size_t align) {
 void Generator::declare_var(const std::string& name, Type type, SourceLoc loc) {
     auto& scope = m_scopes.back();
     if (scope.vars.contains(name)) {
-        fail(loc, "Identifier already used in this scope: " + name);
+        const SourceLoc previous = scope.vars.at(name).decl_loc;
+        m_diag.error(loc, "Identifier already used in this scope: " + name);
+        if (previous.line != 0 && previous.col != 0) {
+            m_diag.add_note_at(previous, "previous declaration here");
+        }
+        if (g_lsp_mode) throw LSPAbort();
+        throw GenAbort{};
     }
     size_t size = type_size(type);
     size_t align = size < 8 ? size : 8;  // natural alignment, capped at 8
@@ -138,7 +144,7 @@ Var Generator::lookup_var(const std::string& name, SourceLoc loc) {
     }
     std::string suggestion = did_you_mean(name);
     if (!suggestion.empty()) {
-        fail(loc, "Undeclared identifier: " + name + " (did you mean '" + suggestion + "'?)");
+        fail_with_suggestion(loc, "Undeclared identifier: " + name + " (did you mean '" + suggestion + "'?)", suggestion);
     } else {
         fail(loc, "Undeclared identifier: " + name);
     }

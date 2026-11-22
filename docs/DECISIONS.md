@@ -70,3 +70,11 @@ than `main`, which is defined to exit(0) when it falls off the end), narrowing a
 compile-time constant does not fit the declared integer type), unused result of a value-returning
 function with no observable side effects, and `=` in condition (with a `==` fix-it). An `=` in a
 condition is still a syntax error; its warning is a hint about the likely typo.
+
+## D-010 Notes and color (E4)
+Notes are first-class diagnostics with their own source location (`add_note_at`), used for
+"previous declaration here" on redeclarations. "Did you mean" suggestions are attached to the
+preceding error as a note plus a replacement fix-it; the error text is unchanged for compatibility.
+`-fcolor-diagnostics` enables ANSI colors (bold location, red error, magenta warning, cyan note,
+green fix-it); `-fno-color-diagnostics` and a non-empty `NO_COLOR` disable them. Plain output is
+the default so compiler logs stay deterministic.

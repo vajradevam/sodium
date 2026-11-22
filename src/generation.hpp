@@ -75,9 +75,14 @@ public:
 
     /// Apply the command-line warning policy (`-w`, `-Werror`).
     void set_warn_config(WarnConfig cfg) { m_diag.set_warn_config(cfg); }
+    void set_color(bool v) { m_diag.set_color(v); }
 
     /// Record an error in the engine and report it through the CLI/LSP path.
     [[noreturn]] void fail(const SourceLoc& loc, const std::string& msg) const;
+
+    /// Record an error plus a "did you mean" note and replacement fix-it.
+    [[noreturn]] void fail_with_suggestion(const SourceLoc& loc, const std::string& msg,
+                                            const std::string& suggestion) const;
 
     void set_no_alloc(bool v) { m_no_alloc = v; }
     void set_emit_ir(bool v) { m_emit_ir = v; }

@@ -1766,7 +1766,7 @@ std::optional<NodeProg> Parser::parse_prog() {
 
     if (!g_lsp_mode && !m_diag.empty()) {
         for (const auto& d : m_diag.diagnostics()) {
-            std::cerr << DiagnosticEngine::render(d);
+            std::cerr << m_diag.render_one(d);
             if (d.loc.line != 0 && d.loc.col != 0) print_code_context(d.loc);
         }
         if (m_diag.has_errors()) exit(EXIT_FAILURE);

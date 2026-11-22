@@ -1,0 +1,7 @@
+// EXPECT-ERROR: note: did you mean 'count'?
+
+function main() {
+    var count = 1;
+    print(coutn);
+    return(0);
+}

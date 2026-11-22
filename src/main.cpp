@@ -73,9 +73,11 @@ int main(int argc, char* argv[]) {
     std::string cyanlib_dir;         // --cyanlib-dir <path> overrides default
     bool warn_disable = false;       // -w
     bool warn_as_error = false;      // -Werror
+    bool color_requested = false;    // -fcolor-diagnostics
+    bool color_forced_off = false;   // -fno-color-diagnostics or NO_COLOR
 
     auto usage = []() {
-        std::cerr << "Usage: sodium [--target <arch>] [--print-ast] [--emit-ir] [--no-alloc] [-o <file>] [-S] [-I <dir>] [--cyanlib-dir <dir>] [-w] [-Werror] <filename.cyan>" << std::endl;
+        std::cerr << "Usage: sodium [--target <arch>] [--print-ast] [--emit-ir] [--no-alloc] [-o <file>] [-S] [-I <dir>] [--cyanlib-dir <dir>] [-w] [-Werror] [-fcolor-diagnostics] <filename.cyan>" << std::endl;
     };
 
     for (int i = 1; i < argc; i++) {
@@ -112,6 +114,10 @@ int main(int argc, char* argv[]) {
             warn_disable = true;
         } else if (std::strcmp(argv[i], "-Werror") == 0) {
             warn_as_error = true;
+        } else if (std::strcmp(argv[i], "-fcolor-diagnostics") == 0) {
+            color_requested = true;
+        } else if (std::strcmp(argv[i], "-fno-color-diagnostics") == 0) {
+            color_forced_off = true;
         } else if (std::strcmp(argv[i], "--cyanlib-dir") == 0) {
             if (i + 1 < argc) {
                 cyanlib_dir = argv[++i];
@@ -325,8 +331,14 @@ int main(int argc, char* argv[]) {
     warn_cfg.enabled = !warn_disable;
     warn_cfg.werror = warn_as_error;
 
+    // NO_COLOR (non-empty) wins over -fcolor-diagnostics, per the convention.
+    const char* no_color = std::getenv("NO_COLOR");
+    bool color_enabled = color_requested && !color_forced_off
+                         && !(no_color && *no_color);
+
     Parser parser(std::move(tokens));
     parser.set_warn_config(warn_cfg);
+    parser.set_color(color_enabled);
     std::optional<NodeProg> prog = parser.parse_prog();
 
     if (!prog.has_value()) {
@@ -346,6 +358,7 @@ int main(int argc, char* argv[]) {
 
         Generator generator(prog.value(), *backend, *tri);
         generator.set_warn_config(warn_cfg);
+        generator.set_color(color_enabled);
         generator.set_no_alloc(no_alloc_flag);
         generator.set_emit_ir(emit_ir_flag);
         (void)generator.gen_prog();  // writes to backend stream

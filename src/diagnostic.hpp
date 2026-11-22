@@ -52,6 +52,10 @@ public:
     void set_warn_config(WarnConfig cfg) { m_warn = cfg; }
     const WarnConfig& warn_config() const { return m_warn; }
 
+    /// ANSI colors for `-fcolor-diagnostics` (NO_COLOR always disables).
+    void set_color(bool v) { m_color = v; }
+    bool color() const { return m_color; }
+
     void note(SourceLoc loc, std::string msg) {
         add({Severity::Note, std::move(loc), std::move(msg), {}, {}});
     }
@@ -71,6 +75,12 @@ public:
     bool add_note(std::string msg) {
         if (m_diags.empty()) return false;
         m_diags.back().notes.push_back(std::move(msg));
+        return true;
+    }
+
+    /// Attach a note with its own location (e.g. "previous declaration here").
+    bool add_note_at(SourceLoc loc, std::string msg) {
+        add({Severity::Note, std::move(loc), std::move(msg), {}, {}});
         return true;
     }
 
@@ -104,21 +114,41 @@ public:
     /// D-004: `file:line:col: error|warning|note: message`, then notes and
     /// fix-it hints, one per line. Locations with an empty file render as
     /// `line:col` (matching the legacy format_err output).
-    static std::string render(const Diagnostic& d) {
-        std::string out = d.loc.to_string() + ": " + severity_name(d.severity) + ": "
-                        + d.message + "\n";
+    static std::string render(const Diagnostic& d, bool color) {
+        auto colorize = [color](const char* code, const char* text) {
+            return color ? std::string("\033[") + code + "m" + text + "\033[0m"
+                         : std::string(text);
+        };
+        auto loc_text = [color](const SourceLoc& loc) {
+            return color ? "\033[1m" + loc.to_string() + "\033[0m" : loc.to_string();
+        };
+
+        const char* sev_code = "37";
+        switch (d.severity) {
+            case Severity::Note:    sev_code = "36"; break; // cyan
+            case Severity::Warning: sev_code = "35"; break; // magenta
+            case Severity::Error:
+            case Severity::Fatal:   sev_code = "31"; break; // red
+        }
+        std::string out = loc_text(d.loc) + ": " + colorize(sev_code, severity_name(d.severity))
+                        + ": " + d.message + "\n";
         for (const auto& n : d.notes) {
-            out += d.loc.to_string() + ": note: " + n + "\n";
+            out += loc_text(d.loc) + ": " + colorize("36", "note") + ": " + n + "\n";
         }
         for (const auto& f : d.fixits) {
-            out += f.loc.to_string() + ": fix-it: " + f.replacement + "\n";
+            out += loc_text(f.loc) + ": " + colorize("32", "fix-it") + ": " + f.replacement + "\n";
         }
         return out;
     }
 
+    static std::string render(const Diagnostic& d) { return render(d, false); }
+
+    /// Render one diagnostic using this engine's color setting.
+    std::string render_one(const Diagnostic& d) const { return render(d, m_color); }
+
     std::string render_all() const {
         std::string out;
-        for (const auto& d : m_diags) out += render(d);
+        for (const auto& d : m_diags) out += render(d, m_color);
         return out;
     }
 
@@ -127,4 +157,5 @@ public:
 private:
     std::vector<Diagnostic> m_diags;
     WarnConfig m_warn{};
+    bool m_color = false;
 };

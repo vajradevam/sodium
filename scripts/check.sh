@@ -48,6 +48,10 @@ step "semantic error recovery (multiple functions)"
 ./scripts/test_semantic_recovery.sh > build/last_semerrors.log 2>&1 || die "semantic recovery (see build/last_semerrors.log)"
 tail -1 build/last_semerrors.log
 
+step "color diagnostics (-fcolor-diagnostics / NO_COLOR)"
+./scripts/test_color.sh > build/last_color.log 2>&1 || die "color diagnostics (see build/last_color.log)"
+tail -1 build/last_color.log
+
 step "output path handling (spaces, semicolons, injection)"
 ./scripts/test_paths.sh > build/last_paths.log 2>&1 || die "path handling (see build/last_paths.log)"
 tail -1 build/last_paths.log

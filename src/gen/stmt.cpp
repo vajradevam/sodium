@@ -341,7 +341,7 @@ void Generator::gen_stmt(const NodeStmt& stmt)
             }
             std::string suggestion = gen->did_you_mean(name);
             if (!suggestion.empty()) {
-                gen->fail(stmt_arr_assign->name.loc, "Undeclared identifier: " + name + " (did you mean '" + suggestion + "'?)");
+                gen->fail_with_suggestion(stmt_arr_assign->name.loc, "Undeclared identifier: " + name + " (did you mean '" + suggestion + "'?)", suggestion);
             } else {
                 gen->fail(stmt_arr_assign->name.loc, "Undeclared identifier: " + name);
             }

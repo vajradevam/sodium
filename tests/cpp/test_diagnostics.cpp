@@ -76,6 +76,35 @@ TEST(diagnostics_instances_are_independent) {
     CHECK(b.render_all().empty());
 }
 
+TEST(diagnostics_add_note_at_uses_given_location) {
+    DiagnosticEngine engine;
+    engine.error({5, 2, "f"}, "redeclared");
+    CHECK(engine.add_note_at({2, 9, "f"}, "previous declaration here"));
+    const auto rendered = engine.render_all();
+    CHECK(rendered.find("f:5:2: error: redeclared") != std::string::npos);
+    CHECK(rendered.find("f:2:9: note: previous declaration here") != std::string::npos);
+}
+
+TEST(diagnostics_colored_render_uses_ansi_severity) {
+    DiagnosticEngine engine;
+    engine.set_color(true);
+    engine.error({1, 1, "f"}, "bad");
+    engine.warning({2, 1, "f"}, "careful");
+    engine.note({3, 1, "f"}, "context");
+    const std::string out = engine.render_all();
+    CHECK(out.find("\033[1mf:1:1") != std::string::npos);
+    CHECK(out.find("\033[31merror\033[0m: bad") != std::string::npos);
+    CHECK(out.find("\033[35mwarning\033[0m: careful") != std::string::npos);
+    CHECK(out.find("\033[36mnote\033[0m: context") != std::string::npos);
+    CHECK(out.find("\033[0m") != std::string::npos);
+}
+
+TEST(diagnostics_plain_render_has_no_ansi) {
+    DiagnosticEngine engine;
+    engine.error({1, 1, "f"}, "bad");
+    CHECK(engine.render_all().find("\033[") == std::string::npos);
+}
+
 TEST(diagnostics_warning_default_is_warning) {
     DiagnosticEngine engine;
     engine.warning({1, 1, "f"}, "careful");

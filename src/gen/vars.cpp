@@ -65,7 +65,7 @@ void Generator::load_var_to_vstack(const std::string& name) {
     }
     std::string suggestion = did_you_mean(name);
     if (!suggestion.empty()) {
-        fail({}, "Undeclared identifier: " + name + " (did you mean '" + suggestion + "'?)");
+        fail_with_suggestion({}, "Undeclared identifier: " + name + " (did you mean '" + suggestion + "'?)", suggestion);
     } else {
         fail({}, "Undeclared identifier: " + name);
     }
@@ -183,7 +183,7 @@ void Generator::store_var_from_vstack(const std::string& name, AssignOp op) {
     }
     std::string suggestion = did_you_mean(name);
     if (!suggestion.empty()) {
-        fail({}, "Undeclared identifier: " + name + " (did you mean '" + suggestion + "'?)");
+        fail_with_suggestion({}, "Undeclared identifier: " + name + " (did you mean '" + suggestion + "'?)", suggestion);
     } else {
         fail({}, "Undeclared identifier: " + name);
     }

@@ -16,6 +16,15 @@ Generator::Generator(NodeProg root, Backend& backend, const TargetRegisterInfo& 
     throw GenAbort{};
 }
 
+[[noreturn]] void Generator::fail_with_suggestion(const SourceLoc& loc, const std::string& msg,
+                                                   const std::string& suggestion) const {
+    m_diag.error(loc, msg);
+    m_diag.add_note("did you mean '" + suggestion + "'?");
+    m_diag.add_fixit({loc, suggestion});
+    if (g_lsp_mode) throw LSPAbort();
+    throw GenAbort{};
+}
+
 // ==========================================================================
 // IR virtual register stack helpers
 // ==========================================================================
