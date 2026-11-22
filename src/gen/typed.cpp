@@ -121,3 +121,34 @@ void Generator::check_call_args(const NodeExprCall& call, SourceLoc loc) {
                   + "' has type " + type_name(got) + ", expected " + type_name(want));
     }
 }
+
+void Generator::check_return_type(const NodeExpr& expr, SourceLoc loc) {
+    if (!m_current_return_type.has_value()) return;
+    if (m_tstack.empty() || m_vstack.empty()) return;
+
+    const Type want = *m_current_return_type;
+    const Type got = m_tstack.back();
+    if (want == got) return;
+
+    // `0` is a valid null pointer literal for any pointer return type (D-003).
+    if (want.kind == Type::Ptr && got.kind == Type::Int) {
+        auto constant = eval_const_expr(&expr);
+        if (constant.has_value() && constant.value() == 0) return;
+    }
+
+    if (want.kind == Type::Int && got.kind == Type::Int) {
+        auto constant = eval_const_expr(&expr);
+        if (constant.has_value() && constant_fits(constant.value(), want.int_type)) return;
+        if (safe_widening(got.int_type, want.int_type)) {
+            IRValue src = IRValue::vreg(m_vstack.back());
+            m_vstack.back() = is_signed(got.int_type)
+                                  ? m_ir.sext(src, width_of(got.int_type))
+                                  : m_ir.zext(src, width_of(got.int_type));
+            m_tstack.back() = want;
+            return;
+        }
+    }
+
+    fail(loc, "return type mismatch in function '" + m_current_func_name
+              + "': expected " + type_name(want) + ", got " + type_name(got));
+}

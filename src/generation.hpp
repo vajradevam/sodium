@@ -125,6 +125,10 @@ public:
     /// conversions into the argument vregs. Fails on a mismatch (Y1b).
     void check_call_args(const NodeExprCall& call, SourceLoc loc);
 
+    /// Check/convert the return expression against the current function's
+    /// declared return type (Y1c).
+    void check_return_type(const NodeExpr& expr, SourceLoc loc);
+
     void enter_scope();
     void exit_scope();
 
@@ -181,6 +185,8 @@ private:
     bool m_in_function = false;
     bool m_emitted_exit = false;
     std::string m_func_epilogue_label;
+    std::optional<Type> m_current_return_type; ///< declared return type of the active function
+    std::string m_current_func_name;           ///< for return-type diagnostics
     size_t m_stack_size = 0;
     std::vector<Scope> m_scopes;
     std::vector<StringEntry> m_strings;

@@ -477,9 +477,10 @@ void Generator::gen_expr(const NodeExpr& expr)
                             gen->m_tstack.back() = type_b;
                         }
                     } else {
-                        // int + int
+                        // int + int — result keeps the wider operand type
                         uint32_t v = gen->m_ir.add(IRValue::vreg(a), IRValue::vreg(b));
                         gen->push_vreg(v);
+                        gen->m_tstack.back() = type_size(type_a) >= type_size(type_b) ? type_a : type_b;
                     }
                 }
                 void operator()(const BinExprMulti* mul) {
@@ -533,9 +534,10 @@ void Generator::gen_expr(const NodeExpr& expr)
                             gen->push_vreg(diff);
                         }
                     } else {
-                        // int - int
+                        // int - int — result keeps the wider operand type
                         uint32_t v = gen->m_ir.sub(IRValue::vreg(a), IRValue::vreg(b));
                         gen->push_vreg(v);
+                        gen->m_tstack.back() = type_size(type_a) >= type_size(type_b) ? type_a : type_b;
                     }
                 }
                 void operator()(const BinExprDiv* div) {

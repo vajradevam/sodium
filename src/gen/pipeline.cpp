@@ -61,6 +61,8 @@ void Generator::gen_func_def(const NodeFuncDef& func)
 
     enter_scope();
     m_in_function = true;
+    m_current_return_type = func.return_type;
+    m_current_func_name = func.name.value.value();
     m_func_epilogue_label = ".L" + func.name.value.value() + "_epilogue";
 
     // Process parameters: allocate frame slots and load from stack
@@ -116,6 +118,8 @@ void Generator::gen_func_def(const NodeFuncDef& func)
     m_ir.new_block(m_func_epilogue_label);
     m_ir.ret_void();
     m_in_function = false;
+    m_current_return_type.reset();
+    m_current_func_name.clear();
     m_func_epilogue_label.clear();
 
     // Warn for declarations in the function scope never read (E3b).

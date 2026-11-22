@@ -1,0 +1,12 @@
+// EXPECT-EXIT: 0
+// EXPECT-STDOUT: 5
+
+function f() -> i64 {
+    var x: i8 = 5;
+    return(x);
+}
+
+function main() {
+    print(f());
+    return(0);
+}

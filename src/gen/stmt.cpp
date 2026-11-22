@@ -352,6 +352,7 @@ void Generator::gen_stmt(const NodeStmt& stmt)
             if (gen->m_in_function) {
                 if (stmt_ret->expr) {
                     gen->gen_expr(*stmt_ret->expr);
+                    gen->check_return_type(*stmt_ret->expr, stmt_ret->loc);
                     uint32_t val = gen->pop_vreg();
                     gen->m_ir.ret(IRValue::vreg(val));
                 } else {

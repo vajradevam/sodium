@@ -120,8 +120,10 @@ Type Generator::infer_expr_type(
                     }
                 }
             }
-            // Function calls return i64 by default
-            result = Type::make_int(IntType::i64);
+            // Declared return types are authoritative; untyped calls stay i64.
+            const NodeFuncDef* decl = gen->find_func(fname);
+            result = (decl && decl->return_type) ? *decl->return_type
+                                                 : Type::make_int(IntType::i64);
         }
 
         void operator()(const NodeExprDeref* deref) {
