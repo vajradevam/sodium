@@ -154,7 +154,7 @@ anyway, tick the box, and note "not reproducible" in PROGRESS.md.
 - [x] **X2a Object macros and conditionals:** `#define NAME ...`, `#ifdef`/`#ifndef`/`#else`/`#endif`, string-literal-safe expansion, include guards and negative tests (D-033).
 - [x] **X2b Function macros and `#if`:** `#define F(a,b) body` with argument substitution and the `#if` constant-expression grammar from D-033, with tests on both targets.
 - [x] **X3 Module hygiene (D-034):** kept textual `#include`; documented `#pragma once`/include-guard usage and cyanlib prefix conventions in `docs/MODULES.md`.
-- [ ] **X4a `--bounds`:** opt-in array index checks with a shared runtime-check emitter (D-035); tests proving out-of-range and negative indices fail and valid indices are unchanged on both targets.
+- [x] **X4a `--bounds`:** opt-in array index checks with a shared runtime-check emitter (D-035); tests proving out-of-range and negative indices fail and valid indices are unchanged on both targets.
 - [ ] **X4b `--check-null`:** opt-in null-deref checks for pointer reads and writes; tests proving null fails and non-null is unchanged on both targets.
 - [ ] **X4c `--stack-probe`:** opt-in stack-overflow probe at function entry via a stack-pointer read opcode on both backends; tests proving deep recursion fails and shallow calls are unchanged.
 - [ ] **X5 Inline asm** minimal form, per-arch, with clobber list.

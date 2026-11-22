@@ -1,0 +1,15 @@
+// COMPILE-FLAGS: --bounds
+// EXPECT-EXIT: 70
+// EXPECT-STDOUT: index out of bounds
+
+// X4a: an out-of-range array index must trigger the runtime check.
+
+function main() {
+    var a[4];
+    a[0] = 1;
+    a[1] = 2;
+    a[2] = 3;
+    a[3] = 4;
+    print("%d", a[5]);
+    return 0;
+}

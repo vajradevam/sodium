@@ -365,3 +365,13 @@ with balanced-parenthesis parsing and nested macro expansion) and a small recurs
 (function macro plus `#if defined(...) && ...`) at -O0 and -O1 on both targets.
 `scripts/check.sh --full` green: 677 -> 679 passed / 0 failed / 10 skipped at both levels;
 283 -> 289 C++ cases / 4296 checks; sweep 2058 -> 2070 invocations / 0 crashes; ASan/UBSan clean.
+
+## 2026-11-23 — X4a Bounds-check mode
+Added `--bounds` plus a shared `Generator::emit_runtime_check` helper that branches around a
+failure block printing a fixed message via `_sodium_print_raw_str` and exiting with status 70
+(D-035); no new runtime library is needed. `Generator::index_addr` now emits lower/upper checks
+for every array index expression before computing the address. Added three tests under
+`tests/checks/`: out-of-range index and negative index both fail with the diagnostic on both
+targets, and a valid indexed loop is unchanged. All use `COMPILE-FLAGS: --bounds` and pass at
+-O0 and -O1. `scripts/check.sh --full` green: 679 -> 685 passed / 0 failed / 10 skipped at both
+levels; 289 C++ cases / 4296 checks; sweep 2070 -> 2088 invocations / 0 crashes; ASan/UBSan clean.

@@ -183,3 +183,26 @@ uint32_t Generator::alloc_object(size_t bytes) {
     m_next_frame_offset = slot + static_cast<uint32_t>(align_frame(bytes, 8));
     return slot;
 }
+
+// ==========================================================================
+// Optional runtime checks (D-035)
+// ==========================================================================
+
+void Generator::emit_runtime_check(IRValue condition, const char* message) {
+    const uint32_t id = m_check_counter++;
+    const std::string fail_label = ".Lcheck_fail_" + std::to_string(id);
+    const std::string ok_label = ".Lcheck_ok_" + std::to_string(id);
+
+    m_ir.br(condition, ok_label, fail_label);
+
+    m_ir.new_block(fail_label);
+    const std::string message_label = new_string_label();
+    m_strings.push_back({message_label, message});
+    const uint32_t message_addr = m_ir.lea_label(message_label);
+    m_ir.call("_sodium_print_raw_str", { IRValue::vreg(message_addr) });
+    const uint32_t status = m_ir.load_i64(70);
+    m_ir.call("_sodium_exit", { IRValue::vreg(status) });
+    m_ir.jmp(ok_label);  // unreachable, but keeps the CFG explicit
+
+    m_ir.new_block(ok_label);
+}

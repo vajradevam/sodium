@@ -79,9 +79,12 @@ int main(int argc, char* argv[]) {
     bool warn_as_error = false;      // -Werror
     bool color_requested = false;    // -fcolor-diagnostics
     bool color_forced_off = false;   // -fno-color-diagnostics or NO_COLOR
+    bool bounds_check = false;       // --bounds
+    bool null_check = false;         // --check-null
+    bool stack_probe = false;        // --stack-probe
 
     auto usage = []() {
-        std::cerr << "Usage: sodium [--target <arch>] [--print-ast] [--emit-ir] [--verify-ir] [--dump-regalloc] [-O0|-O1] (default -O1) [--no-alloc] [-o <file>] [-S] [-I <dir>] [--cyanlib-dir <dir>] [-w] [-Werror] [-fcolor-diagnostics] <filename.cyan>" << std::endl;
+        std::cerr << "Usage: sodium [--target <arch>] [--print-ast] [--emit-ir] [--verify-ir] [--dump-regalloc] [-O0|-O1] (default -O1) [--no-alloc] [-o <file>] [-S] [-I <dir>] [--cyanlib-dir <dir>] [-w] [-Werror] [-fcolor-diagnostics] [--bounds] [--check-null] [--stack-probe] <filename.cyan>" << std::endl;
     };
 
     for (int i = 1; i < argc; i++) {
@@ -99,6 +102,12 @@ int main(int argc, char* argv[]) {
             opt_level = 1;
         } else if (std::strcmp(argv[i], "--no-alloc") == 0) {
             no_alloc_flag = true;
+        } else if (std::strcmp(argv[i], "--bounds") == 0) {
+            bounds_check = true;
+        } else if (std::strcmp(argv[i], "--check-null") == 0) {
+            null_check = true;
+        } else if (std::strcmp(argv[i], "--stack-probe") == 0) {
+            stack_probe = true;
         } else if (std::strcmp(argv[i], "--target") == 0) {
             if (i + 1 < argc) {
                 target = argv[++i];
@@ -376,6 +385,9 @@ int main(int argc, char* argv[]) {
         generator.set_verify_ir(verify_ir_flag);
         generator.set_dump_regalloc(dump_regalloc_flag);
         generator.set_opt_level(opt_level);
+        generator.set_bounds_check(bounds_check);
+        generator.set_null_check(null_check);
+        generator.set_stack_probe(stack_probe);
         (void)generator.gen_prog();  // writes to backend stream
         asm_output = asm_stream.str();
         if (opt_level >= 1) {

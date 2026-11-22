@@ -191,6 +191,13 @@ public:
     void set_verify_ir(bool v) { m_verify_ir = v; }
     void set_dump_regalloc(bool v) { m_dump_regalloc = v; }
     void set_opt_level(int level) { m_opt_level = level; }
+    void set_bounds_check(bool v) { m_bounds_check = v; }
+    void set_null_check(bool v) { m_null_check = v; }
+    void set_stack_probe(bool v) { m_stack_probe = v; }
+
+    /// Emit a conditional runtime check. A false `condition` prints `message`
+    /// and exits with the check-failure status (D-035).
+    void emit_runtime_check(IRValue condition, const char* message);
 
     [[nodiscard]] std::string gen_prog();
 
@@ -389,6 +396,10 @@ private:
     bool m_verify_ir = false;
     bool m_dump_regalloc = false;
     int m_opt_level = 0;
+    bool m_bounds_check = false;
+    bool m_null_check = false;
+    bool m_stack_probe = false;
+    uint32_t m_check_counter = 0;   ///< unique labels for emitted checks
 
     // ---- IR state ----
     /// A generated function awaiting optimization and emission (O7b1). The

@@ -1,0 +1,16 @@
+// COMPILE-FLAGS: --bounds
+// EXPECT-EXIT: 0
+// EXPECT-STDOUT: 8
+
+// X4a: valid indices must be unaffected by --bounds.
+
+function main() {
+    var a[5];
+    var i = 0;
+    while (i < 5) {
+        a[i] = i * 2;
+        i = i + 1;
+    }
+    print("%d", a[0] + a[4]);
+    return 0;
+}

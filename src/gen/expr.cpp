@@ -1022,6 +1022,13 @@ uint32_t Generator::index_addr(const NodeExprIndex& index, Type& out_type) {
     for (size_t k = 0; k < used; k++) {
         gen_expr(*indices[k]);
         uint32_t v = pop_vreg();
+        if (m_bounds_check) {
+            const uint32_t lower = m_ir.cmp_ge(IRValue::vreg(v), IRValue::imm_i64(0));
+            const uint32_t upper = m_ir.cmp_lt(
+                IRValue::vreg(v), IRValue::imm_i64(static_cast<int64_t>(dims[k])));
+            const uint32_t in_range = m_ir.and_(IRValue::vreg(lower), IRValue::vreg(upper));
+            emit_runtime_check(IRValue::vreg(in_range), "index out of bounds\n");
+        }
         uint32_t scaled = m_ir.mul(IRValue::vreg(v),
                                    IRValue::imm_i64(static_cast<int64_t>(strides[k])));
         offset = have_offset ? m_ir.add(IRValue::vreg(offset), IRValue::vreg(scaled)) : scaled;

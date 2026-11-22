@@ -1,0 +1,13 @@
+// COMPILE-FLAGS: --bounds
+// EXPECT-EXIT: 70
+// EXPECT-STDOUT: index out of bounds
+
+// X4a: a negative index must be rejected too.
+
+function main() {
+    var a[3];
+    a[0] = 1;
+    var i = -1;
+    print("%d", a[i]);
+    return 0;
+}
