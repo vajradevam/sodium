@@ -299,3 +299,17 @@ Segments are processed independently between labels/directives, so a rule never 
 basic-block boundary where control flow could have observed the overwritten value. No rule
 changes condition flags or removes a memory operation. The pass reports how many instructions it
 removed so the effect is measurable in the gate.
+
+## D-031 Leaf-function inlining is IR-level and runs before -O1 passes (O7b)
+A callee is eligible for inlining when it has exactly one basic block ending in a single
+RET/RET_VOID, contains no CALL, CALL_INDIRECT, SYSCALL, JMP, BR or RET2, has at most 24
+instructions, and no other function takes its address with LEA_LABEL. Recursion is excluded by
+the leaf rule. Because the Generator currently emits and destroys each function immediately,
+all function IR is first generated into a pool, the inliner runs over that pool (under `-O1`
+only), and then each function goes through the normal optimize → allocate → rewrite → emit
+pipeline. The -O0 path is unchanged. Inlining splices a fresh-vreg copy of the callee's single
+block into the call site: parameter STORE_PARAMs become plain stores of the call's argument
+vregs, and every callee frame offset is shifted below the caller's frame so slots cannot
+collide. mem2reg then promotes the inlined slots, and folding/CSE clean up the copies. No new IR
+form is introduced — only existing COPY/STORE/FRAME_ADDR instructions — so the verifier and
+backend need no changes.
