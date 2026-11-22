@@ -1,0 +1,8 @@
+// A function pointer returned from a function must match the declared signature.
+// EXPECT-ERROR: return type mismatch in function 'pick'
+function one(a: i64) -> i64 { return a; }
+function pick() -> fn(i64, i64) -> i64 { return &one; }
+function main() {
+    var g: fn(i64, i64) -> i64 = pick();
+    print(g(1, 2));
+}

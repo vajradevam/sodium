@@ -1,0 +1,8 @@
+// A call through a struct field is checked against the field's signature.
+// EXPECT-ERROR: wrong number of arguments to the function pointer: expected 1, got 2
+struct S { var f: fn(i64) -> i64; };
+function inc(x: i64) -> i64 { return x + 1; }
+function main() {
+    var s: S = { .f = &inc };
+    print(s.f(1, 2));
+}

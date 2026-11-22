@@ -1,0 +1,26 @@
+// C-interop (D-014, Y10b): a gcc-compiled C `main` calls these Cyan functions through
+// function pointers and hands C function pointers to Cyan code. scripts/test_abi_interop.sh
+// weakens this file's `main` so the C one wins; run on its own, this program just exits 0.
+// SKIP-TEST: part of scripts/test_abi_interop.sh (needs the C object)
+
+struct P { var a: i64; var b: i64; };
+struct Q { var a: i64; var b: i64; var c: i64; };
+
+function cy_add(a: i64, b: i64) -> i64 { return a + b; }
+function cy_pair_sum(p: P) -> i64 { return p.a + p.b; }
+function cy_make_q(a: i64) -> Q { var q: Q = { .a = a, .b = a + 1, .c = a + 2 }; return q; }
+function cy_ten(a: i64, b: i64, c: i64, d: i64, e: i64, f: i64, g: i64, h: i64, i: i64, j: i64) -> i64 {
+    return a + b * 2 + c * 3 + d * 4 + e * 5 + f * 6 + g * 7 + h * 8 + i * 9 + j * 10;
+}
+
+function cy_get_add() -> fn(i64, i64) -> i64 { return &cy_add; }
+function cy_get_pair_sum() -> fn(P) -> i64 { return &cy_pair_sum; }
+function cy_get_make_q() -> fn(i64) -> Q { return &cy_make_q; }
+function cy_get_ten() -> fn(i64, i64, i64, i64, i64, i64, i64, i64, i64, i64) -> i64 { return &cy_ten; }
+
+// Calls a C callback through a pointer C handed over.
+function cy_call_c(cb: fn(i64, i64) -> i64, x: i64) -> i64 { return cb(x, 100) + cb(x, 200); }
+
+function main() {
+    return(0);
+}

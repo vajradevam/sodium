@@ -423,7 +423,36 @@ std::optional<NodeExpr*> Parser::parse_mul_expr()
         return lhs;
 }
 
+/// A primary expression followed by any number of call suffixes: `f(x)(y)`, `s.cb(x)`,
+/// `table[i](x)`, `(expr)(x)`. A call whose callee is not a plain name is an indirect call
+/// through a function pointer (D-014).
 std::optional<NodeExpr*> Parser::parse_primary_expr()
+{
+    auto expr = parse_unit_expr();
+    while (expr && peek().has_value() && peek().value().type == TokenType::open_paren) {
+        auto call = m_allocator.alloc<NodeExprCall>();
+        call->name = consume(); // (
+        call->name.type = TokenType::ident;
+        call->name.value = "(indirect)";
+        call->callee = *expr;
+        while (peek().has_value() && peek().value().type != TokenType::close_paren) {
+            auto arg = parse_expr();
+            if (!arg) error("Invalid argument in function call");
+            call->args.push_back(arg.value());
+            if (peek().has_value() && peek().value().type == TokenType::comma) consume();
+        }
+        if (!peek().has_value() || peek().value().type != TokenType::close_paren) {
+            error("Expected ')' after function arguments");
+        }
+        consume(); // )
+        auto node = m_allocator.alloc<NodeExpr>();
+        node->var = call;
+        expr = node;
+    }
+    return expr;
+}
+
+std::optional<NodeExpr*> Parser::parse_unit_expr()
     {
         // Pointer dereference: *expr
         if (peek().has_value() && peek().value().type == TokenType::star) {
@@ -1355,6 +1384,44 @@ NodeFuncDef* Parser::parse_func_def()
         return func;
 }
 
+/// `fn(T1, T2) -> R`: a function pointer, represented as Ptr(Func). The `-> R` part is
+/// optional; a missing return type means "unannotated" exactly as for function definitions.
+Type Parser::parse_fn_type() {
+    consume(); // fn
+    consume(); // (
+    std::vector<Type> params;
+    while (peek().has_value() && peek().value().type != TokenType::close_paren) {
+        auto param = parse_full_type();
+        if (!param.has_value()) error("Expected a type in function pointer parameter list");
+        params.push_back(*param);
+        if (peek().has_value() && peek().value().type == TokenType::comma) {
+            consume();
+        } else {
+            break;
+        }
+    }
+    if (!peek().has_value() || peek().value().type != TokenType::close_paren) {
+        error("Expected ')' after function pointer parameter types");
+    }
+    consume(); // )
+    Type* ret = nullptr;
+    if (peek().has_value() && peek().value().type == TokenType::arrow) {
+        consume();
+        auto ret_type = parse_full_type();
+        if (!ret_type.has_value()) error("Expected return type after '->' in function pointer type");
+        ret = m_allocator.alloc<Type>();
+        *ret = *ret_type;
+    }
+    Type* param_array = nullptr;
+    if (!params.empty()) {
+        param_array = m_allocator.alloc_array<Type>(params.size());
+        for (size_t i = 0; i < params.size(); i++) param_array[i] = params[i];
+    }
+    Type* func = m_allocator.alloc<Type>();
+    *func = Type::make_func(param_array, static_cast<uint32_t>(params.size()), ret);
+    return Type::make_ptr(func);
+}
+
 std::optional<Type> Parser::parse_full_type() {
     auto base = parse_type();
     Type type;
@@ -1370,6 +1437,10 @@ std::optional<Type> Parser::parse_full_type() {
                && m_struct_types.contains(*peek().value().value)) {
         Token struct_name = consume();
         type = Type::make_struct(struct_name.value.value());
+    } else if (peek().has_value() && peek().value().type == TokenType::ident
+               && peek().value().value == "fn"
+               && peek(1).has_value() && peek(1).value().type == TokenType::open_paren) {
+        type = parse_fn_type();
     } else {
         return {};
     }

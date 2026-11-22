@@ -7,11 +7,21 @@
 // Typed signatures: declared parameter types and call-site checking (Y1b).
 // ==========================================================================
 
-namespace {
-
 std::string type_name(const Type& t) {
     if (t.kind == Type::Struct) return t.struct_name;
+    if (t.kind == Type::Func) {
+        std::string s = "fn(";
+        for (uint32_t i = 0; i < t.fn_nparams; i++) {
+            if (i) s += ", ";
+            s += type_name(t.fn_params[i]);
+        }
+        s += ")";
+        if (t.fn_ret) s += " -> " + type_name(*t.fn_ret);
+        return s;
+    }
     if (t.kind == Type::Ptr) {
+        // A function pointer prints as its signature, not as a pointer to one.
+        if (t.pointee && t.pointee->kind == Type::Func) return type_name(*t.pointee);
         return t.pointee ? type_name(*t.pointee) + "*" : "?*";
     }
     switch (t.int_type) {
@@ -26,6 +36,8 @@ std::string type_name(const Type& t) {
     }
     return "?";
 }
+
+namespace {
 
 bool is_signed(IntType t) {
     return t == IntType::i8 || t == IntType::i16 ||
@@ -81,14 +93,13 @@ bool Generator::has_declared_param_types(const std::string& name) const {
                        [](const std::optional<Type>& t) { return t.has_value(); });
 }
 
-void Generator::check_call_args(const NodeExprCall& call, SourceLoc loc) {
-    const std::string& name = call.name.value.value();
-    const NodeFuncDef* func = find_func(name);
-    if (!func || !has_declared_param_types(name)) return; // builtin / untyped: legacy path
-
-    if (call.args.size() != func->params.size()) {
-        fail(loc, "wrong number of arguments to '" + name + "': expected "
-                  + std::to_string(func->params.size()) + ", got "
+void Generator::check_call_args(const NodeExprCall& call, SourceLoc loc, const std::string& name,
+                                const std::vector<std::optional<Type>>& param_types,
+                                size_t param_count) {
+    const std::string what = call.callee ? "the function pointer" : "'" + name + "'";
+    if (call.args.size() != param_count) {
+        fail(loc, "wrong number of arguments to " + what + ": expected "
+                  + std::to_string(param_count) + ", got "
                   + std::to_string(call.args.size()));
     }
 
@@ -97,8 +108,8 @@ void Generator::check_call_args(const NodeExprCall& call, SourceLoc loc) {
     const size_t base = m_tstack.size() - n;
 
     for (size_t i = 0; i < n; i++) {
-        if (i >= func->param_types.size() || !func->param_types[i]) continue;
-        const Type want = *func->param_types[i];
+        if (i >= param_types.size() || !param_types[i]) continue;
+        const Type want = *param_types[i];
         const Type got = m_tstack[base + i];
         if (want == got) continue;
 
@@ -118,9 +129,22 @@ void Generator::check_call_args(const NodeExprCall& call, SourceLoc loc) {
             continue;
         }
 
-        fail(loc, "argument " + std::to_string(i + 1) + " to '" + name
-                  + "' has type " + type_name(got) + ", expected " + type_name(want));
+        fail(loc, "argument " + std::to_string(i + 1) + " to " + what
+                  + " has type " + type_name(got) + ", expected " + type_name(want));
     }
+}
+
+void Generator::check_fn_ptr_assign(const Type& want, const NodeExpr* expr, SourceLoc loc,
+                                    const std::string& what) {
+    const bool want_fn = want.kind == Type::Ptr && want.pointee && want.pointee->kind == Type::Func;
+    if (!want_fn || m_tstack.empty()) return;
+    const Type got = m_tstack.back();
+    if (got == want) return;
+    if (got.kind == Type::Int && expr) {
+        auto constant = eval_const_expr(expr);
+        if (constant.has_value() && constant.value() == 0) return;   // null (D-003)
+    }
+    fail(loc, "cannot " + what + " of type " + type_name(want) + " a value of type " + type_name(got));
 }
 
 void Generator::check_return_type(const NodeExpr& expr, SourceLoc loc) {

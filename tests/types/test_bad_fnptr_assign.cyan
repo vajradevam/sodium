@@ -1,0 +1,9 @@
+// Re-assigning a function pointer checks the new signature too.
+// EXPECT-ERROR: cannot assign to 'f' of type fn(i64) -> i64 a value of type fn(i64, i64) -> i64
+function one(a: i64) -> i64 { return a; }
+function two(a: i64, b: i64) -> i64 { return a + b; }
+function main() {
+    var f: fn(i64) -> i64 = &one;
+    f = &two;
+    print(f(1));
+}

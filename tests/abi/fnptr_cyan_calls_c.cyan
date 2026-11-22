@@ -1,0 +1,53 @@
+// C-interop (D-014, Y10b): Cyan calls C functions through function pointers it obtained
+// from C. The Cyan c_* definitions are stubs that give the compiler their signatures;
+// scripts/test_abi_interop.sh weakens them so the C definitions win at link time.
+// Exit code N means check N failed.
+// SKIP-TEST: part of scripts/test_abi_interop.sh (needs the C object)
+
+struct P { var a: i64; var b: i64; };
+struct Q { var a: i64; var b: i64; var c: i64; };
+
+function stub2(a: i64, b: i64) -> i64 { return 0; }
+function stub10(a: i64, b: i64, c: i64, d: i64, e: i64, f: i64, g: i64, h: i64, i: i64, j: i64) -> i64 { return 0; }
+function stub_p(p: P) -> i64 { return 0; }
+function stub_q(a: i64) -> Q { var q: Q = { .a = 0, .b = 0, .c = 0 }; return q; }
+function stub_p2(a: i64, b: i64) -> P { var p: P = { .a = 0, .b = 0 }; return p; }
+
+function c_get_add() -> fn(i64, i64) -> i64 { return &stub2; }
+function c_get_mix10() -> fn(i64, i64, i64, i64, i64, i64, i64, i64, i64, i64) -> i64 { return &stub10; }
+function c_get_pair_sum() -> fn(P) -> i64 { return &stub_p; }
+function c_get_make_q() -> fn(i64) -> Q { return &stub_q; }
+function c_get_make_p() -> fn(i64, i64) -> P { return &stub_p2; }
+
+// C code calls back into this pointer with 10 arguments and a struct.
+function c_call_back(cb: fn(i64, i64) -> i64, x: i64) -> i64 { return 0; }
+
+function cy_sub(a: i64, b: i64) -> i64 { return a - b; }
+
+function main() {
+    var add: fn(i64, i64) -> i64 = c_get_add();
+    if (add(3, 4) != 7) { return(1); }
+    if (add(100, -1) != 99) { return(2); }
+
+    var mix: fn(i64, i64, i64, i64, i64, i64, i64, i64, i64, i64) -> i64 = c_get_mix10();
+    if (mix(1, 2, 3, 4, 5, 6, 7, 8, 9, 10) != 385) { return(3); }
+
+    var ps: fn(P) -> i64 = c_get_pair_sum();
+    var p: P = { .a = 30, .b = 12 };
+    if (ps(p) != 42) { return(4); }
+
+    var mq: fn(i64) -> Q = c_get_make_q();
+    var q: Q = mq(5);
+    if (q.a != 5) { return(5); }
+    if (q.b != 6) { return(6); }
+    if (q.c != 7) { return(7); }
+
+    var mp: fn(i64, i64) -> P = c_get_make_p();
+    var r: P = mp(9, 4);
+    if (r.a != 4) { return(8); }
+    if (r.b != 9) { return(9); }
+
+    // A Cyan function pointer handed to C, which calls it back.
+    if (c_call_back(&cy_sub, 10) != 7) { return(10); }
+    return(0);
+}

@@ -1,0 +1,7 @@
+// Assigning a function whose signature differs from the pointer's type is an error.
+// EXPECT-ERROR: cannot initialize 'f' of type fn(i64, i64) -> i64 a value of type fn(i64) -> i64
+function one(a: i64) -> i64 { return a; }
+function main() {
+    var f: fn(i64, i64) -> i64 = &one;
+    print(f(1, 2));
+}

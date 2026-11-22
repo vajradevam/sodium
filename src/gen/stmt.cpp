@@ -100,6 +100,8 @@ void Generator::gen_stmt(const NodeStmt& stmt)
                 gen->check_narrowing_assign(var_type, stmt_let->expr, stmt_let->ident.loc);
                 gen->declare_var(stmt_let->ident.value.value(), var_type, stmt_let->ident.loc);
                 gen->gen_expr(*stmt_let->expr);
+                gen->check_fn_ptr_assign(var_type, stmt_let->expr, stmt_let->ident.loc,
+                                         "initialize '" + stmt_let->ident.value.value() + "'");
                 // Check if the expression produced a pointer type — if so, update var's type
                 if (gen->peek_type().kind == Type::Ptr) {
                     Type expr_type = gen->pop_type();
@@ -205,6 +207,8 @@ void Generator::gen_stmt(const NodeStmt& stmt)
                     // Regular assignment (handled by store_var_from_vstack)
                     gen->check_narrowing_assign(var.type, stmt_assign->expr, stmt_assign->ident.loc);
                     gen->gen_expr(*stmt_assign->expr);
+                    gen->check_fn_ptr_assign(var.type, stmt_assign->expr, stmt_assign->ident.loc,
+                                             "assign to '" + name + "'");
                     gen->store_var_from_vstack(name, stmt_assign->op);
                     return;
                 }

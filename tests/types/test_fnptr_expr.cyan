@@ -1,0 +1,56 @@
+// Calls whose callee is an expression: struct fields, arrow access, array elements,
+// call results and parenthesized pointers (D-014, Y10b2).
+// EXPECT-EXIT: 0
+// EXPECT-STDOUT: 11
+// EXPECT-STDOUT: 22
+// EXPECT-STDOUT: 33
+// EXPECT-STDOUT: 40
+// EXPECT-STDOUT: 12
+// EXPECT-STDOUT: 99
+// EXPECT-STDOUT: 100
+// EXPECT-STDOUT: 105
+// EXPECT-STDOUT: 9
+
+struct Ops {
+    var name: i64;
+    var apply: fn(i64, i64) -> i64;
+    var unary: fn(i64) -> i64;
+};
+
+function add(a: i64, b: i64) -> i64 { return a + b; }
+function mul(a: i64, b: i64) -> i64 { return a * b; }
+function inc(x: i64) -> i64 { return x + 1; }
+function dbl(x: i64) -> i64 { return x * 2; }
+function neg(x: i64) -> i64 { return 0 - x; }
+
+function pick(which: i64) -> fn(i64, i64) -> i64 {
+    if (which == 0) { return &add; }
+    return &mul;
+}
+
+function run(o: Ops*, x: i64) -> i64 { return o->unary(x); }
+
+function main() {
+    var ops: Ops = { .name = 1 };
+    ops.apply = &add;
+    ops.unary = &inc;
+    print(ops.apply(5, 6));                 // 11
+    ops.unary = &dbl;
+    print(ops.unary(11));                   // 22
+
+    var p: Ops* = &ops;
+    p->unary = &inc;
+    print(p->unary(32));                    // 33
+    ops.unary = &dbl;
+    print(run(&ops, 20));                   // 40
+
+    var table: fn(i64) -> i64[3];
+    table[0] = &inc;
+    table[1] = &dbl;
+    table[2] = &neg;
+    print(table[1](6));                     // 12
+    print(table[0](table[1](49)));          // 99
+    print(pick(1)(10, 10));                 // 100
+    print((pick(0))(100, 5));               // 105
+    print((&inc)(8));                       // 9
+}

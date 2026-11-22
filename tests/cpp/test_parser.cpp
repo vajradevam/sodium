@@ -256,3 +256,51 @@ TEST(parser_sizeof_type_and_expr) {
     CHECK((*sz)->type.has_value());
     if ((*sz)->type) CHECK(*((*sz)->type) == Type::make_int(IntType::i32));
 }
+
+TEST(parser_call_suffix_makes_indirect_call) {
+    // `s.cb(1)(2)`: a call on a call on a field access; both callees are expressions.
+    ExprFixture f("s.cb(1)(2)");
+    CHECK(f.expr != nullptr);
+    auto* outer = f.expr ? std::get_if<NodeExprCall*>(&f.expr->var) : nullptr;
+    CHECK(outer != nullptr);
+    if (!outer) return;
+    CHECK_EQ((*outer)->args.size(), static_cast<size_t>(1));
+    CHECK((*outer)->callee != nullptr);
+    auto* inner = (*outer)->callee ? std::get_if<NodeExprCall*>(&(*outer)->callee->var) : nullptr;
+    CHECK(inner != nullptr);
+    if (!inner) return;
+    CHECK((*inner)->callee != nullptr);
+    CHECK((*inner)->callee ? std::holds_alternative<NodeExprFieldAccess*>((*inner)->callee->var) : false);
+}
+
+TEST(parser_plain_call_has_no_callee_expression) {
+    ExprFixture f("add(1, 2)");
+    auto* call = f.expr ? std::get_if<NodeExprCall*>(&f.expr->var) : nullptr;
+    CHECK(call != nullptr);
+    if (call) {
+        CHECK((*call)->callee == nullptr);
+        CHECK_EQ((*call)->name.value.value(), std::string("add"));
+    }
+}
+
+TEST(parser_function_pointer_type_in_declaration) {
+    NodeProg prog = parse_program(
+        "function f(cb: fn(i64, i64) -> i64, g: fn(i64)) -> fn(i64) -> i64 { return g; }\n");
+    CHECK_EQ(prog.funcs.size(), static_cast<size_t>(1));
+    if (prog.funcs.empty()) return;
+    const NodeFuncDef& fn = *prog.funcs[0];
+    CHECK_EQ(fn.param_types.size(), static_cast<size_t>(2));
+    CHECK(fn.param_types[0].has_value());
+    CHECK(fn.return_type.has_value());
+    if (!fn.param_types[0] || !fn.param_types[1] || !fn.return_type) return;
+    const Type& cb = *fn.param_types[0];
+    CHECK(cb.kind == Type::Ptr);
+    CHECK(cb.pointee != nullptr && cb.pointee->kind == Type::Func);
+    if (cb.pointee) {
+        CHECK_EQ(cb.pointee->fn_nparams, static_cast<uint32_t>(2));
+        CHECK(cb.pointee->fn_ret != nullptr);
+    }
+    const Type& g = *fn.param_types[1];
+    CHECK(g.pointee != nullptr && g.pointee->kind == Type::Func);
+    if (g.pointee) CHECK(g.pointee->fn_ret == nullptr);   // no `->`: unannotated
+}

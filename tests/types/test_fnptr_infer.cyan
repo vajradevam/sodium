@@ -1,0 +1,32 @@
+// Function-pointer variables can take their type from the initializer, be compared, and
+// be swapped; a local pointer shadows a function of the same name (Y10b1).
+// EXPECT-EXIT: 0
+// EXPECT-STDOUT: 9
+// EXPECT-STDOUT: 1
+// EXPECT-STDOUT: 0
+// EXPECT-STDOUT: 1
+// EXPECT-STDOUT: 14
+// EXPECT-STDOUT: 40
+
+function inc(x: i64) -> i64 { return x + 1; }
+function dbl(x: i64) -> i64 { return x * 2; }
+function twice(x: i64) -> i64 { return x + x; }
+
+function run(n: i64) -> i64 {
+    // Same name as a function: the local pointer wins inside this scope.
+    var inc: fn(i64) -> i64 = &dbl;
+    return inc(n);
+}
+
+function main() {
+    var f = &inc;
+    print(f(8));                       // 9
+    print(f == &inc);                  // 1
+    print(f == &dbl);                  // 0
+    var g: fn(i64) -> i64 = f;
+    print(g == f);                     // 1
+    g = &dbl;
+    f = g;
+    print(f(7));                       // 14
+    print(run(20));                    // 40: the shadowing pointer, not inc
+}

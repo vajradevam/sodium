@@ -81,6 +81,17 @@ Type Generator::infer_expr_type(
                 return;
             }
 
+            // A call through a function-pointer variable yields the signature's return type.
+            {
+                auto var = scope.find(fname);
+                if (var != scope.end() && var->second.kind == Type::Ptr && var->second.pointee
+                    && var->second.pointee->kind == Type::Func) {
+                    const Type* ret = var->second.pointee->fn_ret;
+                    result = ret ? *ret : Type::make_int(IntType::i64);
+                    return;
+                }
+            }
+
             // Infer types of arguments and record for callee
             std::vector<Type> inferred_args;
             for (size_t i = 0; i < call->args.size(); i++) {
@@ -136,6 +147,16 @@ Type Generator::infer_expr_type(
         }
 
         void operator()(const NodeExprAddrOf* addr) {
+            // &func: a function pointer (unless a variable of that name is in scope).
+            if (auto* ident = std::get_if<NodeExprIdent*>(&addr->expr->var)) {
+                const std::string& name = (*ident)->ident.value.value();
+                if (!scope.contains(name) && !gen->find_var(name)) {
+                    if (const NodeFuncDef* func = gen->find_func(name)) {
+                        result = gen->function_pointer_type(*func);
+                        return;
+                    }
+                }
+            }
             Type inner = gen->infer_expr_type(*addr->expr, scope);
             Type* pointee = gen->alloc_type(inner);
             result = Type::make_ptr(pointee);

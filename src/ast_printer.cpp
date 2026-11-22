@@ -70,6 +70,7 @@ void print_ast_expr(const NodeExpr& expr, int indent) {
         },
         [indent](const NodeExprCall* e) {
             std::cout << std::string(indent, ' ') << "Call(" << e->name.value.value() << ")\n";
+            if (e->callee) print_ast_expr(e->callee, indent + 2);
             for (auto* arg : e->args) print_ast_expr(arg, indent + 2);
         },
         [indent](const NodeExprStringLit* e) {

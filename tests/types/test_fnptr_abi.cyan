@@ -1,0 +1,59 @@
+// Calls through function pointers follow the same ABI as direct calls: many arguments,
+// struct arguments and struct results of every size class (D-012, D-014, Y10b1).
+// EXPECT-EXIT: 0
+// EXPECT-STDOUT: 55
+// EXPECT-STDOUT: 30
+// EXPECT-STDOUT: 11
+// EXPECT-STDOUT: 22
+// EXPECT-STDOUT: 303
+// EXPECT-STDOUT: 6
+// EXPECT-STDOUT: 66
+
+struct Pair { var a: i64; var b: i64; };
+struct One { var v: i64; };
+struct Big { var a: i64; var b: i64; var c: i64; };
+
+function ten(a: i64, b: i64, c: i64, d: i64, e: i64, f: i64, g: i64, h: i64, i: i64, j: i64) -> i64 {
+    return a + b + c + d + e + f + g + h + i + j;
+}
+
+function pair_sum(p: Pair) -> i64 { return p.a + p.b; }
+function make_one(v: i64) -> One { var o: One = { .v = v }; return o; }
+function make_pair(a: i64, b: i64) -> Pair { var p: Pair = { .a = a, .b = b }; return p; }
+function make_big(a: i64) -> Big { var r: Big = { .a = a, .b = a + 1, .c = a + 2 }; return r; }
+function big_sum(x: Big, k: i64) -> i64 { return x.a + x.b + x.c + k; }
+
+// Struct arguments mixed with scalars through a pointer.
+function mixed(k: i64, p: Pair, m: i64) -> i64 { return k * 100 + p.a * 10 + p.b + m; }
+
+function main() {
+    var t: fn(i64, i64, i64, i64, i64, i64, i64, i64, i64, i64) -> i64 = &ten;
+    print(t(1, 2, 3, 4, 5, 6, 7, 8, 9, 10));      // 55
+
+    var ps: fn(Pair) -> i64 = &pair_sum;
+    var p: Pair = { .a = 10, .b = 20 };
+    print(ps(p));                                  // 30
+
+    var mo: fn(i64) -> One = &make_one;
+    var o: One = mo(11);
+    print(o.v);                                    // 11
+
+    var mp: fn(i64, i64) -> Pair = &make_pair;
+    var q: Pair = mp(7, 15);
+    print(q.a + q.b);                              // 22
+
+    var mb: fn(i64) -> Big = &make_big;
+    var bg: fn(Big, i64) -> i64 = &big_sum;
+    print(bg(mb(100), 0));                         // 303
+
+    var mx: fn(i64, Pair, i64) -> i64 = &mixed;
+    var r: Pair = { .a = 1, .b = 2 };
+    print(mx(0, r, 4) - 10);                       // 6
+
+    // Pointer, argument values and a live scalar all survive across indirect calls.
+    var keep: i64 = 60;
+    var s1: i64 = pair_sum(r);
+    var f: fn(Pair) -> i64 = &pair_sum;
+    var s2: i64 = f(r) + f(p);
+    print(keep + s1 + s2 - 30);                    // 60 + 3 + 33 - 30 = 66
+}

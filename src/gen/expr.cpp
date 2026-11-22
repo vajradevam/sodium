@@ -247,6 +247,13 @@ void Generator::gen_expr(const NodeExpr& expr)
                     gen->m_tstack.back() = Type::make_ptr(pointee);
                     return;
                 }
+                if (const NodeFuncDef* func = gen->find_func(name)) {
+                    // &func — the address of a defined function, typed fn(params) -> ret.
+                    uint32_t addr = gen->m_ir.lea_label(name);
+                    gen->push_vreg(addr);
+                    gen->m_tstack.back() = gen->function_pointer_type(*func);
+                    return;
+                }
                 std::string suggestion = gen->did_you_mean(name);
                 if (!suggestion.empty()) {
                     gen->fail_with_suggestion(addr_of->ampersand.loc, "Undeclared identifier: " + name + " (did you mean '" + suggestion + "'?)", suggestion);
@@ -461,20 +468,61 @@ void Generator::gen_expr(const NodeExpr& expr)
                 gen->m_tstack.back() = Type::make_ptr(pointee);
                 return;
             }
-            if (!gen->m_func_names.contains(fname)) {
-                std::string suggestion = gen->did_you_mean(fname);
-                if (!suggestion.empty()) {
-                    gen->fail_with_suggestion(expr_call->name.loc, "Undefined function: " + fname + " (did you mean '" + suggestion + "'?)", suggestion);
+            // The callee is a function-pointer variable (D-014) or a defined function.
+            const NodeFuncDef* callee = nullptr;
+            CallTarget target;
+            target.name = fname;
+            std::vector<std::optional<Type>> sig_params;   // signature of an indirect call
+            std::optional<Type> sig_ret;
+            auto is_fn_ptr = [](const Type& t) {
+                return t.kind == Type::Ptr && t.pointee && t.pointee->kind == Type::Func;
+            };
+            const Var* fn_var = expr_call->callee ? nullptr : gen->find_var(fname);
+            const bool indirect = expr_call->callee || (fn_var && is_fn_ptr(fn_var->type));
+            if (indirect) {
+                Type callee_type;
+                if (expr_call->callee) {
+                    // `s.cb(x)`, `table[i](x)`, `f(1)(2)`: the pointer is an expression.
+                    gen->gen_expr(*expr_call->callee);
+                    callee_type = gen->pop_type();
+                    target.pointer = gen->pop_vreg();
+                    if (!is_fn_ptr(callee_type)) {
+                        gen->fail(expr_call->name.loc, "called object is not a function pointer (it has type "
+                                  + type_name(callee_type) + ")");
+                    }
                 } else {
-                    gen->fail(expr_call->name.loc, "Undefined function: " + fname);
+                    callee_type = fn_var->type;
+                    gen->load_var_to_vstack(fname);
+                    target.pointer = gen->pop_vreg();
                 }
+                const Type& sig = *callee_type.pointee;
+                for (uint32_t i = 0; i < sig.fn_nparams; i++) sig_params.push_back(sig.fn_params[i]);
+                if (sig.fn_ret) sig_ret = *sig.fn_ret;
+            } else {
+                if (!gen->m_func_names.contains(fname)) {
+                    std::string suggestion = gen->did_you_mean(fname);
+                    if (!suggestion.empty()) {
+                        gen->fail_with_suggestion(expr_call->name.loc, "Undefined function: " + fname + " (did you mean '" + suggestion + "'?)", suggestion);
+                    } else {
+                        gen->fail(expr_call->name.loc, "Undefined function: " + fname);
+                    }
+                }
+                callee = gen->find_func(fname);
             }
+            const std::vector<std::optional<Type>>& param_types =
+                indirect ? sig_params : callee->param_types;
+            const std::optional<Type>& return_type = indirect ? sig_ret : callee->return_type;
 
             // Collect arguments (in evaluation order)
             for (size_t i = 0; i < expr_call->args.size(); i++) {
                 gen->gen_expr(*expr_call->args[i]);
             }
-            gen->check_call_args(*expr_call, expr_call->name.loc);
+            if (indirect) {
+                gen->check_call_args(*expr_call, expr_call->name.loc, fname, param_types, param_types.size());
+            } else if (gen->has_declared_param_types(fname)) {
+                gen->check_call_args(*expr_call, expr_call->name.loc, fname, param_types,
+                                     callee->params.size());
+            }
             // Pop in reverse to get evaluation order
             const size_t n_args = expr_call->args.size();
             std::vector<uint32_t> arg_vregs(n_args);
@@ -486,7 +534,6 @@ void Generator::gen_expr(const NodeExpr& expr)
             // Argument words are placed by the target ABI (D-012): scalars take one word,
             // structs up to 16 bytes take their 8-byte words, larger ones go in memory or by
             // reference. Register words come first in `args`, then the stack words in order.
-            const NodeFuncDef* callee = gen->find_func(fname);
             ArgPlacer placer(*gen->m_tri_ptr);
             std::vector<IRValue> reg_words;
             std::vector<IRValue> stack_words;
@@ -498,8 +545,8 @@ void Generator::gen_expr(const NodeExpr& expr)
             // address is passed as the hidden first argument.
             std::optional<StructInfo> ret_info;
             std::optional<uint32_t> hidden_result;
-            if (callee && callee->return_type && callee->return_type->kind == Type::Struct) {
-                const std::string& rname = callee->return_type->struct_name;
+            if (return_type && return_type->kind == Type::Struct) {
+                const std::string& rname = return_type->struct_name;
                 ret_info = gen->get_struct_info(rname);
                 if (!ret_info.has_value()) gen->fail(expr_call->name.loc, "Unknown struct type: " + rname);
                 if (ret_info->size > 16) {
@@ -513,8 +560,8 @@ void Generator::gen_expr(const NodeExpr& expr)
                     push_word(placer.scalar(), arg_vregs[i]);
                     continue;
                 }
-                const bool wants_struct = callee && i < callee->param_types.size()
-                    && callee->param_types[i] && callee->param_types[i]->kind == Type::Struct;
+                const bool wants_struct = i < param_types.size()
+                    && param_types[i] && param_types[i]->kind == Type::Struct;
                 if (!wants_struct) {
                     gen->fail(expr_call->name.loc, "argument " + std::to_string(i + 1) + " to '"
                               + fname + "' is a struct but the parameter is not declared as one");
@@ -540,13 +587,16 @@ void Generator::gen_expr(const NodeExpr& expr)
             args.insert(args.end(), stack_words.begin(), stack_words.end());
 
             if (ret_info) {
-                gen->gen_struct_call(fname, args, callee->return_type->struct_name, *ret_info,
+                gen->gen_struct_call(target, args, return_type->struct_name, *ret_info,
                                      hidden_result, reg_count);
                 return;
             }
 
-            uint32_t result = gen->m_ir.call(fname, args, reg_count);
+            uint32_t result = gen->emit_call(target, args, reg_count);
             gen->push_vreg(result);
+            // A call yields its declared return type (so a returned function pointer can be
+            // passed on or called); unannotated functions keep the legacy i64 result.
+            if (return_type) gen->m_tstack.back() = *return_type;
         }
 
         void operator()(const BinExpr* bin_expr)

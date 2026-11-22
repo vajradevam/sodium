@@ -113,12 +113,12 @@ void Generator::gen_struct_return(uint32_t addr, const StructInfo& info) {
     }
 }
 
-void Generator::gen_struct_call(const std::string& fname, const std::vector<IRValue>& args,
+void Generator::gen_struct_call(const CallTarget& target, const std::vector<IRValue>& args,
                                 const std::string& struct_name, const StructInfo& info,
                                 std::optional<uint32_t> hidden_result, int reg_args) {
     if (hidden_result) {
         // `args` already carries the hidden result pointer; the callee fills it.
-        m_ir.call(fname, args, reg_args);
+        emit_call(target, args, reg_args);
         push_vreg(*hidden_result);
         m_tstack.back() = Type::make_struct(struct_name);
         return;
@@ -127,9 +127,9 @@ void Generator::gen_struct_call(const std::string& fname, const std::vector<IRVa
     uint32_t first = 0;
     uint32_t second = 0;
     if (words == 2) {
-        first = m_ir.call2(fname, args, second, reg_args);
+        first = emit_call2(target, args, second, reg_args);
     } else {
-        first = m_ir.call(fname, args, reg_args);
+        first = emit_call(target, args, reg_args);
     }
     // The result lives in a temporary frame object; the expression's value is its address.
     uint32_t slot = alloc_object(info.size);

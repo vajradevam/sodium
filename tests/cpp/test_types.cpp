@@ -130,3 +130,32 @@ TEST(types_struct_identity_and_pointer) {
     CHECK(pp.pointee != nullptr);
     if (pp.pointee) CHECK(*pp.pointee == p);
 }
+
+namespace {
+// Builds `fn(params...) -> ret` (ret may be null) in the given arena.
+Type make_fn_ptr(ArenaAllocator& arena, const std::vector<Type>& params, const Type* ret) {
+    Type* array = params.empty() ? nullptr : arena.alloc_array<Type>(params.size());
+    for (size_t i = 0; i < params.size(); i++) array[i] = params[i];
+    Type* r = nullptr;
+    if (ret) { r = arena.alloc<Type>(); *r = *ret; }
+    Type* fn = arena.alloc<Type>();
+    *fn = Type::make_func(array, static_cast<uint32_t>(params.size()), r);
+    return Type::make_ptr(fn, arena);
+}
+} // namespace
+
+TEST(types_function_pointer_equality_is_structural) {
+    ArenaAllocator a(512);
+    ArenaAllocator b(512);
+    const Type i64 = Type::make_int(IntType::i64);
+    const Type i32 = Type::make_int(IntType::i32);
+    Type f1 = make_fn_ptr(a, {i64, i64}, &i64);
+    Type f2 = make_fn_ptr(b, {i64, i64}, &i64);
+    CHECK(f1 == f2);
+    CHECK(f1 != make_fn_ptr(a, {i64}, &i64));          // arity
+    CHECK(f1 != make_fn_ptr(a, {i64, i32}, &i64));     // parameter type
+    CHECK(f1 != make_fn_ptr(a, {i64, i64}, &i32));     // return type
+    CHECK(f1 != make_fn_ptr(a, {i64, i64}, nullptr));  // annotated vs unannotated return
+    CHECK(make_fn_ptr(a, {}, nullptr) == make_fn_ptr(b, {}, nullptr));
+    CHECK(type_size(f1) == 8);
+}

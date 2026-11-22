@@ -152,6 +152,15 @@ private:
     size_t m_stack_used = 0;
 };
 
+/// Human-readable type name for diagnostics (function pointers print as their signature).
+std::string type_name(const Type& t);
+
+/// What a call transfers control to: a named function, or the address in a vreg (D-014).
+struct CallTarget {
+    std::string name;                  ///< direct callee symbol
+    std::optional<uint32_t> pointer;   ///< vreg holding a function address (indirect call)
+};
+
 class Generator {
 public:
     explicit Generator(NodeProg root, Backend& backend, const TargetRegisterInfo& tri,
@@ -222,7 +231,7 @@ public:
     /// Emit a call whose result is a struct and push the temporary holding it as a struct
     /// value. `hidden_result` is the buffer passed as the first argument for results that
     /// do not fit in registers (the callee fills it).
-    void gen_struct_call(const std::string& fname, const std::vector<IRValue>& args,
+    void gen_struct_call(const CallTarget& target, const std::vector<IRValue>& args,
                          const std::string& struct_name, const StructInfo& info,
                          std::optional<uint32_t> hidden_result = std::nullopt, int reg_args = -1);
     /// Function entry: store incoming argument word `ordinal` into word `word` of a
@@ -258,7 +267,23 @@ public:
     bool has_declared_param_types(const std::string& name) const;
     /// Check arity/types at a call to a typed function; insert safe widening
     /// conversions into the argument vregs. Fails on a mismatch (Y1b).
-    void check_call_args(const NodeExprCall& call, SourceLoc loc);
+    /// Check argument count and types against a signature (inserting safe widenings).
+    /// The argument values are the top `call.args.size()` entries of the value/type stacks.
+    void check_call_args(const NodeExprCall& call, SourceLoc loc, const std::string& name,
+                         const std::vector<std::optional<Type>>& param_types, size_t param_count);
+    /// If `want` is a function-pointer type, the value on top of the type stack must have
+    /// exactly that type (or be the constant 0); otherwise report an error naming `what`.
+    void check_fn_ptr_assign(const Type& want, const NodeExpr* expr, SourceLoc loc,
+                             const std::string& what);
+    /// The function-pointer type `fn(params) -> ret` of a defined function (untyped
+    /// parameters are i64).
+    Type function_pointer_type(const NodeFuncDef& func);
+    /// The innermost variable named `name`, or null.
+    const Var* find_var(const std::string& name) const;
+    /// Emit a direct or indirect call (see CallTarget) returning one / two words.
+    uint32_t emit_call(const CallTarget& target, const std::vector<IRValue>& args, int reg_args);
+    uint32_t emit_call2(const CallTarget& target, const std::vector<IRValue>& args,
+                        uint32_t& second, int reg_args);
 
     /// Check/convert the return expression against the current function's
     /// declared return type (Y1c).
@@ -362,6 +387,8 @@ private:
 
     // Type pool: persistent storage for Type::pointee pointers
     std::list<Type> m_type_pool;
+    /// Parameter arrays of function types built by the generator (stable addresses).
+    std::list<std::vector<Type>> m_sig_pool;
 
     TargetRegisterInfo m_tri = TargetRegisterInfo::x86_64_systemv();
 };

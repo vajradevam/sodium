@@ -1,0 +1,63 @@
+// Function pointers: &func, calls through variables, parameters and returns (D-014, Y10b1).
+// EXPECT-EXIT: 0
+// EXPECT-STDOUT: 7
+// EXPECT-STDOUT: 12
+// EXPECT-STDOUT: 30
+// EXPECT-STDOUT: 25
+// EXPECT-STDOUT: 100
+// EXPECT-STDOUT: 55
+// EXPECT-STDOUT: 36
+// EXPECT-STDOUT: 21
+
+function add(a: i64, b: i64) -> i64 { return a + b; }
+function mul(a: i64, b: i64) -> i64 { return a * b; }
+function square(x: i64) -> i64 { return x * x; }
+
+// A callback parameter.
+function apply(f: fn(i64, i64) -> i64, x: i64, y: i64) -> i64 {
+    return f(x, y);
+}
+
+// A function returning a function pointer.
+function pick(which: i64) -> fn(i64, i64) -> i64 {
+    if (which == 0) { return &add; }
+    return &mul;
+}
+
+// Calls that keep other values alive across the indirect call.
+function fold(f: fn(i64, i64) -> i64, n: i64) -> i64 {
+    var acc: i64 = 0;
+    var i: i64 = 1;
+    while (i <= n) {
+        acc = f(acc, i);
+        i = i + 1;
+    }
+    return acc;
+}
+
+// Recursion through a pointer.
+function fact_step(self: fn(i64) -> i64, n: i64) -> i64 {
+    if (n <= 1) { return 1; }
+    return n * self(n - 1);
+}
+
+function seven(a: i64, b: i64, c: i64, d: i64, e: i64, f: i64, g: i64) -> i64 {
+    return a + b + c + d + e + f + g * 10;
+}
+
+function main() {
+    var f: fn(i64, i64) -> i64 = &add;
+    print(f(3, 4));                  // 7
+    f = &mul;
+    print(f(3, 4));                  // 12
+    print(apply(&add, 10, 20));      // 30
+    var sq: fn(i64) -> i64 = &square;
+    print(sq(5));                    // 25
+    var g: fn(i64, i64) -> i64 = pick(1);
+    print(g(10, 10));                // 100
+    print(fold(&add, 10));           // 55
+    print(apply(pick(1), 6, 6));     // 36
+
+    var big: fn(i64, i64, i64, i64, i64, i64, i64) -> i64 = &seven;
+    print(big(1, 2, 3, 4, 5, 6, 0) + 0);   // 21 (g = 0)
+}

@@ -22,14 +22,26 @@ enum class IntType {
 // Pointer types carry the pointed-to type for scaling and load/store width.
 
 struct Type {
-    enum Kind : uint8_t { Int, Ptr, Struct };
+    // Func is only ever the pointee of a Ptr: a function pointer `fn(A, B) -> R` is Ptr(Func).
+    enum Kind : uint8_t { Int, Ptr, Struct, Func };
     Kind kind;
     IntType int_type;    // valid when kind == Int
     Type* pointee;       // valid when kind == Ptr (arena-allocated via parser allocator)
     std::string struct_name; // valid when kind == Struct
+    Type* fn_ret = nullptr;      // valid when kind == Func: return type (null = unannotated)
+    Type* fn_params = nullptr;   // valid when kind == Func: array of fn_nparams parameter types
+    uint32_t fn_nparams = 0;     // valid when kind == Func
 
     static Type make_int(IntType t) { return {Int, t, nullptr, {}}; }
     static Type make_struct(std::string name) { return {Struct, IntType::i64, nullptr, std::move(name)}; }
+    /// A function signature; `params` and `ret` must outlive the type (arena or type pool).
+    static Type make_func(Type* params, uint32_t nparams, Type* ret) {
+        Type t{Func, IntType::i64, nullptr, {}};
+        t.fn_params = params;
+        t.fn_nparams = nparams;
+        t.fn_ret = ret;
+        return t;
+    }
     static Type make_ptr(Type* t, ArenaAllocator& alloc) {
         Type* p = alloc.alloc<Type>();
         p->kind = Ptr;
@@ -47,6 +59,14 @@ struct Type {
         if (kind != o.kind) return false;
         if (kind == Int) return int_type == o.int_type;
         if (kind == Struct) return struct_name == o.struct_name;
+        if (kind == Func) {
+            if (fn_nparams != o.fn_nparams) return false;
+            if ((fn_ret == nullptr) != (o.fn_ret == nullptr)) return false;
+            if (fn_ret && *fn_ret != *o.fn_ret) return false;
+            for (uint32_t i = 0; i < fn_nparams; i++)
+                if (fn_params[i] != o.fn_params[i]) return false;
+            return true;
+        }
         // Ptr: compare pointee types recursively
         if (pointee == o.pointee) return true;
         if (!pointee || !o.pointee) return false;
@@ -57,7 +77,7 @@ struct Type {
 
 // Return the size in bytes of a value of the given type.
 inline size_t type_size(const Type& t) {
-    if (t.kind == Type::Ptr) return 8;  // pointers are 8 bytes
+    if (t.kind == Type::Ptr || t.kind == Type::Func) return 8;  // pointers are 8 bytes
     if (t.kind == Type::Struct) return 8; // fallback; layouts come from StructInfo
     switch (t.int_type) {
         case IntType::i8:  case IntType::u8:  return 1;
@@ -76,8 +96,9 @@ struct NodeExprIdent { Token ident; };
 struct NodeExpr;
 
 struct NodeExprCall {
-    Token name;
+    Token name;               // callee name; "(indirect)" at the '(' when `callee` is set
     std::vector<NodeExpr*> args;
+    NodeExpr* callee = nullptr; // non-null: call through the function pointer this evaluates to
 };
 
 struct NodeExprStringLit { Token value; };
@@ -416,6 +437,7 @@ public:
     std::optional<NodeExpr*> parse_add_expr();
     std::optional<NodeExpr*> parse_mul_expr();
     std::optional<NodeExpr*> parse_primary_expr();
+    std::optional<NodeExpr*> parse_unit_expr();
     /// Wrap an expression in any trailing `as T` casts (unary-level precedence).
     NodeExpr* apply_casts(NodeExpr* expr);
 
@@ -437,6 +459,7 @@ public:
     std::optional<IntType>  parse_type();
     /// Parse an integer type with any number of trailing '*' pointer levels.
     std::optional<Type>     parse_full_type();
+    Type                    parse_fn_type();
     std::optional<std::string> parse_struct_type_name();
 
 private:

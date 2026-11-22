@@ -1,0 +1,7 @@
+// Calling something that is not a function pointer is an error.
+// EXPECT-ERROR: called object is not a function pointer (it has type i64)
+struct S { var n: i64; };
+function main() {
+    var s: S = { .n = 3 };
+    print(s.n(1));
+}

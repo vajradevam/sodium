@@ -120,9 +120,16 @@ struct arguments and returns work through pointers too.
   more destination of the argument parallel move, so a target living in an argument register, in
   another argument's source, or in a spill slot is read before it is overwritten.
 - `Backend::call_reg(reg)` emits `call reg` / `jalr reg`. Direct `CALL` is unchanged.
-- Surface language (extends D-001..): type `fn(T1, T2) -> R` (return type optional, void when absent),
-  `&func` yields a pointer to a defined function, calling a variable/parameter/field of that type
-  uses ordinary call syntax. The compiler checks argument count and types against the signature.
+- Surface language (extends D-003): type `fn(T1, T2) -> R`; the `-> R` part is optional and a missing
+  one means "unannotated", exactly like a function definition without `->` (the result is a plain
+  i64). Internally a function pointer is `Ptr(Func)`, so it is 8 bytes and loads/stores/compares
+  like any pointer. `&func` yields the pointer for a defined function (untyped parameters count as
+  i64). A call is indirect when the callee is a local/parameter of that type, or any expression
+  (`s.cb(x)`, `p->cb(x)`, `table[i](x)`, `f(1)(2)`, `(&f)(x)`). The compiler checks argument count
+  and types against the signature, and initialization/assignment/return against the declared
+  `fn` type (a constant `0` is accepted as null in initializers and assignments). A call expression
+  now has its declared return type instead of always i64, so returned pointers can be passed on.
+  Not covered: `fn` pointers in untyped globals, and a bare function name without `&`.
 - Rejected: thunks/trampolines (an extra jump per call, a per-function data table, and the call
   path would differ from a direct call); loading the target into an argument register and
   interpreting it in the backend (breaks for 6+ register arguments).

@@ -1,0 +1,8 @@
+// A call through a function pointer checks argument types against its signature.
+// EXPECT-ERROR: argument 1 to 'f' has type i64*, expected i64
+function id(a: i64) -> i64 { return a; }
+function main() {
+    var f: fn(i64) -> i64 = &id;
+    var x: i64 = 3;
+    print(f(&x));
+}

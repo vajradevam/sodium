@@ -47,6 +47,42 @@ Type Generator::peek_type() {
     return m_tstack.back();
 }
 
+uint32_t Generator::emit_call(const CallTarget& target, const std::vector<IRValue>& args,
+                              int reg_args) {
+    if (target.pointer) {
+        return m_ir.call_indirect(IRValue::vreg(*target.pointer), args, reg_args);
+    }
+    return m_ir.call(target.name, args, reg_args);
+}
+
+uint32_t Generator::emit_call2(const CallTarget& target, const std::vector<IRValue>& args,
+                               uint32_t& second, int reg_args) {
+    if (target.pointer) {
+        return m_ir.call2_indirect(IRValue::vreg(*target.pointer), args, second, reg_args);
+    }
+    return m_ir.call2(target.name, args, second, reg_args);
+}
+
+const Var* Generator::find_var(const std::string& name) const {
+    for (auto it = m_scopes.rbegin(); it != m_scopes.rend(); ++it) {
+        auto found = it->vars.find(name);
+        if (found != it->vars.end()) return &found->second;
+    }
+    return nullptr;
+}
+
+Type Generator::function_pointer_type(const NodeFuncDef& func) {
+    m_sig_pool.emplace_back();
+    std::vector<Type>& params = m_sig_pool.back();
+    for (const auto& declared : func.param_types) {
+        params.push_back(declared.has_value() ? *declared : Type::make_int(IntType::i64));
+    }
+    Type* ret = func.return_type.has_value() ? alloc_type(*func.return_type) : nullptr;
+    Type* sig = alloc_type(Type::make_func(params.empty() ? nullptr : params.data(),
+                                           static_cast<uint32_t>(params.size()), ret));
+    return Type::make_ptr(sig);
+}
+
 Type* Generator::alloc_type(const Type& t) {
     m_type_pool.push_back(t);
     return &m_type_pool.back();

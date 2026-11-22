@@ -1,0 +1,6 @@
+// &name must name a defined function or variable.
+// EXPECT-ERROR: Undeclared identifier: nothing
+function main() {
+    var f: fn(i64) -> i64 = &nothing;
+    print(f(1));
+}

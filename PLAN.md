@@ -104,9 +104,9 @@ anyway, tick the box, and note "not reproducible" in PROGRESS.md.
   - [x] **Y8b4b** C-interop harness (`scripts/test_abi_interop.sh`, in `check.sh`): gcc-built C callers/callees linked against Cyan output (weak stubs for the reverse direction) for struct params and returns of sizes 1..40 on both targets.
 - [x] **Y9a Multi-dimensional arrays (split from Y9).** Parse `var a: i32[2][3]` and `a[i][j]`; row-major layout with compile-time dimension sizes; reads/writes on both targets.
 - [x] **Y9b Const correctness + untyped fallback (split from Y9).** Keep call-site inference strictly as a fallback that emits a warning for untyped params; verify `const` declarations cannot be written; migrate cyanlib/tests to typed signatures incrementally; tick Y9.
-- [ ] **Y10 Function pointers** and indirect calls on both targets (D-014). Sub-tasks below; tick Y10 when all are done.
+- [x] **Y10 Function pointers** and indirect calls on both targets (D-014). Sub-tasks below; tick Y10 when all are done.
   - [x] **Y10a** `CALL_INDIRECT` through IR, liveness, rewriter, emitter and both backends (`call_reg`, `call_target_reg`); unit tests on emitted code for every target-home combination (physical, argument register, spilled) on both targets.
-  - [ ] **Y10b** Language: `fn(T,...) -> R` types (variables, params, struct fields, returns), `&func`, calls through them with arity/type checks; run tests on both targets incl. 7+ arguments, struct args, callbacks, tables of functions; compile-error tests.
+  - [x] **Y10b** Language: `fn(T,...) -> R` types (variables, params, struct fields, returns), `&func`, calls through them with arity/type checks; run tests on both targets incl. 7+ arguments, struct args, callbacks, tables of functions; compile-error tests; C interop in both directions (`tests/abi/fnptr_*`).
 - [x] **P3-END** full gate, tag, rewrite parts of docs that changed.
 
 ## Phase 4 — Standard library & runtime (Cyan-written wherever possible)
