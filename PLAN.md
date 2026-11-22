@@ -75,7 +75,7 @@ anyway, tick the box, and note "not reproducible" in PROGRESS.md.
 - [x] **E3d Narrowing assign + unused result + `=` in condition warnings (split from E3).** Warn on out-of-range/widening stores, discarded pure expression results, and `=` used where `==` is meant in conditions; tests on both targets; tick E3.
 - [x] **E4 Notes** ("previous declaration here", "did you mean …"), `-fcolor-diagnostics`/NO_COLOR.
 - [x] **E5 LSP uses the engine** (multiple diagnostics, severities); add LSP protocol tests (scripted stdio session) to `tests/lsp/`.
-- [ ] **P2-END** `check.sh --full`, tag.
+- [x] **P2-END** `check.sh --full`, tag.
 
 ## Phase 3 — Real type system (per D-002/D-003)
 - [ ] **Y1 Typed params and return types** (`function f(a: i32, p: u8*) -> i64`), arity + type checking at calls, implicit conversions only for safe widening / literal fit; untyped still accepted (warn after Y9).
