@@ -1,0 +1,26 @@
+// EXPECT-EXIT: 0
+
+// A T* where T is a struct must advance by sizeof(T), not the 8-byte fallback.
+struct Triple { var a: i64; var b: i64; var c: i64; };
+
+function main() {
+    var arr = malloc(72) as Triple*;
+    var second = arr + 1;
+    var third = arr + 2;
+    second->a = 10;
+    second->b = 20;
+    second->c = 30;
+
+    if (arr->a != 0 || arr->b != 0 || arr->c != 0) { return(1); }
+    if (third->a != 0 || third->b != 0 || third->c != 0) { return(2); }
+    if (second->a != 10 || second->b != 20 || second->c != 30) { return(3); }
+
+    // Byte-level view: the second struct starts at offset 24.
+    var raw = arr as u8*;
+    if (*(raw + 24) != 10) { return(4); }
+    if (*(raw + 32) != 20) { return(5); }
+    if (*(raw + 40) != 30) { return(6); }
+    if (second - arr != 1) { return(7); }
+    if (third - second != 1) { return(8); }
+    return(0);
+}

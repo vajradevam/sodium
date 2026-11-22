@@ -32,6 +32,16 @@ struct SysBuiltin {
     size_t arity;
 };
 
+// `type_size` uses 8 as a fallback for structs; real layouts come from the
+// struct registry. Pointer arithmetic on T* must use the actual struct size.
+static size_t pointee_size(Generator* gen, const Type& t) {
+    if (t.kind == Type::Struct) {
+        auto info = gen->get_struct_info(t.struct_name);
+        if (info.has_value()) return info->size;
+    }
+    return type_size(t);
+}
+
 const SysBuiltin* sys_builtin_for(const std::string& name) {
     static const SysBuiltin table[] = {
         {"sys_open",   "_sodium_sys_open",   3},
@@ -654,7 +664,7 @@ void Generator::gen_expr(const NodeExpr& expr)
                     if (type_a.kind == Type::Ptr && type_a.pointee &&
                         type_b.kind == Type::Int) {
                         // ptr + int: scale the int by sizeof(*ptr)
-                        size_t elem_size = type_size(*type_a.pointee);
+                        size_t elem_size = pointee_size(gen, *type_a.pointee);
                         if (elem_size > 1) {
                             uint32_t scaled = gen->m_ir.mul(IRValue::vreg(b),
                                 IRValue::imm_i64(static_cast<int64_t>(elem_size)));
@@ -669,7 +679,7 @@ void Generator::gen_expr(const NodeExpr& expr)
                     } else if (type_b.kind == Type::Ptr && type_b.pointee &&
                                type_a.kind == Type::Int) {
                         // int + ptr: scale the int by sizeof(*ptr)
-                        size_t elem_size = type_size(*type_b.pointee);
+                        size_t elem_size = pointee_size(gen, *type_b.pointee);
                         if (elem_size > 1) {
                             uint32_t scaled = gen->m_ir.mul(IRValue::vreg(a),
                                 IRValue::imm_i64(static_cast<int64_t>(elem_size)));
@@ -707,7 +717,7 @@ void Generator::gen_expr(const NodeExpr& expr)
                     if (type_a.kind == Type::Ptr && type_a.pointee &&
                         type_b.kind == Type::Int) {
                         // ptr - int: scale the int by sizeof(*ptr)
-                        size_t elem_size = type_size(*type_a.pointee);
+                        size_t elem_size = pointee_size(gen, *type_a.pointee);
                         if (elem_size > 1) {
                             uint32_t scaled = gen->m_ir.mul(IRValue::vreg(b),
                                 IRValue::imm_i64(static_cast<int64_t>(elem_size)));
@@ -723,7 +733,7 @@ void Generator::gen_expr(const NodeExpr& expr)
                                type_a.pointee && type_b.pointee &&
                                *type_a.pointee == *type_b.pointee) {
                         // ptr - ptr: difference in bytes, divide by element size
-                        size_t elem_size = type_size(*type_a.pointee);
+                        size_t elem_size = pointee_size(gen, *type_a.pointee);
                         uint32_t diff = gen->m_ir.sub(IRValue::vreg(a), IRValue::vreg(b));
                         if (elem_size > 1) {
                             // Arithmetic shift right by log2(elem_size).
