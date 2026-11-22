@@ -328,6 +328,9 @@ public:
     /// Diagnostics collected while parsing. Owned by this parser, not global.
     const DiagnosticEngine& diagnostics() const { return m_diag; }
 
+    /// Apply the command-line warning policy (`-w`, `-Werror`).
+    void set_warn_config(WarnConfig cfg) { m_diag.set_warn_config(cfg); }
+
     /// Record an error at an explicit location and report it.
     [[noreturn]] void fail_at(const SourceLoc& loc, const std::string& msg);
 

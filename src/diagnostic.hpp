@@ -23,6 +23,13 @@ inline const char* severity_name(Severity s) {
     return "error";
 }
 
+/// Command-line warning policy. `-w` sets `enabled = false`;
+/// `-Werror` sets `werror = true` so warnings are recorded as errors.
+struct WarnConfig {
+    bool enabled = true;
+    bool werror = false;
+};
+
 struct FixIt {
     SourceLoc loc;
     std::string replacement;
@@ -42,11 +49,16 @@ class DiagnosticEngine {
 public:
     void add(Diagnostic d) { m_diags.push_back(std::move(d)); }
 
+    void set_warn_config(WarnConfig cfg) { m_warn = cfg; }
+    const WarnConfig& warn_config() const { return m_warn; }
+
     void note(SourceLoc loc, std::string msg) {
         add({Severity::Note, std::move(loc), std::move(msg), {}, {}});
     }
     void warning(SourceLoc loc, std::string msg) {
-        add({Severity::Warning, std::move(loc), std::move(msg), {}, {}});
+        if (!m_warn.enabled) return;
+        Severity sev = m_warn.werror ? Severity::Error : Severity::Warning;
+        add({sev, std::move(loc), std::move(msg), {}, {}});
     }
     void error(SourceLoc loc, std::string msg) {
         add({Severity::Error, std::move(loc), std::move(msg), {}, {}});
@@ -114,4 +126,5 @@ public:
 
 private:
     std::vector<Diagnostic> m_diags;
+    WarnConfig m_warn{};
 };

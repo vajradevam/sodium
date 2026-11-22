@@ -41,6 +41,9 @@ Tests are discovered, not registered: every `tests/**/*.cyan` is run. Header com
 must declare `EXPECT-ERROR`. `// SKIP-TEST: <reason>` marks a file that is included by other tests and
 is not a standalone test (currently `tests/include/helper.cyan`). An `EXPECT-STDOUT` header declares an
 exact, ordered line of stdout; when any are present the full stdout must match them line for line.
+`// EXPECT-WARNING: <substring>` asserts a successful compile emits a `warning:` diagnostic containing the substring.
+`// NO-WARNING: <substring>` asserts the compile log does not contain the substring (used with `-w`).
+`// COMPILE-FLAGS: -w -Werror ...` adds compiler flags to the compile step (used to test warning policy).
 
 ## D-006 Optimization policy
 Correctness first. `-O0` (default for now) must remain a straightforward translation; optimizations

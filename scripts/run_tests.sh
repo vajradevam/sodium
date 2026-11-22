@@ -24,7 +24,8 @@ Usage: scripts/run_tests.sh [options]
   -h, --help          show this help
 
 Tests are discovered under tests/**/*.cyan. Expectations are declared in
-// EXPECT-* header comments (docs/DECISIONS.md, D-005).
+// EXPECT-* header comments (docs/DECISIONS.md, D-005). Warning tests may use
+// EXPECT-WARNING, NO-WARNING and COMPILE-FLAGS (e.g. -w, -Werror).
 EOF
 }
 
@@ -73,6 +74,9 @@ trap 'rm -rf "$WORK"' EXIT
 # ── header parsing ─────────────────────────────────────────────────
 EXPECT_EXIT=""
 EXPECT_ERROR=""
+EXPECT_WARNING=""
+NO_WARNING=""
+COMPILE_FLAGS=""
 STDIN_VAL=""
 ARGS_VAL=""
 TARGETS_VAL=""
@@ -80,7 +84,8 @@ SKIP_REASON=""
 STDOUT_LINES=()
 
 parse_headers() {
-    EXPECT_EXIT=""; EXPECT_ERROR=""; STDIN_VAL=""; ARGS_VAL=""
+    EXPECT_EXIT=""; EXPECT_ERROR=""; EXPECT_WARNING=""; NO_WARNING=""
+    COMPILE_FLAGS=""; STDIN_VAL=""; ARGS_VAL=""
     TARGETS_VAL=""; SKIP_REASON=""; STDOUT_LINES=()
     local line
     while IFS= read -r line || [ -n "$line" ]; do
@@ -88,6 +93,9 @@ parse_headers() {
             "// EXPECT-EXIT: "*)   EXPECT_EXIT="${line#// EXPECT-EXIT: }" ;;
             "// EXPECT-EXIT:")     EXPECT_EXIT="0" ;;
             "// EXPECT-ERROR: "*)  EXPECT_ERROR="${line#// EXPECT-ERROR: }" ;;
+            "// EXPECT-WARNING: "*) EXPECT_WARNING="${line#// EXPECT-WARNING: }" ;;
+            "// NO-WARNING: "*)    NO_WARNING="${line#// NO-WARNING: }" ;;
+            "// COMPILE-FLAGS: "*) COMPILE_FLAGS="${line#// COMPILE-FLAGS: }" ;;
             "// STDIN: "*)         STDIN_VAL="${line#// STDIN: }" ;;
             "// ARGS: "*)          ARGS_VAL="${line#// ARGS: }" ;;
             "// TARGETS: "*)       TARGETS_VAL="${line#// TARGETS: }" ;;
@@ -123,8 +131,8 @@ run_case() {
         emit SKIP "$SKIP_REASON"
         return
     fi
-    if [ -z "$EXPECT_ERROR" ] && [ -z "$EXPECT_EXIT" ]; then
-        emit FAIL "no EXPECT-EXIT or EXPECT-ERROR header"
+    if [ -z "$EXPECT_ERROR" ] && [ -z "$EXPECT_EXIT" ] && [ -z "$EXPECT_WARNING" ]; then
+        emit FAIL "no EXPECT-EXIT, EXPECT-ERROR or EXPECT-WARNING header"
         return
     fi
     case "${path##*/}" in
@@ -137,10 +145,34 @@ run_case() {
 
     local tflag=()
     [ "$target" = "riscv64" ] && tflag=(--target riscv64)
+    local cflags=()
+    [ -n "$COMPILE_FLAGS" ] && read -r -a cflags <<< "$COMPILE_FLAGS"
 
-    "$COMPILER" "${tflag[@]}" -I tests/include -o "$base.bin" "$path" \
+    "$COMPILER" "${cflags[@]}" "${tflag[@]}" -I tests/include -o "$base.bin" "$path" \
         > "$base.compile.log" 2>&1
     local cc=$?
+
+    if [ -n "$NO_WARNING" ] && grep -Fq -- "$NO_WARNING" "$base.compile.log"; then
+        emit FAIL "unexpected warning/diagnostic: $NO_WARNING"
+        return
+    fi
+
+    if [ -n "$EXPECT_WARNING" ]; then
+        if [ "$cc" -ne 0 ]; then
+            emit FAIL "compile failed: $(head -1 "$base.compile.log")"
+            return
+        fi
+        if ! grep -Fq "warning:" "$base.compile.log"; then
+            emit FAIL "no warning diagnostic emitted"
+            return
+        fi
+        if ! grep -Fq -- "$EXPECT_WARNING" "$base.compile.log"; then
+            emit FAIL "warning did not contain: $EXPECT_WARNING"
+            return
+        fi
+        emit PASS ""
+        return
+    fi
 
     if [ -n "$EXPECT_ERROR" ]; then
         if [ "$cc" -eq 0 ]; then

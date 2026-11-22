@@ -71,9 +71,11 @@ int main(int argc, char* argv[]) {
     std::vector<std::string> include_dirs;
     std::string target = "x86_64";  // default
     std::string cyanlib_dir;         // --cyanlib-dir <path> overrides default
+    bool warn_disable = false;       // -w
+    bool warn_as_error = false;      // -Werror
 
     auto usage = []() {
-        std::cerr << "Usage: sodium [--target <arch>] [--print-ast] [--emit-ir] [--no-alloc] [-o <file>] [-S] [-I <dir>] [--cyanlib-dir <dir>] <filename.cyan>" << std::endl;
+        std::cerr << "Usage: sodium [--target <arch>] [--print-ast] [--emit-ir] [--no-alloc] [-o <file>] [-S] [-I <dir>] [--cyanlib-dir <dir>] [-w] [-Werror] <filename.cyan>" << std::endl;
     };
 
     for (int i = 1; i < argc; i++) {
@@ -106,6 +108,10 @@ int main(int argc, char* argv[]) {
                 usage();
                 exit(EXIT_FAILURE);
             }
+        } else if (std::strcmp(argv[i], "-w") == 0) {
+            warn_disable = true;
+        } else if (std::strcmp(argv[i], "-Werror") == 0) {
+            warn_as_error = true;
         } else if (std::strcmp(argv[i], "--cyanlib-dir") == 0) {
             if (i + 1 < argc) {
                 cyanlib_dir = argv[++i];
@@ -315,7 +321,12 @@ int main(int argc, char* argv[]) {
     Tokenizer tokenizer(std::move(contents), filename);
     std::vector<Token> tokens = tokenizer.tokenize();
 
+    WarnConfig warn_cfg;
+    warn_cfg.enabled = !warn_disable;
+    warn_cfg.werror = warn_as_error;
+
     Parser parser(std::move(tokens));
+    parser.set_warn_config(warn_cfg);
     std::optional<NodeProg> prog = parser.parse_prog();
 
     if (!prog.has_value()) {
@@ -334,6 +345,7 @@ int main(int argc, char* argv[]) {
         backend->set_output(asm_stream);
 
         Generator generator(prog.value(), *backend, *tri);
+        generator.set_warn_config(warn_cfg);
         generator.set_no_alloc(no_alloc_flag);
         generator.set_emit_ir(emit_ir_flag);
         (void)generator.gen_prog();  // writes to backend stream

@@ -69,6 +69,9 @@ public:
     /// Diagnostics collected during code generation. Owned by this generator.
     const DiagnosticEngine& diagnostics() const { return m_diag; }
 
+    /// Apply the command-line warning policy (`-w`, `-Werror`).
+    void set_warn_config(WarnConfig cfg) { m_diag.set_warn_config(cfg); }
+
     /// Record an error in the engine and report it through the CLI/LSP path.
     [[noreturn]] void fail(const SourceLoc& loc, const std::string& msg) const;
 

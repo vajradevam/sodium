@@ -76,6 +76,48 @@ TEST(diagnostics_instances_are_independent) {
     CHECK(b.render_all().empty());
 }
 
+TEST(diagnostics_warning_default_is_warning) {
+    DiagnosticEngine engine;
+    engine.warning({1, 1, "f"}, "careful");
+    CHECK_EQ(engine.size(), size_t(1));
+    CHECK(!engine.has_errors());
+    CHECK(engine.render_all().find("f:1:1: warning: careful") != std::string::npos);
+}
+
+TEST(diagnostics_w_flag_suppresses_warnings) {
+    DiagnosticEngine engine;
+    WarnConfig cfg;
+    cfg.enabled = false;
+    engine.set_warn_config(cfg);
+    engine.warning({1, 1, "f"}, "careful");
+    CHECK(engine.empty());
+    CHECK_EQ(engine.render_all(), std::string());
+}
+
+TEST(diagnostics_werror_promotes_warning_to_error) {
+    DiagnosticEngine engine;
+    WarnConfig cfg;
+    cfg.werror = true;
+    engine.set_warn_config(cfg);
+    engine.warning({2, 4, "f"}, "unused variable 'x'");
+    CHECK_EQ(engine.size(), size_t(1));
+    CHECK(engine.has_errors());
+    CHECK_EQ(engine.error_count(), size_t(1));
+    CHECK(engine.render_all().find("f:2:4: error: unused variable 'x'") != std::string::npos);
+}
+
+TEST(diagnostics_w_flag_does_not_suppress_errors_under_werror) {
+    DiagnosticEngine engine;
+    WarnConfig cfg;
+    cfg.enabled = false;
+    cfg.werror = true;
+    engine.set_warn_config(cfg);
+    engine.warning({1, 1, "f"}, "careful");
+    engine.error({2, 1, "f"}, "real error");
+    CHECK_EQ(engine.size(), size_t(1));
+    CHECK(engine.has_errors());
+}
+
 TEST(diagnostics_preserve_insertion_order) {
     DiagnosticEngine engine;
     engine.error({1, 1, "f"}, "first");

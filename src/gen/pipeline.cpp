@@ -181,12 +181,12 @@ void Generator::collect_globals(const std::vector<NodeStmt>& stmts)
 std::string Generator::gen_prog() {
     try {
         std::string out = gen_prog_impl();
-        if (m_diag.has_errors() && !g_lsp_mode) {
+        if (!m_diag.empty() && !g_lsp_mode) {
             for (const auto& d : m_diag.diagnostics()) {
                 std::cerr << DiagnosticEngine::render(d);
                 if (d.loc.line != 0 && d.loc.col != 0) print_code_context(d.loc);
             }
-            exit(EXIT_FAILURE);
+            if (m_diag.has_errors()) exit(EXIT_FAILURE);
         }
         return out;
     } catch (const GenAbort&) {
