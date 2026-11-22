@@ -437,3 +437,16 @@ NASM and the RISC-V assembler. Added `scripts/test_debug_info.sh` to the gate: i
 Cyan line to an address, and that the default build has no debug info. `scripts/check.sh --full`
 green: 704 passed / 0 failed / 10 skipped at both levels and under ASan/UBSan; 298 C++ cases /
 4314 checks; sweep 2154 invocations / 0 crashes.
+
+## 2026-11-23 — P6-END phase 6 state of the project
+Re-verified against code and gate logs before tagging. Preprocessor macros/conditionals (D-033),
+module conventions (D-034, docs/MODULES.md), three opt-in runtime checks (D-035), statement-level
+inline asm with per-register clobbers (D-036), and opt-in DWARF line tables (D-037) are all in
+place. X1 floats remain in docs/BLOCKED.md: they need a real FP register class and C-compatible
+calling convention across all compiler layers, which is more than one phase task.
+
+Final `scripts/check.sh --full`: 704 passed / 0 failed / 10 skipped at both -O0 and -O1 and under
+ASan/UBSan; 298 C++ cases / 4314 checks; sweep 2154 invocations / 0 crashes; oracle 58/58 at both
+levels; ABI 8/8; benchmark instruction counts within baseline; regalloc benchmark 248 functions /
+2 spills / 301688 callee-save assignments; debug line tables verified with -g on both targets.
+The 10 skips are the 8 ABI interop cases (run by their own script) and 2 include helpers.

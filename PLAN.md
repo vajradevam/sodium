@@ -161,7 +161,7 @@ anyway, tick the box, and note "not reproducible" in PROGRESS.md.
 - [x] **X5b Clobber-aware allocation:** per-register clobber sets in liveness/linear scan, multi-line asm and peephole barrier, with live-value regression tests on both targets.
 - [x] **X6a Debug line plumbing:** carry statement source locations into IR and add backend-specific `debug_line` directives (`%line` / `.file`+`.loc`) with unit tests (D-037).
 - [x] **X6b `-g` flag and integration:** opt-in `-g` with assembler flags, absolute source paths and a readelf/gdb line-table test on both targets.
-- [ ] **P6-END** gate, tag.
+- [x] **P6-END** gate, tag (X1 blocked in docs/BLOCKED.md as multi-phase).
 
 ## Phase 7 — Tooling & docs
 - [ ] **D1 README rewrite from verified behavior only:** language reference (every construct with a test link), CLI flags, build/test instructions, architecture overview, known limitations. Every code sample in the README is extracted and compiled by a test (`scripts/doc_check.sh`).
