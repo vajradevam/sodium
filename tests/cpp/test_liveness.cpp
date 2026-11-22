@@ -1,6 +1,9 @@
 #include "test_framework.hpp"
 #include "ir/liveness.hpp"
+#include "ir/linear_scan.hpp"
+#include "ir/target_regs.hpp"
 
+#include <algorithm>
 #include <string>
 
 static LiveRange range_for(const LiveRanges& ranges, uint32_t vreg) {
@@ -129,4 +132,116 @@ TEST(liveness_end_is_clamped_to_instruction_count) {
     auto ranges = compute_live_ranges(f);
     CHECK_EQ(ranges.size(), 1u);
     if (!ranges.empty()) CHECK(ranges[0].end <= number_instructions(f).count);
+}
+
+// --- O0: loop-aware liveness ------------------------------------------------
+
+TEST(liveness_loop_value_is_live_across_later_call) {
+    IRFunction f("loopcall");
+    auto* entry = f.add_block(".entry");
+    entry->emit(IRInstruction::load_i64(1, 7));   // pos 0: kept in a vreg
+    entry->emit(IRInstruction::jmp(".head"));     // pos 1
+    auto* head = f.add_block(".head");            // pos 2
+    head->emit(IRInstruction::load_i64(0, 1));    // pos 2
+    head->emit(IRInstruction::br(IRValue::vreg(0), ".body", ".exit"));  // pos 3
+    auto* body = f.add_block(".body");            // pos 4
+    body->emit(IRInstruction::copy(2, IRValue::vreg(1)));  // pos 4: early use
+    body->emit(IRInstruction::call(IRInstruction::NONE_VREG, "clobber", {}));  // pos 5
+    body->emit(IRInstruction::jmp(".head"));      // pos 6: back edge
+    f.add_block(".exit")->emit(IRInstruction::ret_void());  // pos 7
+
+    auto r = range_for(compute_live_ranges(f), 1);
+    // The last textual use is at pos 4, but the value is live around the loop
+    // and across the call at pos 5. Linear-order liveness stops at pos 5.
+    CHECK(r.end > 6u);
+    CHECK(r.spans_call);
+}
+
+TEST(liveness_loop_call_value_uses_callee_save_on_both_targets) {
+    IRFunction f("loopalloc");
+    auto* entry = f.add_block(".entry");
+    entry->emit(IRInstruction::load_i64(1, 7));
+    entry->emit(IRInstruction::jmp(".head"));
+    auto* head = f.add_block(".head");
+    head->emit(IRInstruction::load_i64(0, 1));
+    head->emit(IRInstruction::br(IRValue::vreg(0), ".body", ".exit"));
+    auto* body = f.add_block(".body");
+    body->emit(IRInstruction::copy(2, IRValue::vreg(1)));
+    body->emit(IRInstruction::call(IRInstruction::NONE_VREG, "clobber", {}));
+    body->emit(IRInstruction::jmp(".head"));
+    f.add_block(".exit")->emit(IRInstruction::ret_void());
+
+    const auto ranges = compute_live_ranges(f);
+    CHECK(range_for(ranges, 1).spans_call);
+
+    const TargetRegisterInfo targets[] = {
+        TargetRegisterInfo::x86_64_systemv(),
+        TargetRegisterInfo::riscv64_lp64(),
+    };
+    for (const auto& tri : targets) {
+        LinearScanAllocator alloc(tri);
+        RegisterAllocation allocation = alloc.allocate(f);
+        const std::vector<int> callee_save = tri.callee_save_regs();
+        CHECK(std::find(callee_save.begin(), callee_save.end(), allocation.preg_of(1)) !=
+              callee_save.end());
+        CHECK(!allocation.is_spilled(1));
+    }
+}
+
+TEST(liveness_nested_loops_extend_outer_value) {
+    IRFunction f("nested");
+    auto* entry = f.add_block(".entry");
+    entry->emit(IRInstruction::load_i64(1, 9));
+    entry->emit(IRInstruction::jmp(".outer"));
+    auto* outer = f.add_block(".outer");          // pos 2
+    outer->emit(IRInstruction::load_i64(0, 1));
+    outer->emit(IRInstruction::br(IRValue::vreg(0), ".inner", ".exit"));
+    auto* inner = f.add_block(".inner");          // pos 4
+    inner->emit(IRInstruction::copy(2, IRValue::vreg(1)));
+    inner->emit(IRInstruction::call(IRInstruction::NONE_VREG, "clobber", {}));
+    inner->emit(IRInstruction::br(IRValue::vreg(0), ".inner", ".outer"));
+    f.add_block(".exit")->emit(IRInstruction::ret_void());  // pos 7
+
+    auto r = range_for(compute_live_ranges(f), 1);
+    CHECK(r.end >= 7u);   // through the inner back edge
+    CHECK(r.spans_call);
+}
+
+TEST(liveness_loop_carried_value_covers_back_edge) {
+    IRFunction f("carried");
+    auto* entry = f.add_block(".entry");
+    entry->emit(IRInstruction::load_i64(0, 1));   // pos 0
+    entry->emit(IRInstruction::jmp(".head"));     // pos 1
+    auto* head = f.add_block(".head");            // pos 2
+    head->emit(IRInstruction::br(IRValue::vreg(2), ".body", ".exit"));  // pos 2
+    auto* body = f.add_block(".body");            // pos 3
+    body->emit(IRInstruction::load_i64(1, 5));    // pos 3
+    body->emit(IRInstruction::binary(IROpcode::ADD, 2, IRValue::vreg(1),
+                                     IRValue::vreg(0)));  // pos 4: def of %2
+    body->emit(IRInstruction::jmp(".head"));      // pos 5: back edge
+    f.add_block(".exit")->emit(IRInstruction::ret_void());  // pos 6
+
+    auto r = range_for(compute_live_ranges(f), 2);
+    // The use is at pos 2 (before the def at pos 4 in linear order), but the
+    // value must stay live past the back edge into the next iteration.
+    CHECK(r.start <= 2u);
+    CHECK(r.end >= 6u);
+    CHECK(r.end > 4u);
+}
+
+TEST(liveness_if_else_value_covers_both_arms) {
+    IRFunction f("ifelse");
+    auto* entry = f.add_block(".entry");
+    entry->emit(IRInstruction::load_i64(1, 7));
+    entry->emit(IRInstruction::br(IRValue::vreg(1), ".t", ".f"));
+    auto* t = f.add_block(".t");
+    t->emit(IRInstruction::copy(2, IRValue::vreg(1)));
+    t->emit(IRInstruction::ret(IRValue::vreg(2)));
+    auto* fa = f.add_block(".f");
+    fa->emit(IRInstruction::copy(3, IRValue::vreg(1)));
+    fa->emit(IRInstruction::ret(IRValue::vreg(3)));
+
+    auto r = range_for(compute_live_ranges(f), 1);
+    CHECK(r.start == 0u);
+    CHECK(r.end >= 5u);  // covers the use in the second arm (pos 4)
 }

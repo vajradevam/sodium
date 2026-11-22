@@ -247,3 +247,13 @@ values, and calls/syscalls discard every fact. DIV and MOD are also barriers: th
 clobber rax/rdx, which the allocator does not treat as a call, so keeping a value live across
 one could let it be assigned a clobbered register. Expression facts are indexed by result and
 operand vregs so invalidation is proportional to affected entries, not the whole block.
+
+## D-026 Loop-aware liveness (O0)
+`compute_live_ranges` now solves live-in/live-out per basic block over the CFG to a fixpoint,
+using upward-exposed uses (a vreg is a use only before its first def inside the block). Edges are
+the first terminator's JMP/BR targets or fallthrough to the next block. Each vreg still gets one
+interval for the linear-scan allocator: it spans the earliest live point and the latest live
+point in layout order, including whole blocks where the value is live-in/live-out. This can
+overestimate when live blocks are not contiguous, but never shortens a lifetime, so values held
+in vregs across loop back edges get callee-save registers (or spills) when a later CALL in the
+loop body would clobber them. A call that defines the value itself does not make it `spans_call`.

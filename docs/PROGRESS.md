@@ -217,3 +217,16 @@ the `-O1` suite then found three wrong results/crashes because CSE extended a fr
 range across MOD (rax/rdx clobber), fixed by treating DIV/MOD as barriers. `scripts/check.sh --full`
 green: 665 -> 667 passed, 0 failed, 10 skipped at both levels; 220 -> 234 C++ cases / 4141 checks;
 sweep 2022 -> 2034 invocations, 0 crashes; ASan/UBSan clean.
+
+## 2026-11-22 — O0 Loop-aware liveness
+Replaced linear-order liveness in `src/ir/liveness.hpp` with CFG dataflow: per-block
+live-in/live-out sets are iterated to a fixpoint, and each vreg's single interval spans all
+blocks where it is live. Added 5 C++ cases (loop with a later call, allocator choice on both
+targets, nested loops, loop-carried values, if/else) — the loop/call repro failed before the fix
+with `spans_call == false` and a caller-save register on both targets, and passes after. The
+hand-built IR is required for that repro because generated Cyan code currently reloads locals
+from frame slots every time; keeping a value in a vreg across a back edge becomes possible with
+O5. Added `tests/unit/test_loop_liveness.cyan` (loops with calls and nested loops), run by both
+the -O0 suite and the -O1 suite on x86_64 and riscv64. `scripts/check.sh --full` green: 667 ->
+669 passed, 0 failed, 10 skipped at both levels; 234 -> 239 C++ cases / 4155 checks; sweep
+2034 -> 2040 invocations, 0 crashes; ASan/UBSan clean.

@@ -130,7 +130,7 @@ anyway, tick the box, and note "not reproducible" in PROGRESS.md.
 - [x] **O2 Constant folding & algebraic simplification** (x+0, x*1, x*2^n → shift, strength reduction), with overflow semantics identical to runtime.
 - [x] **O3 Dead code / unreachable block elimination**, jump threading, empty-block removal.
 - [x] **O4 Local value numbering / CSE; redundant load-store elimination** within basic blocks.
-- [ ] **O0 Loop-aware liveness (precondition for O5 and any optimization that keeps values in vregs).** `compute_live_ranges`
+- [x] **O0 Loop-aware liveness (precondition for O5 and any optimization that keeps values in vregs).** `compute_live_ranges`
   (`src/ir/liveness.hpp`) builds one interval per vreg from first def/use to last use in linear instruction order and
   ignores back edges. A vreg defined before a loop and used only early in the loop body is live around the whole loop,
   but its interval ends at the last textual use, so its register can be reused (or it can look like it does not span a
