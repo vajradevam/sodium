@@ -315,6 +315,9 @@ std::vector<Token> Tokenizer::tokenize() {
             else if (buf == "char") {
                 tokens.push_back({ .type = TokenType::_char, .loc = tok_loc });
             }
+            else if (buf == "as") {
+                tokens.push_back({ .type = TokenType::_as, .loc = tok_loc });
+            }
             else {
                 tokens.push_back({ .type = TokenType::ident, .value = buf, .loc = tok_loc });
             }

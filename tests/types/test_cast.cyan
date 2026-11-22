@@ -1,0 +1,15 @@
+// EXPECT-EXIT: 0
+// EXPECT-STDOUT: 44
+// EXPECT-STDOUT: 44
+
+function f(a: u8) {
+    return(a);
+}
+
+function main() {
+    var x: i8 = 300 as i8;
+    print(x);
+    var y = 300;
+    print(f(y as u8));
+    return(0);
+}

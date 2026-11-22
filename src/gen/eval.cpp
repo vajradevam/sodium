@@ -145,6 +145,10 @@ Type Generator::infer_expr_type(
             result = Type::make_int(IntType::i64);
         }
 
+        void operator()(const NodeExprCast* cast) {
+            result = cast->target;
+        }
+
         void operator()(const BinExpr* bin) {
             struct BinTypeInferrer {
                 Generator* gen;
@@ -764,6 +768,24 @@ void Generator::collect_call_types()
 
         void operator()(const NodeExprSizeof* sz) {
             result = gen->sizeof_value(*sz);
+        }
+
+        void operator()(const NodeExprCast* cast) {
+            auto inner = gen->eval_const_expr(cast->expr);
+            if (!inner) return;
+            int64_t v = *inner;
+            if (cast->target.kind == Type::Int) {
+                switch (cast->target.int_type) {
+                    case IntType::i8:  v = static_cast<int8_t>(v);  break;
+                    case IntType::u8:  v = v & 0xFF;                break;
+                    case IntType::i16: v = static_cast<int16_t>(v); break;
+                    case IntType::u16: v = v & 0xFFFF;              break;
+                    case IntType::i32: v = static_cast<int32_t>(v); break;
+                    case IntType::u32: v = static_cast<uint32_t>(v); break;
+                    default: break;
+                }
+            }
+            result = v;
         }
 
         void operator()(const NodeExprCall*) {}

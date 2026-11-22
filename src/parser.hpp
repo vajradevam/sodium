@@ -151,8 +151,14 @@ struct NodeExprSizeof {
     SourceLoc loc{};
 };
 
+struct NodeExprCast {
+    NodeExpr* expr;
+    Type target;
+    SourceLoc loc{};
+};
+
 struct NodeExpr {
-    std::variant<NodeExprIntLit*, NodeExprIdent*, BinExpr*, NodeExprCall*, NodeExprStringLit*, NodeExprIndex*, NodeExprBitNot*, NodeExprLogNot*, NodeExprTernary*, NodeExprRead*, NodeExprArrLit*, NodeExprFieldAccess*, NodeExprAddrOf*, NodeExprDeref*, NodeExprSizeof*> var;
+    std::variant<NodeExprIntLit*, NodeExprIdent*, BinExpr*, NodeExprCall*, NodeExprStringLit*, NodeExprIndex*, NodeExprBitNot*, NodeExprLogNot*, NodeExprTernary*, NodeExprRead*, NodeExprArrLit*, NodeExprFieldAccess*, NodeExprAddrOf*, NodeExprDeref*, NodeExprSizeof*, NodeExprCast*> var;
 };
 
 // ── Statement AST nodes ────────────────────────────────────────────────────
@@ -366,6 +372,8 @@ public:
     std::optional<NodeExpr*> parse_add_expr();
     std::optional<NodeExpr*> parse_mul_expr();
     std::optional<NodeExpr*> parse_primary_expr();
+    /// Wrap an expression in any trailing `as T` casts (unary-level precedence).
+    NodeExpr* apply_casts(NodeExpr* expr);
 
     std::optional<NodeExpr*> parse_unary();
 

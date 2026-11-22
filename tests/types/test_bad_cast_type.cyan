@@ -1,0 +1,6 @@
+// EXPECT-ERROR: Expected type after 'as'
+
+function main() {
+    var x = 1 as ;
+    return(0);
+}

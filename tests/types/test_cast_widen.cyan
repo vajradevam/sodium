@@ -1,0 +1,8 @@
+// EXPECT-EXIT: 0
+// EXPECT-STDOUT: -5
+
+function main() {
+    var x: i8 = -5;
+    print(x as i64);
+    return(0);
+}

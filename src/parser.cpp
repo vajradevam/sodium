@@ -359,10 +359,28 @@ std::optional<NodeExpr*> Parser::parse_add_expr()
         return lhs;
 }
 
+NodeExpr* Parser::apply_casts(NodeExpr* expr) {
+    if (!expr) return nullptr;
+    while (peek().has_value() && peek().value().type == TokenType::_as) {
+        SourceLoc loc = consume().loc;
+        auto target = parse_full_type();
+        if (!target.has_value()) error("Expected type after 'as'");
+        auto cast = m_allocator.alloc<NodeExprCast>();
+        cast->expr = expr;
+        cast->target = *target;
+        cast->loc = loc;
+        auto out = m_allocator.alloc<NodeExpr>();
+        out->var = cast;
+        expr = out;
+    }
+    return expr;
+}
+
 std::optional<NodeExpr*> Parser::parse_mul_expr()
     {
         auto lhs = parse_primary_expr();
         if (!lhs) return {};
+        lhs = apply_casts(*lhs);
 
         while (peek().has_value() && (peek().value().type == TokenType::star || peek().value().type == TokenType::slash || peek().value().type == TokenType::percent)) {
             auto op = consume().type;
@@ -370,6 +388,7 @@ std::optional<NodeExpr*> Parser::parse_mul_expr()
             if (!rhs) {
                 error("Expected expression after operator");
             }
+            rhs = apply_casts(*rhs);
 
             if (op == TokenType::star) {
                 auto node = m_allocator.alloc<BinExprMulti>();

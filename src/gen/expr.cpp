@@ -6,6 +6,16 @@ bool int_signed(IntType t) {
            t == IntType::i32 || t == IntType::i64;
 }
 
+IRWidth width_of_int(IntType t) {
+    switch (t) {
+        case IntType::i8:  case IntType::u8:  return IRWidth::I8;
+        case IntType::i16: case IntType::u16: return IRWidth::I16;
+        case IntType::i32: case IntType::u32: return IRWidth::I32;
+        case IntType::i64: case IntType::u64: return IRWidth::I64;
+    }
+    return IRWidth::I64;
+}
+
 uint32_t load_typed_field(IRBuilder& ir, uint32_t ptr, const Type& t) {
     size_t sz = type_size(t);
     bool sgn = int_signed(t.int_type);
@@ -336,6 +346,28 @@ void Generator::gen_expr(const NodeExpr& expr)
             } else {
                 gen->fail(addr_of->ampersand.loc, "Cannot take address of this expression");
             }
+        }
+
+        void operator()(const NodeExprCast* cast) const
+        {
+            gen->gen_expr(*cast->expr);
+            Type from = gen->peek_type();
+            uint32_t v = gen->pop_vreg();
+            Type to = cast->target;
+            if (from.kind == Type::Int && to.kind == Type::Int) {
+                size_t src_sz = type_size(from), dst_sz = type_size(to);
+                if (dst_sz < src_sz) {
+                    if (dst_sz <= 1)      v = gen->m_ir.and_(IRValue::vreg(v), IRValue::imm_i64(0xFF));
+                    else if (dst_sz <= 2) v = gen->m_ir.and_(IRValue::vreg(v), IRValue::imm_i64(0xFFFF));
+                    else                  v = gen->m_ir.zext(IRValue::vreg(v), IRWidth::I32);
+                } else if (dst_sz > src_sz) {
+                    v = int_signed(from.int_type)
+                            ? gen->m_ir.sext(IRValue::vreg(v), width_of_int(from.int_type))
+                            : gen->m_ir.zext(IRValue::vreg(v), width_of_int(from.int_type));
+                }
+            }
+            gen->push_vreg(v);
+            gen->m_tstack.back() = to;
         }
 
         void operator()(const NodeExprSizeof* sz) const

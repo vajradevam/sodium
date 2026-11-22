@@ -86,7 +86,7 @@ anyway, tick the box, and note "not reproducible" in PROGRESS.md.
 - [x] **Y2c `sizeof` builtin (split from Y2).** Compile-time `sizeof(T)` / `sizeof(expr)` for int types, pointers and structs, usable in const expressions and codegen; tests on both targets; tick Y2.
 - [x] **Y3 Typed local arrays** (`var a: i32[10];`) with element-width loads/stores and `sizeof`; array-to-pointer decay in calls.
 - [x] **Y4 `bool`, `char`, `true/false/null`.**
-- [ ] **Y5 Casts** `as`; explicit narrowing required where Y1 rules reject implicit.
+- [x] **Y5 Casts** `as`; explicit narrowing required where Y1 rules reject implicit.
 - [ ] **Y6 `type` aliases, `enum`.**
 - [ ] **Y7 Pointer-to-struct field access** (`p->x` or `(*p).x`, pick per DECISIONS) and `&s.f`, nested struct (`a.b.c`), arrays of structs, struct literals `{ .x = 1 }`.
 - [ ] **Y8 Struct by value:** param, return, assignment (`a = b`), on both ABIs.
