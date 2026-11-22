@@ -384,3 +384,15 @@ both fail with the `null dereference` diagnostic and a non-null pointer works un
 targets at -O0 and -O1. `scripts/check.sh --full` green: 685 -> 691 passed / 0 failed / 10 skipped
 at both levels; 289 C++ cases / 4296 checks; sweep 2088 -> 2106 invocations / 0 crashes;
 ASan/UBSan clean.
+
+## 2026-11-23 — X4c Stack-overflow probe
+Added `--stack-probe`: `_start` stores `initial_rsp - 1 MiB` into a new `__sodium_stack_limit`
+bss global, and each function prologue compares the current SP against it via a new
+`Backend::stack_probe_check` implemented for x86-64 (`cmp rsp` + `jge`) and riscv64 (`bge`). The
+failure path prints a fixed message and exits 70 using the existing runtime helpers (D-035), with
+per-function labels. The first x86 draft passed the message in `rax`, but `_sodium_print_raw_str`
+takes it in `rdi` — qemu traced a SIGSEGV at 0x8 until that was fixed. Added two
+`tests/checks/` cases: deep recursion with a large frame fails cleanly and shallow recursion is
+unchanged, on both targets at -O0 and -O1. `scripts/check.sh --full` green: 691 -> 695 passed /
+0 failed / 10 skipped at both levels; 289 C++ cases / 4296 checks; sweep 2106 -> 2118 invocations
+/ 0 crashes; ASan/UBSan clean.

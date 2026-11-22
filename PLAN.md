@@ -156,7 +156,7 @@ anyway, tick the box, and note "not reproducible" in PROGRESS.md.
 - [x] **X3 Module hygiene (D-034):** kept textual `#include`; documented `#pragma once`/include-guard usage and cyanlib prefix conventions in `docs/MODULES.md`.
 - [x] **X4a `--bounds`:** opt-in array index checks with a shared runtime-check emitter (D-035); tests proving out-of-range and negative indices fail and valid indices are unchanged on both targets.
 - [x] **X4b `--check-null`:** opt-in null-deref checks for pointer reads and writes; tests proving null fails and non-null is unchanged on both targets.
-- [ ] **X4c `--stack-probe`:** opt-in stack-overflow probe at function entry via a stack-pointer read opcode on both backends; tests proving deep recursion fails and shallow calls are unchanged.
+- [x] **X4c `--stack-probe`:** opt-in stack-overflow probe at function entry via a stack-pointer read opcode on both backends; tests proving deep recursion fails and shallow calls are unchanged.
 - [ ] **X5 Inline asm** minimal form, per-arch, with clobber list.
 - [ ] **X6 Debug info:** `.loc`/line tables so `gdb`/`qemu -g` can step source lines.
 - [ ] **P6-END** gate, tag.

@@ -72,6 +72,11 @@ void Generator::flush_function(IRFunction* func, uint32_t frame_bytes, bool emit
     // function body, so deferred and immediate emission produce identical text.
     if (emit_extern) m_backend_ptr->extern_sym(func->name);
     IREmitter emitter(*m_backend_ptr, *m_tri_ptr);
+    if (m_stack_probe) {
+        const std::string message = new_string_label();
+        m_strings.push_back({message, "stack overflow\n"});
+        emitter.set_stack_probe(true, message);
+    }
     emitter.emit_function(*func);
 
     // Reset per-function state; the caller owns the IRFunction object.
@@ -383,6 +388,11 @@ std::string Generator::gen_prog_impl()
         collect_globals(func->body->stmts);
     }
 
+    if (m_stack_probe) {
+        // One qword holding the lowest allowed stack address (X4c).
+        m_bss_entries.push_back({"__sodium_stack_limit", 1});
+    }
+
     m_backend_ptr->extern_sym("_sodium_exit");
     m_backend_ptr->extern_sym("_sodium_print_int");
     m_backend_ptr->extern_sym("_sodium_print_raw_int");
@@ -473,6 +483,21 @@ std::string Generator::gen_prog_impl()
         m_backend_ptr->emit_insn("add", "t0, sp, t0");
         m_backend_ptr->emit_insn("la", "t1, __sodium_envp");
         m_backend_ptr->emit_insn("sd", "t0, 0(t1)");
+    }
+
+    if (m_stack_probe) {
+        // Allow 1 MiB of stack below the initial SP before declaring overflow.
+        if (m_backend_ptr->target_name() == "x86_64") {
+            m_backend_ptr->emit_insn("mov", "rax, rsp");
+            m_backend_ptr->emit_insn("mov", "edx, 1048576");
+            m_backend_ptr->emit_insn("sub", "rax, rdx");
+            m_backend_ptr->emit_insn("mov", "[rel __sodium_stack_limit], rax");
+        } else {
+            m_backend_ptr->emit_insn("li", "t0, 1048576");
+            m_backend_ptr->emit_insn("sub", "t0, sp, t0");
+            m_backend_ptr->emit_insn("la", "t1, __sodium_stack_limit");
+            m_backend_ptr->emit_insn("sd", "t0, 0(t1)");
+        }
     }
 
     // Call global initializers before main

@@ -56,6 +56,14 @@ public:
     /// Emit a return instruction.
     virtual void ret() = 0;
 
+    /// Emit an optional stack-overflow probe at function entry (X4c). On
+    /// entry the stack pointer is compared with a limit global; if it is
+    /// below the limit, print `message_label` and exit with status 70.
+    virtual void stack_probe_check(const std::string& limit_label,
+                                   const std::string& message_label,
+                                   const std::string& ok_label,
+                                   const std::string& fail_label) = 0;
+
     // ----------------------------------------------------------------
     // Data movement
     // ----------------------------------------------------------------

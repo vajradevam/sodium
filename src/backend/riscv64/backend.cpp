@@ -108,6 +108,23 @@ void RISCV64Backend::ret() {
     emit_insn("ret");
 }
 
+void RISCV64Backend::stack_probe_check(const std::string& limit_label,
+                                       const std::string& message_label,
+                                       const std::string& ok_label,
+                                       const std::string& fail_label) {
+    // t0/t1/a0 are caller-saved; the probe runs before any live IR value is
+    // loaded, so clobbering them here is safe.
+    emit_insn("la", "t0, " + limit_label);
+    emit_insn("ld", "t1, 0(t0)");
+    emit_insn("bge", "sp, t1, " + ok_label);
+    label(fail_label);
+    emit_insn("la", "a0, " + message_label);
+    emit_insn("call", "_sodium_print_raw_str");
+    emit_insn("li", "a0, 70");
+    emit_insn("call", "_sodium_exit");
+    label(ok_label);
+}
+
 // ---- data movement ----
 
 void RISCV64Backend::load_imm(const std::string& reg, int64_t value) {

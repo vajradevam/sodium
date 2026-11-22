@@ -22,6 +22,12 @@ public:
     IREmitter(Backend& backend, const TargetRegisterInfo& tri)
         : m_backend(backend), m_tri(tri) {}
 
+    /// Enable the optional entry stack-overflow probe (X4c).
+    void set_stack_probe(bool enabled, const std::string& message_label) {
+        m_stack_probe = enabled;
+        m_stack_message_label = message_label;
+    }
+
     /// Emit a complete function.
     void emit_function(const IRFunction& func) {
         m_func_name = func.name;
@@ -29,6 +35,12 @@ public:
         // Function label
         m_backend.label(func.name);
         m_backend.func_prologue();
+
+        if (m_stack_probe) {
+            m_backend.stack_probe_check(
+                "__sodium_stack_limit", m_stack_message_label,
+                mangle_label(".Lstack_ok"), mangle_label(".Lstack_fail"));
+        }
 
         // Allocate stack space for frame slots
         if (func.stack_slots > 0) {
@@ -504,6 +516,8 @@ private:
     Backend& m_backend;
     const TargetRegisterInfo& m_tri;
     std::string m_func_name;
+    bool m_stack_probe = false;
+    std::string m_stack_message_label;
 
     std::string mangle_label(const std::string& label) const {
         if (label.empty()) return label;

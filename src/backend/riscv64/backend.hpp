@@ -25,6 +25,8 @@ public:
     void func_prologue() override;
     void func_epilogue() override;
     void ret() override;
+    void stack_probe_check(const std::string& limit_label, const std::string& message_label,
+                           const std::string& ok_label, const std::string& fail_label) override;
 
     // Data movement
     void load_imm(const std::string& reg, int64_t value) override;

@@ -1,0 +1,17 @@
+// COMPILE-FLAGS: --stack-probe
+// EXPECT-EXIT: 70
+// EXPECT-STDOUT: stack overflow
+
+// X4c: deep recursion with a large frame must hit the stack limit cleanly.
+
+function recurse(n: i64) -> i64 {
+    var pad[1024];
+    pad[0] = n;
+    if (pad[0] < 0) { return 0; }
+    return recurse(n + 1) + pad[0];
+}
+
+function main() {
+    print("%d", recurse(0));
+    return 0;
+}

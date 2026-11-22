@@ -24,6 +24,8 @@ public:
     void func_prologue() override {}
     void func_epilogue() override {}
     void ret() override {}
+    void stack_probe_check(const std::string&, const std::string&,
+                           const std::string&, const std::string&) override {}
 
     void emit_insn(const std::string& insn, const std::string& ops) override { (void)insn; (void)ops; }
     void load_imm(const std::string& reg, int64_t value) override { (void)reg; (void)value; }

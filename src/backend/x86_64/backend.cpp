@@ -85,6 +85,23 @@ void X8664Backend::ret() {
     emit_insn("ret");
 }
 
+void X8664Backend::stack_probe_check(const std::string& limit_label,
+                                     const std::string& message_label,
+                                     const std::string& ok_label,
+                                     const std::string& fail_label) {
+    // rsp is 16-byte aligned here (after push rbp), so calling the runtime
+    // print/exit helpers from the failure path is safe. rax/rdi are caller-saved.
+    emit_insn("mov", "rax, [rel " + limit_label + "]");
+    emit_insn("cmp", "rsp, rax");
+    emit_insn("jge", ok_label);
+    label(fail_label);
+    emit_insn("lea", "rdi, [rel " + message_label + "]");
+    emit_insn("call", "_sodium_print_raw_str");
+    emit_insn("mov", "rdi, 70");
+    emit_insn("call", "_sodium_exit");
+    label(ok_label);
+}
+
 // ---- data movement ----
 
 void X8664Backend::load_imm(const std::string& reg, int64_t value) {
