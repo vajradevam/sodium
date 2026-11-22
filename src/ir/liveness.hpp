@@ -16,6 +16,10 @@ struct LiveRange {
     bool spans_call = false;    ///< range includes a CALL instruction
     bool crosses_div = false;   ///< range includes a DIV/MOD, whose rax/rdx clobber is implicit
 
+    /// Instruction positions where the vreg is read (sorted), used by the
+    /// allocator to prefer spilling the value whose next use is farthest away.
+    std::vector<uint32_t> use_positions;
+
     bool overlaps(const LiveRange& other) const {
         return start < other.end && other.start < end;
     }
@@ -140,6 +144,7 @@ inline LiveRanges compute_live_ranges(const IRFunction& func) {
         bool seen = false;
         uint32_t first = 0;
         uint32_t last = 0;
+        std::vector<uint32_t> uses;
     };
     std::map<uint32_t, Extent> extents;
     std::set<uint32_t> call_positions;
@@ -161,7 +166,10 @@ inline LiveRanges compute_live_ranges(const IRFunction& func) {
             if (insn.dst != IRInstruction::NONE_VREG) extend(insn.dst, idx);
             if (insn.dst2 != IRInstruction::NONE_VREG) extend(insn.dst2, idx);
             for (const auto& op : insn.operands) {
-                if (op.is_vreg()) extend(op.vreg_id, idx);
+                if (op.is_vreg()) {
+                    extend(op.vreg_id, idx);
+                    extents[op.vreg_id].uses.push_back(idx);
+                }
             }
             ++idx;
         }
@@ -180,6 +188,7 @@ inline LiveRanges compute_live_ranges(const IRFunction& func) {
     for (const auto& [vreg, extent] : extents) {
         LiveRange r;
         r.vreg = vreg;
+        r.use_positions = extent.uses;  // already in increasing instruction order
         r.start = extent.first;
         r.end = extent.last + 1;
         if (r.end > numbering.count) r.end = numbering.count;

@@ -259,3 +259,13 @@ programs at -O1 on both targets and reports totals; the current baseline is 248 
 2 spills, 301693 callee-save assignments. Added 4 allocator unit tests (no spills in a simple
 function, pressure with one register, call-spanning and DIV-crossing callee-save use).
 `scripts/check.sh` green; O6b (heuristic improvement) is still pending.
+
+## 2026-11-22 — O6b Next-use spill heuristic
+Live intervals now carry sorted use positions and linear scan evicts the active value whose next
+use is farthest away, protecting call/DIV-crossing values from being evicted by others. Added a
+one-register unit test that checks the intended victim changes; a first implementation scanned
+use lists linearly and timed out on `test_large_array.cyan` in the sweep, fixed by binary-searching
+the sorted positions. `scripts/bench_regalloc.sh` is now part of `scripts/check.sh`; the benchmark
+stays at 248 functions, 2 spills, 301693 callee-save assignments. `scripts/check.sh --full` green:
+671 passed, 0 failed, 10 skipped at both levels; 253 -> 254 C++ cases / 4203 checks; sweep 2046
+invocations, 0 crashes; ASan/UBSan clean.

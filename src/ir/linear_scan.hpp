@@ -9,6 +9,8 @@
 #include <set>
 #include <algorithm>
 #include <cassert>
+#include <limits>
+#include <utility>
 
 /// A per-virtual-register allocation decision.
 struct RegAllocEntry {
@@ -73,7 +75,16 @@ struct ActiveInterval {
     uint32_t vreg;
     int phys_reg;
     uint32_t end_pos;
+    uint32_t next_use = std::numeric_limits<uint32_t>::max();
+    std::vector<uint32_t> uses;
+    bool needs_callee_save = false;
 };
+
+/// First recorded use at or after `pos`, or UINT32_MAX when there is none.
+inline uint32_t next_use_at(const std::vector<uint32_t>& uses, uint32_t pos) {
+    auto it = std::lower_bound(uses.begin(), uses.end(), pos);
+    return it == uses.end() ? std::numeric_limits<uint32_t>::max() : *it;
+}
 
 /// Linear scan register allocator.
 ///
@@ -83,7 +94,7 @@ struct ActiveInterval {
 ///   3. For each interval in order:
 ///      a. Expire old intervals (end <= current start).
 ///      b. If a free register is available, assign it.
-///      c. Otherwise, spill the interval with the furthest end.
+///      c. Otherwise, evict the value whose next use is farthest away.
 ///
 /// This is a straightforward implementation of the classic linear
 /// scan algorithm (Poletto & Sarkar, 1999).
@@ -129,10 +140,10 @@ public:
             int free_reg = find_free_register(preferred);
 
             if (free_reg >= 0) {
-                assign_register(range, free_reg);
+                assign_register(range, free_reg, range.start);
             } else {
                 // 2d. Need to spill.
-                spill(range, preferred);
+                spill(range, preferred, range.start);
             }
         }
 
@@ -166,6 +177,9 @@ private:
                 }),
             m_active.end()
         );
+        for (auto& ai : m_active) {
+            ai.next_use = next_use_at(ai.uses, current_start);
+        }
     }
 
     int find_free_register(const std::vector<int>& available) {
@@ -182,35 +196,47 @@ private:
         return -1;  // all registers are occupied
     }
 
-    void assign_register(const LiveRange& range, int preg) {
+    void assign_register(const LiveRange& range, int preg, uint32_t pos) {
         RegAllocEntry entry;
         entry.kind = RegAllocEntry::PHYSICAL;
         entry.preg = preg;
         m_allocation.entries[range.vreg] = entry;
 
-        m_active.push_back({ range.vreg, preg, range.end });
+        ActiveInterval ai;
+        ai.vreg = range.vreg;
+        ai.phys_reg = preg;
+        ai.end_pos = range.end;
+        ai.uses = range.use_positions;
+        ai.next_use = next_use_at(ai.uses, pos);
+        ai.needs_callee_save = range.spans_call || range.crosses_div;
+        m_active.push_back(std::move(ai));
     }
 
-    /// No register in `available` is free for `range`. Either evict the active
-    /// interval (holding a register from `available`) that ends furthest away,
-    /// or spill `range` itself.
-    void spill(const LiveRange& range, const std::vector<int>& available) {
-        int furthest_idx = -1;
-        uint32_t furthest_end = 0;
-        for (size_t i = 0; i < m_active.size(); i++) {
-            bool usable = std::find(available.begin(), available.end(),
-                                    m_active[i].phys_reg) != available.end();
-            if (usable && m_active[i].end_pos >= furthest_end) {
-                furthest_end = m_active[i].end_pos;
-                furthest_idx = static_cast<int>(i);
+    /// No register in `available` is free for `range`. Evict the active value
+    /// whose next use is farthest away (so the nearest use keeps its register),
+    /// unless that value needs a callee-save register and this one does not.
+    void spill(const LiveRange& range, const std::vector<int>& available, uint32_t pos) {
+        const bool current_protected = range.spans_call || range.crosses_div;
+        const uint32_t current_next = next_use_at(range.use_positions, pos);
+        int victim = -1;
+        uint32_t victim_next = 0;
+        for (size_t i = 0; i < m_active.size(); ++i) {
+            const ActiveInterval& ai = m_active[i];
+            if (std::find(available.begin(), available.end(), ai.phys_reg) == available.end()) {
+                continue;
+            }
+            if (ai.needs_callee_save && !current_protected) continue;
+            if (victim < 0 || ai.next_use > victim_next) {
+                victim = static_cast<int>(i);
+                victim_next = ai.next_use;
             }
         }
 
-        if (furthest_idx >= 0 && range.end > furthest_end) {
-            int freed_reg = m_active[furthest_idx].phys_reg;
-            m_allocation.entries[m_active[furthest_idx].vreg] = make_spill_entry();
-            m_active.erase(m_active.begin() + furthest_idx);
-            assign_register(range, freed_reg);
+        if (victim >= 0 && victim_next > current_next) {
+            const int freed_reg = m_active[victim].phys_reg;
+            m_allocation.entries[m_active[victim].vreg] = make_spill_entry();
+            m_active.erase(m_active.begin() + victim);
+            assign_register(range, freed_reg, pos);
         } else {
             m_allocation.entries[range.vreg] = make_spill_entry();
         }

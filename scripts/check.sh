@@ -25,6 +25,10 @@ step "optimization IR effects (-O0 vs -O1)"
 ./scripts/test_opt_effects.sh > build/last_opt.log 2>&1 || die "optimization effects (see build/last_opt.log)"
 tail -1 build/last_opt.log
 
+step "register allocator benchmark (both targets)"
+./scripts/bench_regalloc.sh > build/last_bench.log 2>&1 || die "regalloc benchmark (see build/last_bench.log)"
+tail -1 build/last_bench.log
+
 step "differential oracle (Cyan vs C, both targets)"
 ./scripts/oracle.sh > build/last_oracle.log 2>&1 || die "oracle (see build/last_oracle.log)"
 tail -2 build/last_oracle.log

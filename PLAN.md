@@ -141,7 +141,7 @@ anyway, tick the box, and note "not reproducible" in PROGRESS.md.
 - [x] **O5a mem2reg IR pass (D-027):** find frame slots whose addresses never escape and promote loads/stores to a shared vreg when every load is dominated by a store; C++ unit tests for straight-line, loops, branches, narrow types, address-taken locals and dominance rejection.
 - [x] **O5b mem2reg integration:** run the pass under `-O1`, verify after it, add Cyan tests on both targets at `-O0`/`-O1`, and confirm no regressions in the full suite.
 - [x] **O6a Regalloc measurement:** expose spill/callee-save counters (`--dump-regalloc`), add a fixed benchmark script and allocator unit tests.
-- [ ] **O6b Spill heuristic:** use next-use positions to choose the evicted interval; verify fewer spills on the benchmark set and no semantic regressions.
+- [x] **O6b Spill heuristic:** use next-use positions to choose the evicted interval; verify fewer spills on the benchmark set and no semantic regressions.
 - [ ] **O7 Peephole per backend;** inlining of small leaf functions.
 - [ ] **O8 Benchmarks** (`bench/`: fib, sieve, matmul, sort, hash) with a script printing instruction counts (qemu `-d` or `perf stat`) — track no regressions; `-O1` becomes default only if the whole suite plus oracle pass under it.
 - [ ] **P5-END** full gate under `-O0` and `-O1`, tag.

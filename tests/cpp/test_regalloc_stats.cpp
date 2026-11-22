@@ -60,3 +60,23 @@ TEST(regalloc_stats_div_crossing_uses_callee_save) {
     RegisterAllocation result = alloc.allocate(f);
     CHECK(result.callee_save_count >= 1);
 }
+
+TEST(regalloc_spill_evicts_value_used_later) {
+    IRFunction f("nextuse");
+    auto* b = f.add_block(".entry");
+    b->emit(IRInstruction::load_i64(0, 1));   // pos 0, used at 4
+    b->emit(IRInstruction::load_i64(1, 2));   // pos 1, used at 10
+    b->emit(IRInstruction::load_i64(2, 3));   // pos 2, used at 3
+    b->emit(IRInstruction::copy(3, IRValue::vreg(2)));  // pos 3
+    b->emit(IRInstruction::copy(4, IRValue::vreg(0)));  // pos 4
+    for (int i = 0; i < 5; ++i) b->emit(IRInstruction::nop());  // pos 5..9
+    b->emit(IRInstruction::copy(5, IRValue::vreg(1)));  // pos 10
+    b->emit(IRInstruction::ret_void());  // pos 11
+
+    TargetRegisterInfo tri;
+    tri.add(0, "r0", true, false);  // one register forces a choice
+    LinearScanAllocator alloc(tri);
+    RegisterAllocation result = alloc.allocate(f);
+    CHECK(result.is_spilled(1));    // farthest next use (10) gets evicted
+    CHECK(!result.is_spilled(2));   // nearest next use (3) keeps the register
+}

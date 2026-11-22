@@ -277,3 +277,12 @@ the same "a call that defines the value does not count" rule as `spans_call`), a
 restricts such ranges to callee-save registers just like call-spanning ones. Variable shifts are
 already handled by the backends, which save and restore the count register. This became visible
 when O5 promoted a loop variable whose live range then crossed a modulo in `test_comprehensive`.
+
+## D-029 Spill heuristic uses next-use positions (O6)
+Linear scan now keeps each interval's sorted use positions. When no register is free it evicts the
+active value whose next use at the current position is farthest away (binary-searched), rather
+than the one with the furthest interval end. A value needing a callee-save register (call- or
+DIV/MOD-crossing) is never evicted for one that does not. `scripts/bench_regalloc.sh` reports
+spills and callee-save assignments across five programs on both targets on every gate run; the
+heuristic change keeps the total at the baseline (2 spills) while the crafted one-register unit
+case shows the intended different choice.
