@@ -96,12 +96,12 @@ anyway, tick the box, and note "not reproducible" in PROGRESS.md.
 - [x] **Y7d2 Struct literals (split from Y7).** `{ .x = 1 }` initializer expressions for typed struct locals; tests on both targets; tick Y7 once done.
 - [x] **Y8a Struct assignment (split from Y8).** `a = b` copies all bytes between typed struct locals with correct field widths; tests on both targets.
 - [x] **Y2d C memory layout (inserted before Y8b; prerequisite of D-012).** Frame objects (arrays, structs) are 8-byte aligned/granular with ascending addresses, narrow (16/32-bit) loads and stores are plain little-endian, `base + offset` addresses fields/elements, pointer arithmetic on decayed arrays walks forward; fixes neighbour corruption for sub-8-byte arrays/structs/scalars. Regression tests on both targets.
-- [ ] **Y8b Struct params/returns (split from Y8).** ABI chosen in D-012 (platform ABI per target). Sub-tasks below; tick Y8b when all are done.
+- [x] **Y8b Struct params/returns (split from Y8).** ABI chosen in D-012 (platform ABI per target). Sub-tasks below; tick Y8b when all are done.
   - [x] **Y8b1** Struct values as call arguments (<= 16 bytes, in registers) and `p: Point` parameters; struct-valued expressions evaluate to an address with `Type::Struct`; tests on both targets.
   - [x] **Y8b2** Struct returns <= 16 bytes: `RET2`, `dst2` on CALL, `ret_reg2` in target info; tests incl. sizes 1..16 and spilled values on both targets.
   - [x] **Y8b3** Returns > 16 bytes through a hidden first-argument pointer; riscv64 params > 16 bytes by reference.
   - [x] **Y8b4a** Argument-placement classifier shared by caller and callee (CALL `reg_args`): x86_64 structs > 16 bytes and register-straddling structs go entirely on the stack while later scalars still use the free registers; riscv64 keeps its split rule; remove the "cannot be passed by value yet"/straddle diagnostics; tests on both targets.
-  - [ ] **Y8b4b** C-interop harness (`scripts/test_abi_interop.sh`, in `check.sh`): gcc-built C callers/callees linked against Cyan output (weak stubs for the reverse direction) for struct params and returns of sizes 1..40 on both targets.
+  - [x] **Y8b4b** C-interop harness (`scripts/test_abi_interop.sh`, in `check.sh`): gcc-built C callers/callees linked against Cyan output (weak stubs for the reverse direction) for struct params and returns of sizes 1..40 on both targets.
 - [x] **Y9a Multi-dimensional arrays (split from Y9).** Parse `var a: i32[2][3]` and `a[i][j]`; row-major layout with compile-time dimension sizes; reads/writes on both targets.
 - [x] **Y9b Const correctness + untyped fallback (split from Y9).** Keep call-site inference strictly as a fallback that emits a warning for untyped params; verify `const` declarations cannot be written; migrate cyanlib/tests to typed signatures incrementally; tick Y9.
 - [ ] **Y10 Function pointers** and indirect calls on both targets.

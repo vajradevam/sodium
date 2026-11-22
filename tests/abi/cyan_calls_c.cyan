@@ -1,0 +1,204 @@
+// C-interop (D-012, Y8b4b): this program calls functions implemented in C (gcc).
+// The Cyan definitions of the c_* functions are deliberately wrong stubs that give the
+// compiler their signatures; scripts/test_abi_interop.sh weakens them so the C
+// definitions win at link time. Exit code N means check N failed.
+// SKIP-TEST: part of scripts/test_abi_interop.sh (needs the C object)
+
+struct T1 { var a: i8; };
+struct T3 { var a: i8; var b: i8; var c: i8; };
+struct T6 { var a: i16; var b: i16; var c: i16; };
+struct T8 { var a: i32; var b: i32; };
+struct T12 { var a: i32; var b: i32; var c: i32; };
+struct T16 { var a: i64; var b: i64; };
+struct T24 { var a: i64; var b: i64; var c: i64; };
+struct T40 { var a: i64; var b: i64; var c: i64; var d: i64; var e: i64; };
+struct TM { var a: i8; var b: i64; var c: i16; };
+
+function c_sum_T1(s: T1) -> i64 { return 0 - 1; }
+function c_make_T1(a: i8) -> T1 {
+    var r: T1;
+    return r;
+}
+function c_sum_T3(s: T3) -> i64 { return 0 - 1; }
+function c_make_T3(a: i8, b: i8, c: i8) -> T3 {
+    var r: T3;
+    return r;
+}
+function c_sum_T6(s: T6) -> i64 { return 0 - 1; }
+function c_make_T6(a: i16, b: i16, c: i16) -> T6 {
+    var r: T6;
+    return r;
+}
+function c_sum_T8(s: T8) -> i64 { return 0 - 1; }
+function c_make_T8(a: i32, b: i32) -> T8 {
+    var r: T8;
+    return r;
+}
+function c_sum_T12(s: T12) -> i64 { return 0 - 1; }
+function c_make_T12(a: i32, b: i32, c: i32) -> T12 {
+    var r: T12;
+    return r;
+}
+function c_sum_T16(s: T16) -> i64 { return 0 - 1; }
+function c_make_T16(a: i64, b: i64) -> T16 {
+    var r: T16;
+    return r;
+}
+function c_sum_T24(s: T24) -> i64 { return 0 - 1; }
+function c_make_T24(a: i64, b: i64, c: i64) -> T24 {
+    var r: T24;
+    return r;
+}
+function c_sum_T40(s: T40) -> i64 { return 0 - 1; }
+function c_make_T40(a: i64, b: i64, c: i64, d: i64, e: i64) -> T40 {
+    var r: T40;
+    return r;
+}
+function c_sum_TM(s: TM) -> i64 { return 0 - 1; }
+function c_make_TM(a: i8, b: i64, c: i16) -> TM {
+    var r: TM;
+    return r;
+}
+function c_pos_mix(x: i64, p: T16, y: i64, q: T24, z: i64) -> i64 { return 0 - 1; }
+function c_backfill(a: i64, b: i64, c: i64, d: i64, e: i64, p: T16, g: i64) -> i64 { return 0 - 1; }
+function c_straddle7(a: i64, b: i64, c: i64, d: i64, e: i64, f: i64, g: i64, p: T16) -> i64 { return 0 - 1; }
+function c_small_mix(p: T3, q: T6, r: T12, s: T8) -> i64 { return 0 - 1; }
+function c_big_two(p: T40, q: T40, k: i64) -> i64 { return 0 - 1; }
+function c_mem_mixed(m: TM, x: i64, n: TM) -> i64 { return 0 - 1; }
+function c_relay16(p: T16) -> T16 {
+    var r: T16;
+    return r;
+}
+function c_relay24(p: T24) -> T24 {
+    var r: T24;
+    return r;
+}
+function c_relay40(p: T40) -> T40 {
+    var r: T40;
+    return r;
+}
+function c_relay12(p: T12) -> T12 {
+    var r: T12;
+    return r;
+}
+function c_relay3(p: T3) -> T3 {
+    var r: T3;
+    return r;
+}
+function c_relay8(p: T8) -> T8 {
+    var r: T8;
+    return r;
+}
+function c_relaym(p: TM) -> TM {
+    var r: TM;
+    return r;
+}
+
+function main() {
+    var t1_s: T1 = { .a = 5 };
+    if (c_sum_T1(t1_s) != 5) { return(1); }
+    var t1_m: T1 = c_make_T1(5);
+    if (t1_m.a != 5) { return(2); }
+    var t3_s: T3 = { .a = 1, .b = 2, .c = 3 };
+    if (c_sum_T3(t3_s) != 321) { return(3); }
+    var t3_m: T3 = c_make_T3(1, 2, 3);
+    if (t3_m.a != 1) { return(4); }
+    if (t3_m.b != 2) { return(5); }
+    if (t3_m.c != 3) { return(6); }
+    var t6_s: T6 = { .a = 4, .b = 5, .c = 6 };
+    if (c_sum_T6(t6_s) != 654) { return(7); }
+    var t6_m: T6 = c_make_T6(4, 5, 6);
+    if (t6_m.a != 4) { return(8); }
+    if (t6_m.b != 5) { return(9); }
+    if (t6_m.c != 6) { return(10); }
+    var t8_s: T8 = { .a = 7, .b = 8 };
+    if (c_sum_T8(t8_s) != 87) { return(11); }
+    var t8_m: T8 = c_make_T8(7, 8);
+    if (t8_m.a != 7) { return(12); }
+    if (t8_m.b != 8) { return(13); }
+    var t12_s: T12 = { .a = 1, .b = 2, .c = 3 };
+    if (c_sum_T12(t12_s) != 321) { return(14); }
+    var t12_m: T12 = c_make_T12(1, 2, 3);
+    if (t12_m.a != 1) { return(15); }
+    if (t12_m.b != 2) { return(16); }
+    if (t12_m.c != 3) { return(17); }
+    var t16_s: T16 = { .a = 4, .b = 5 };
+    if (c_sum_T16(t16_s) != 54) { return(18); }
+    var t16_m: T16 = c_make_T16(4, 5);
+    if (t16_m.a != 4) { return(19); }
+    if (t16_m.b != 5) { return(20); }
+    var t24_s: T24 = { .a = 6, .b = 7, .c = 8 };
+    if (c_sum_T24(t24_s) != 876) { return(21); }
+    var t24_m: T24 = c_make_T24(6, 7, 8);
+    if (t24_m.a != 6) { return(22); }
+    if (t24_m.b != 7) { return(23); }
+    if (t24_m.c != 8) { return(24); }
+    var t40_s: T40 = { .a = 1, .b = 2, .c = 3, .d = 4, .e = 5 };
+    if (c_sum_T40(t40_s) != 54321) { return(25); }
+    var t40_m: T40 = c_make_T40(1, 2, 3, 4, 5);
+    if (t40_m.a != 1) { return(26); }
+    if (t40_m.b != 2) { return(27); }
+    if (t40_m.c != 3) { return(28); }
+    if (t40_m.d != 4) { return(29); }
+    if (t40_m.e != 5) { return(30); }
+    var tm_s: TM = { .a = 3, .b = 4, .c = 5 };
+    if (c_sum_TM(tm_s) != 543) { return(31); }
+    var tm_m: TM = c_make_TM(3, 4, 5);
+    if (tm_m.a != 3) { return(32); }
+    if (tm_m.b != 4) { return(33); }
+    if (tm_m.c != 5) { return(34); }
+    var pos_mix_p: T16 = { .a = 2, .b = 3 };
+    var pos_mix_q: T24 = { .a = 5, .b = 6, .c = 7 };
+    if (c_pos_mix(1, pos_mix_p, 4, pos_mix_q, 8) != 87654321) { return(35); }
+    var backfill_p: T16 = { .a = 6, .b = 7 };
+    if (c_backfill(1, 2, 3, 4, 5, backfill_p, 8) != 87654321) { return(36); }
+    var straddle7_p: T16 = { .a = 8, .b = 9 };
+    if (c_straddle7(1, 2, 3, 4, 5, 6, 7, straddle7_p) != 987654321) { return(37); }
+    var small_mix_p: T3 = { .a = 1, .b = 2, .c = 3 };
+    var small_mix_q: T6 = { .a = 4, .b = 5, .c = 6 };
+    var small_mix_r: T12 = { .a = 1, .b = 2, .c = 3 };
+    var small_mix_s: T8 = { .a = 7, .b = 8 };
+    if (c_small_mix(small_mix_p, small_mix_q, small_mix_r, small_mix_s) != 299) { return(38); }
+    var big_two_p: T40 = { .a = 1, .b = 2, .c = 3, .d = 4, .e = 5 };
+    var big_two_q: T40 = { .a = 6, .b = 7, .c = 8, .d = 9, .e = 1 };
+    if (c_big_two(big_two_p, big_two_q, 7) != 8371651) { return(39); }
+    var mem_mixed_m: TM = { .a = 3, .b = 4, .c = 5 };
+    var mem_mixed_n: TM = { .a = 7, .b = 8, .c = 9 };
+    if (c_mem_mixed(mem_mixed_m, 6, mem_mixed_n) != 9876543) { return(40); }
+    var relay16_in: T16 = { .a = 4, .b = 5 };
+    var relay16_out: T16 = c_relay16(relay16_in);
+    if (relay16_out.a != 12) { return(41); }
+    if (relay16_out.b != 11) { return(42); }
+    var relay24_in: T24 = { .a = 6, .b = 7, .c = 8 };
+    var relay24_out: T24 = c_relay24(relay24_in);
+    if (relay24_out.a != 13) { return(43); }
+    if (relay24_out.b != 14) { return(44); }
+    if (relay24_out.c != 15) { return(45); }
+    var relay40_in: T40 = { .a = 1, .b = 2, .c = 3, .d = 4, .e = 5 };
+    var relay40_out: T40 = c_relay40(relay40_in);
+    if (relay40_out.a != 5) { return(46); }
+    if (relay40_out.b != 4) { return(47); }
+    if (relay40_out.c != 3) { return(48); }
+    if (relay40_out.d != 2) { return(49); }
+    if (relay40_out.e != 1) { return(50); }
+    var relay12_in: T12 = { .a = 1, .b = 2, .c = 3 };
+    var relay12_out: T12 = c_relay12(relay12_in);
+    if (relay12_out.a != 2) { return(51); }
+    if (relay12_out.b != 3) { return(52); }
+    if (relay12_out.c != 1) { return(53); }
+    var relay3_in: T3 = { .a = 1, .b = 2, .c = 3 };
+    var relay3_out: T3 = c_relay3(relay3_in);
+    if (relay3_out.a != 3) { return(54); }
+    if (relay3_out.b != 2) { return(55); }
+    if (relay3_out.c != 1) { return(56); }
+    var relay8_in: T8 = { .a = 7, .b = 8 };
+    var relay8_out: T8 = c_relay8(relay8_in);
+    if (relay8_out.a != 15) { return(57); }
+    if (relay8_out.b != 14) { return(58); }
+    var relaym_in: TM = { .a = 3, .b = 4, .c = 5 };
+    var relaym_out: TM = c_relaym(relaym_in);
+    if (relaym_out.a != 5) { return(59); }
+    if (relaym_out.b != 11) { return(60); }
+    if (relaym_out.c != 3) { return(61); }
+    return(0);
+}

@@ -25,6 +25,10 @@ step "differential oracle (Cyan vs C, both targets)"
 ./scripts/oracle.sh > build/last_oracle.log 2>&1 || die "oracle (see build/last_oracle.log)"
 tail -2 build/last_oracle.log
 
+step "C interop (struct ABI vs gcc, both targets)"
+./scripts/test_abi_interop.sh > build/last_abi.log 2>&1 || die "ABI interop (see build/last_abi.log)"
+tail -1 build/last_abi.log
+
 step "C++ unit tests"
 ./build/unit_tests > build/last_unit.log 2>&1 || die "unit tests (see build/last_unit.log)"
 tail -2 build/last_unit.log

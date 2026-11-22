@@ -518,8 +518,9 @@ void RISCV64Backend::global_sym(const std::string& name) {
 }
 
 void RISCV64Backend::extern_sym(const std::string& name) {
-    // RISC-V asm uses .extern or just declares the symbol
-    *m_output << ".extern " << name << "\n";
+    // GAS ignores `.extern`; `.globl` makes a function visible to the linker (and
+    // is harmless for an undefined reference), matching the x86_64 behaviour.
+    *m_output << ".globl " << name << "\n";
 }
 
 void RISCV64Backend::section(const std::string& name) {
