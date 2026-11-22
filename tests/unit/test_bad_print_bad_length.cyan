@@ -1,0 +1,7 @@
+// EXPECT-ERROR: invalid length modifier
+
+// Only the 'ld' length modifier is supported.
+function main() {
+    print("%lx", 1);
+    return(0);
+}

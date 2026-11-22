@@ -1,0 +1,7 @@
+// EXPECT-ERROR: Not enough arguments for print format string
+
+// %x consumes one argument, like %d and %s.
+function main() {
+    print("value=%x");
+    return(0);
+}

@@ -1,0 +1,30 @@
+// EXPECT-EXIT: 0
+// EXPECT-STDOUT: ff
+// EXPECT-STDOUT: 0
+// EXPECT-STDOUT: 2a
+// EXPECT-STDOUT: ffffffffffffffff
+// EXPECT-STDOUT: 18446744073709551615
+// EXPECT-STDOUT: 0
+// EXPECT-STDOUT: 42
+// EXPECT-STDOUT: A
+// EXPECT-STDOUT: !
+// EXPECT-STDOUT: x=9223372036854775807 y=-5
+// EXPECT-STDOUT: ff-42-B--7
+// EXPECT-STDOUT: 7ff
+
+// %x (lowercase hex), %u (unsigned decimal), %c (one byte), %ld (i64 decimal).
+function main() {
+    print("%x", 255);
+    print("%x", 0);
+    print("%x", 42);
+    print("%x", -1);
+    print("%u", -1);
+    print("%u", 0);
+    print("%u", 42);
+    print("%c", 65);
+    print("%c", 33);
+    print("x=%ld y=%d", 9223372036854775807, -5);
+    print("%x-%u-%c-%ld", 255, 42, 66, -7);
+    print("%x", 2047);
+    return(0);
+}

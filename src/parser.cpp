@@ -1035,8 +1035,9 @@ AssignOp Parser::token_to_assign_op(TokenType t) {
 }
 
 // Parse a format string literal and return the list of FormatSpecs.
-// Scans for %d, %s, %% patterns. Everything else is Text fragments.
-static std::vector<FormatSpec> parse_format_string(const std::string& fmt)
+// Scans for %d, %s, %x, %u, %c, %ld and %% patterns. Everything else is
+// Text fragments (unknown specifiers stay literal for backward compatibility).
+std::vector<FormatSpec> Parser::parse_format_string(const std::string& fmt)
 {
     std::vector<FormatSpec> specs;
     std::string cur_text;
@@ -1061,6 +1062,28 @@ static std::vector<FormatSpec> parse_format_string(const std::string& fmt)
                 case '%':
                     specs.push_back({FormatSpec::LiteralPercent, ""});
                     i += 2;
+                    break;
+                case 'x':
+                    specs.push_back({FormatSpec::Hex, ""});
+                    i += 2;
+                    break;
+                case 'u':
+                    specs.push_back({FormatSpec::Unsigned, ""});
+                    i += 2;
+                    break;
+                case 'c':
+                    specs.push_back({FormatSpec::Char, ""});
+                    i += 2;
+                    break;
+                case 'l':
+                    // `%ld` is the only length modifier: i64 is already 64-bit,
+                    // so it maps to the same specifier as `%d`.
+                    if (i + 2 < fmt.size() && fmt[i + 2] == 'd') {
+                        specs.push_back({FormatSpec::Int, ""});
+                        i += 3;
+                    } else {
+                        error("invalid length modifier in format string: expected 'ld'");
+                    }
                     break;
                 default:
                     // Unknown spec — treat as literal text
@@ -1142,12 +1165,20 @@ std::optional<NodeStmt> Parser::parse_print_stmt()
         args.push_back(first_expr.value());
     }
 
-    // Each %d / %s consumes one argument. Reject a shortage here instead of
-    // letting the generator index past the end of args.
+    // Each conversion specifier consumes one argument. Reject a shortage here
+    // instead of letting the generator index past the end of args.
     size_t needed_args = 0;
     for (const auto& spec : specs) {
-        if (spec.type == FormatSpec::Int || spec.type == FormatSpec::String) {
-            ++needed_args;
+        switch (spec.type) {
+            case FormatSpec::Int:
+            case FormatSpec::String:
+            case FormatSpec::Hex:
+            case FormatSpec::Unsigned:
+            case FormatSpec::Char:
+                ++needed_args;
+                break;
+            default:
+                break;
         }
     }
     if (args.size() < needed_args) {

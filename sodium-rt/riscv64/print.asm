@@ -132,3 +132,21 @@ _sodium_print_nl:
     ecall
     addi sp, sp, 16
     ret
+
+# ── _sodium_write_buf: write exactly len bytes from buf to stdout ──────────
+# a0 = buf, a1 = len. Loops on partial writes; uses caller-save t0/t1 only.
+.globl _sodium_write_buf
+_sodium_write_buf:
+    mv t0, a0               # buf
+    mv t1, a1               # len
+1:  beqz t1, 2f
+    li a7, 64               # syscall: write
+    li a0, 1                # fd = stdout
+    mv a1, t0
+    mv a2, t1
+    ecall
+    blez a0, 2f             # error or EOF on stdout
+    add t0, t0, a0
+    sub t1, t1, a0
+    j 1b
+2:  ret

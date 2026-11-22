@@ -8,12 +8,14 @@ ASFLAGS = -march=rv64gc -mno-relax
 CFLAGS  = -ffreestanding -nostdlib -fno-builtin -O2 -c
 
 SRCS = crt0.asm exit.asm print.asm read.asm read_str.asm
-OBJS = $(SRCS:.asm=.o) allocator.o
+OBJS = $(SRCS:.asm=.o) allocator.o printfmt.o
 
 all: sodium-rt.a
 
-# C file
+# C files
 allocator.o: ../allocator.c
+	$(CC) $(CFLAGS) -o $@ $<
+printfmt.o: ../printfmt.c
 	$(CC) $(CFLAGS) -o $@ $<
 
 # Assembly files

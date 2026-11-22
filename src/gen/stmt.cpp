@@ -505,6 +505,24 @@ void Generator::gen_stmt(const NodeStmt& stmt)
                         gen->m_ir.call("_sodium_print_raw_str", {IRValue::vreg(ptr)});
                         break;
                     }
+                    case FormatSpec::Hex: {
+                        gen->gen_expr(*stmt_print->args[arg_idx++]);
+                        uint32_t val = gen->pop_vreg();
+                        gen->m_ir.call("_sodium_print_raw_hex", {IRValue::vreg(val)});
+                        break;
+                    }
+                    case FormatSpec::Unsigned: {
+                        gen->gen_expr(*stmt_print->args[arg_idx++]);
+                        uint32_t val = gen->pop_vreg();
+                        gen->m_ir.call("_sodium_print_raw_uint", {IRValue::vreg(val)});
+                        break;
+                    }
+                    case FormatSpec::Char: {
+                        gen->gen_expr(*stmt_print->args[arg_idx++]);
+                        uint32_t val = gen->pop_vreg();
+                        gen->m_ir.call("_sodium_print_raw_char", {IRValue::vreg(val)});
+                        break;
+                    }
                     case FormatSpec::LiteralPercent: {
                         // Emit a single '%'
                         auto label = gen->new_string_label();

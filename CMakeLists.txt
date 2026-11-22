@@ -7,9 +7,14 @@ set(CMAKE_CXX_STANDARD 20)
 # ── Runtime libraries (x86-64) ─────────────────────────────────────
 find_program(NASM nasm)
 if(NASM)
+    file(GLOB X86_RT_SOURCES
+        ${CMAKE_SOURCE_DIR}/sodium-rt/Makefile
+        ${CMAKE_SOURCE_DIR}/sodium-rt/*.c
+        ${CMAKE_SOURCE_DIR}/sodium-rt/x86_64/*.asm)
     add_custom_command(
         OUTPUT ${CMAKE_SOURCE_DIR}/sodium-rt/x86_64/sodium-rt.a
         COMMAND ${CMAKE_MAKE_PROGRAM} -C ${CMAKE_SOURCE_DIR}/sodium-rt
+        DEPENDS ${X86_RT_SOURCES}
         COMMENT "Building x86-64 runtime library..."
     )
     add_custom_target(sodium-rt-x86_64 DEPENDS
@@ -24,9 +29,14 @@ find_program(RISCV_CC riscv64-elf-gcc)
 if(RISCV_CC)
     find_program(RISCV_AS riscv64-elf-as)
     if(RISCV_AS)
+        file(GLOB RV_RT_SOURCES
+            ${CMAKE_SOURCE_DIR}/sodium-rt/riscv64/Makefile
+            ${CMAKE_SOURCE_DIR}/sodium-rt/*.c
+            ${CMAKE_SOURCE_DIR}/sodium-rt/riscv64/*.asm)
         add_custom_command(
             OUTPUT ${CMAKE_SOURCE_DIR}/sodium-rt/riscv64/sodium-rt.a
             COMMAND ${CMAKE_MAKE_PROGRAM} -C ${CMAKE_SOURCE_DIR}/sodium-rt/riscv64
+            DEPENDS ${RV_RT_SOURCES}
             COMMENT "Building RISC-V runtime library..."
         )
         add_custom_target(sodium-rt-riscv64 DEPENDS

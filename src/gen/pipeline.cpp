@@ -336,6 +336,9 @@ std::string Generator::gen_prog_impl()
     m_backend_ptr->extern_sym("_sodium_exit");
     m_backend_ptr->extern_sym("_sodium_print_int");
     m_backend_ptr->extern_sym("_sodium_print_raw_int");
+    m_backend_ptr->extern_sym("_sodium_print_raw_hex");
+    m_backend_ptr->extern_sym("_sodium_print_raw_uint");
+    m_backend_ptr->extern_sym("_sodium_print_raw_char");
     m_backend_ptr->extern_sym("_sodium_print_raw_str");
     m_backend_ptr->extern_sym("_sodium_print_nl");
     m_backend_ptr->extern_sym("_sodium_read_int");

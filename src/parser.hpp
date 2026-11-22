@@ -265,7 +265,7 @@ struct NodeStmtBlock {
 };
 
 struct FormatSpec {
-    enum Type : uint8_t { Text, Int, String, LiteralPercent };
+    enum Type : uint8_t { Text, Int, String, LiteralPercent, Hex, Unsigned, Char };
     Type type;
     std::string text;  // for Text fragments
 };
@@ -479,6 +479,8 @@ private:
     static bool is_assign_op(TokenType t);
     /// Convert an assignment-operator token to the AssignOp enum.
     static AssignOp token_to_assign_op(TokenType t);
+    /// Scan a print format string into its text and conversion fragments.
+    std::vector<FormatSpec> parse_format_string(const std::string& fmt);
 
     const std::vector<Token> m_tokens;
     size_t m_index = 0;

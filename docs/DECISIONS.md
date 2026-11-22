@@ -133,3 +133,18 @@ struct arguments and returns work through pointers too.
 - Rejected: thunks/trampolines (an extra jump per call, a per-function data table, and the call
   path would differ from a direct call); loading the target into an argument register and
   interpreting it in the backend (breaks for 6+ register arguments).
+
+## D-015 print format specifiers (L2a)
+`print`'s first string-literal argument is a C-style format string. In addition to the original
+`%d`, `%s` and `%%`, these conversions are supported:
+
+- `%x` — lowercase hexadecimal of the argument's 64 bits, no `0x` prefix (`-1` prints `ffffffffffffffff`).
+- `%u` — the argument's 64 bits as unsigned decimal (`-1` prints `18446744073709551615`).
+- `%c` — exactly one raw byte, the low 8 bits of the argument (a NUL byte is emitted, not skipped).
+- `%ld` — decimal i64. Because Cyan integers are i64 (LP64, D-007), this is an alias of `%d`; the
+  `l` modifier is recognized only in front of `d`, and `%l` followed by anything else is an error.
+
+`%%` still emits a literal percent; unknown conversions remain literal text (backward compatibility).
+Each conversion consumes one argument, and a shortage is a compile error. Conversion lives in the
+freestanding runtime (`sodium-rt/printfmt.c` plus a `_sodium_write_buf` write helper in each
+backend's `print.asm`), not in generated IR, so both targets share the same formatting rules.

@@ -129,3 +129,25 @@ _sodium_print_nl:
     syscall
     add rsp, 16
     ret
+
+; ── _sodium_write_buf: write exactly len bytes from buf to stdout ──────────
+; rdi = buf, rsi = len. Loops on partial writes; uses caller-saved r8/r9 only.
+global _sodium_write_buf
+_sodium_write_buf:
+    mov r8, rdi             ; buf
+    mov r9, rsi             ; len
+.write_loop:
+    test r9, r9
+    jz .write_done
+    mov rax, 1              ; syscall: write
+    mov rdi, 1              ; fd = stdout
+    mov rsi, r8
+    mov rdx, r9
+    syscall
+    test rax, rax
+    jle .write_done         ; error or EOF on stdout
+    add r8, rax
+    sub r9, rax
+    jmp .write_loop
+.write_done:
+    ret
