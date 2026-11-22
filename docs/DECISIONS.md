@@ -378,3 +378,17 @@ and writes. The stack probe compares the current stack pointer at function entry
 established in `_start` and fails when a call would descend below it; it needs a small backend
 instruction to read the stack pointer into an IR vreg. Tests for every mode assert both that an
 invalid program triggers the diagnostic and that a valid program is unchanged.
+
+## D-036 Inline asm syntax and clobber semantics (X5)
+Cyan gains a statement-level inline-assembly form:
+`asm("x86_64", "nop", ["rax"]);` where the first argument is a target tag, the second is one
+assembly instruction line emitted verbatim, and the third is a list of physical register names.
+A statement whose target tag differs from the compilation target is a no-op, so one source file
+can carry both backends' asm without preprocessor target macros. Text is emitted through
+`Backend::emit_insn` and must be a single line; multi-line support and a peephole barrier are
+deferred to X5b. Clobber names must be full-width registers known to `TargetRegisterInfo` and
+caller-saved; naming a reserved or callee-save register is a compile error because X5a does not
+save/restore them. In X5a a clobbered instruction acts as a conservative barrier: any virtual
+register live across it is confined to callee-save registers, exactly like a value spanning a
+CALL. X5b refines this to per-register exclusions. There are no input/output operands in this
+minimal form — values cross the asm only through memory or the declared clobbers.
