@@ -237,3 +237,13 @@ jmp-only blocks. A vreg with several definitions is kept as a whole: if it has a
 definitions stay so dominance is unaffected. Removing a jmp-only block must make an implicit
 fallthrough from the preceding block explicit as a JMP to the block's target; otherwise that
 predecessor would fall into the block that follows the removed one. `-O0` never runs this pass.
+
+## D-025 Local CSE under -O1 (O4)
+`src/ir/cse.hpp` numbers expressions within a single block: repeated pure instructions become
+copies of the earlier result, an 8-byte load directly after a store to the same `[base + offset]`
+is replaced by that stored value, and duplicate stores of the same value are dropped. Loads are
+never CSE'd (they are only forwarded from a tracked store), any store discards all forwarded
+values, and calls/syscalls discard every fact. DIV and MOD are also barriers: they implicitly
+clobber rax/rdx, which the allocator does not treat as a call, so keeping a value live across
+one could let it be assigned a clobbered register. Expression facts are indexed by result and
+operand vregs so invalidation is proportional to affected entries, not the whole block.

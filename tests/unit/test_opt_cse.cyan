@@ -1,0 +1,28 @@
+// EXPECT-EXIT: 0
+// EXPECT-STDOUT: 18 7 25 30 12 12
+// COMPILE-FLAGS: -O1
+
+// O4: local CSE and store-to-load forwarding must agree with memory that is
+// written through an aliasing pointer or by a call.
+
+function bump(p: i64*) -> i64 {
+    *p = *p + 1;
+    return *p;
+}
+
+function main() {
+    var x = 10;
+    var p = &x;
+    *p = 9;
+    var a = *p + *p;
+    var q = p;
+    *q = 7;
+    var b = *p;
+    var c = a + b;
+    var d = (10 + 5) * 2;
+    *p = 11;
+    var g = bump(p);
+    var h = *p;
+    print("%d %d %d %d %d %d", a, b, c, d, g, h);
+    return 0;
+}

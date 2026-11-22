@@ -26,6 +26,7 @@ struct GenAbort {};
 #include "ir/verify.hpp"
 #include "ir/fold.hpp"
 #include "ir/cleanup.hpp"
+#include "ir/cse.hpp"
 #include <list>
 #include "ir/emitter.hpp"
 

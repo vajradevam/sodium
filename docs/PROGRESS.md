@@ -204,3 +204,16 @@ of its predecessor into the following block, crashing the hashmap library test o
 the predecessor now gets an explicit JMP to the removed block's target, with a regression unit
 test. `scripts/check.sh --full` green: 663 -> 665 passed, 0 failed, 10 skipped at both levels;
 206 -> 220 C++ cases / 4115 checks; ASan/UBSan clean.
+
+## 2026-11-22 — O4 Local CSE and store-to-load forwarding
+Added `src/ir/cse.hpp` under `-O1`, between folding and cleanup. Repeated pure instructions
+become copies; an 8-byte load after a store to the same `[base + offset]` is forwarded; duplicate
+stores of the same value are dropped. Calls/syscalls/stores discard facts, loads are not CSE'd,
+and DIV/MOD are barriers because of their implicit rax/rdx clobber. Added 14 C++ cases and
+`tests/unit/test_opt_cse.cyan` for aliasing pointers and calls that write memory; the IR-dump
+effect check now asserts CSE produced copies at `-O1` but not `-O0`. The first implementation
+was quadratic (20 s timeout on `test_large_array.cyan`), so facts are now indexed by vreg; running
+the `-O1` suite then found three wrong results/crashes because CSE extended a frame-address live
+range across MOD (rax/rdx clobber), fixed by treating DIV/MOD as barriers. `scripts/check.sh --full`
+green: 665 -> 667 passed, 0 failed, 10 skipped at both levels; 220 -> 234 C++ cases / 4141 checks;
+sweep 2022 -> 2034 invocations, 0 crashes; ASan/UBSan clean.

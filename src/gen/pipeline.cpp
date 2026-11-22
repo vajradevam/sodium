@@ -37,6 +37,7 @@ void Generator::flush_function() {
 
     if (m_opt_level >= 1) {
         fold_function(*func);
+        cse_function(*func);
         cleanup_function(*func);
     }
     if (!check_ir()) throw GenAbort{};  // catch a pass that breaks the IR

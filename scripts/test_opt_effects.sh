@@ -45,4 +45,21 @@ ret1=$(grep -c 'ret' "$WORK/cfg1")
 ret0=$(grep -c 'ret' "$WORK/cfg0")
 [ "$ret1" -lt "$ret0" ] || { echo "effect: dead instructions after ret were not removed"; exit 1; }
 
+cat > "$WORK/cse.cyan" <<'CYAN'
+function f(v: i64) -> i64 {
+    var a = v + 1;
+    var b = v + 1;
+    return a + b;
+}
+function main() {
+    return f(5);
+}
+CYAN
+
+"$COMPILER" -O1 --emit-ir -S -o "$WORK/out.s" "$WORK/cse.cyan" 2> "$WORK/cse1"
+"$COMPILER" -O0 --emit-ir -S -o "$WORK/out.s" "$WORK/cse.cyan" 2> "$WORK/cse0"
+copy1=$(grep -c 'copy ' "$WORK/cse1")
+copy0=$(grep -c 'copy ' "$WORK/cse0")
+[ "$copy1" -gt "$copy0" ] || { echo "effect: duplicate expression was not CSE'd"; exit 1; }
+
 echo "Optimization effects: OK"
