@@ -506,6 +506,24 @@ std::string Generator::gen_prog_impl()
         }
     }
 
+    // O7b2: with every callee body available, splice small leaf calls into
+    // their callers before the normal -O1 passes run in flush_function.
+    if (m_opt_level >= 1 && !m_pending_functions.empty()) {
+        std::vector<ir_inline::InlineItem> items;
+        items.reserve(m_pending_functions.size());
+        for (auto& pending : m_pending_functions) {
+            items.push_back({ pending.ir.get(), pending.frame_bytes });
+        }
+        const ir_inline::InlineStats inline_stats = ir_inline::inline_leaves(items);
+        for (size_t i = 0; i < items.size(); ++i) {
+            m_pending_functions[i].frame_bytes = items[i].frame_bytes;
+        }
+        if (m_dump_regalloc) {
+            std::cerr << "inlining candidates=" << inline_stats.candidates
+                      << " inlined=" << inline_stats.inlined << "\n";
+        }
+    }
+
     // O7b1: functions generated under -O1 were held in the pool so the leaf
     // inliner (O7b2) can inspect callee bodies. Emit them now, in source order.
     for (auto& pending : m_pending_functions) {

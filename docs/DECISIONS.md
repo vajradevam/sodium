@@ -313,3 +313,12 @@ vregs, and every callee frame offset is shifted below the caller's frame so slot
 collide. mem2reg then promotes the inlined slots, and folding/CSE clean up the copies. No new IR
 form is introduced — only existing COPY/STORE/FRAME_ADDR instructions — so the verifier and
 backend need no changes.
+
+### D-031 refinement: inlining eligibility
+The first eligibility rule allowed any single-block leaf, which let struct-ABI callees through.
+Those use `LEA` of a `FRAME_ADDR` plus nonzero-offset loads/stores to build aggregates; shifting
+only the `FRAME_ADDR` base is not enough for that pattern, and it corrupted struct-return tests
+under `-O1`. Eligibility now additionally requires: no `LEA`/`LOAD_PARAM`, every load/store at
+offset zero, and every `STORE_PARAM` full-width (`I64`) with no chunk shift. This keeps inlining
+to genuine scalar leaves (e.g. `add(a,b)`, `square(x)`, void helpers) and leaves all aggregate
+traffic to the regular calling convention.

@@ -21,6 +21,7 @@ struct GenAbort {};
 #include "ir/module.hpp"
 #include "ir/liveness.hpp"
 #include "ir/linear_scan.hpp"
+#include "ir/inline.hpp"
 #include "ir/rewriter.hpp"
 #include "ir/target_regs.hpp"
 #include "ir/verify.hpp"

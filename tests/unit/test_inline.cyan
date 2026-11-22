@@ -1,0 +1,43 @@
+// EXPECT-EXIT: 0
+// EXPECT-STDOUT: 85
+// EXPECT-STDOUT: 10
+// EXPECT-STDOUT: 45
+
+// O7b2: small leaf calls are inlined under -O1. Pure arithmetic leaves, a
+// nested leaf call and a void leaf with a global side effect must all keep
+// their semantics. The runner executes this at -O0 and -O1 again.
+
+global var hits = 0;
+
+function add(a, b) -> i64 {
+    return a + b;
+}
+
+function square(x) -> i64 {
+    return x * x;
+}
+
+function bump() {
+    hits = hits + 1;
+}
+
+function main() {
+    var s = 0;
+    var i = 0;
+    while (i < 10) {
+        s = s + add(i, square(2));
+        bump();
+        i = i + 1;
+    }
+    print("%d", s);
+    print("%d", hits);
+
+    var t = 0;
+    var j = 0;
+    while (j < 10) {
+        t = add(t, j);
+        j = j + 1;
+    }
+    print("%d", t);
+    return 0;
+}

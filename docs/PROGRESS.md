@@ -292,3 +292,18 @@ the old path: verified against a pre-refactor worktree build on three programs a
 `-O1`. Added an effect check that all functions remain present and in source order.
 `scripts/check.sh` green: 673 passed / 0 failed / 10 skipped at both levels; 263 C++ cases /
 4227 checks. No new tests yet — this is pure infrastructure for O7b2.
+
+## 2026-11-22 — O7b2 IR leaf inliner
+Added `src/ir/inline.hpp` and ran it over the deferred function pool before the normal -O1
+passes. Eligible callees (single body block plus the generated ret_void epilogue, no calls,
+branches, syscalls or RET2, at most 24 instructions, no LEA_LABEL reference) are spliced into
+each call site with fresh vregs, parameter STORE_PARAMs turned into plain stores of the call's
+argument vregs, and frame slots shifted below the caller's frame. Added 12 C++ cases and
+`tests/unit/test_inline.cyan` (nested arithmetic leaves and a void leaf with a global side
+effect) at -O0/-O1 on both targets; the effect script checks that real leaf calls are inlined.
+The first eligibility rule also admitted struct-ABI callees, whose LEA/nonzero-offset accesses
+broke nine struct tests at -O1; the rule was narrowed to scalar leaves with plain, full-width
+parameter stores (D-031 refinement). `scripts/check.sh --full` green: 673 -> 675 passed / 0
+failed / 10 skipped at both levels; 263 -> 274 C++ cases / 4265 checks; sweep 2052 -> 2058
+invocations / 0 crashes; benchmark 301693 -> 301688 callee-save assignments (fewer calls);
+ASan/UBSan clean.

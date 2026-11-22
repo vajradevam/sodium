@@ -101,4 +101,15 @@ for sym in inc_g make_id fib classify grade main; do
     last_line=$line
 done
 
+# O7b2: leaf calls must actually be inlined under -O1.
+"$COMPILER" -O1 --dump-regalloc -S -o "$WORK/inline.s" tests/unit/test_inline.cyan 2> "$WORK/inline.log"
+grep -qE 'inlining candidates=[1-9][0-9]* inlined=[1-9]' "$WORK/inline.log" || {
+    echo "effect: no leaf calls were inlined at -O1"
+    exit 1
+}
+if grep -qE '^[[:space:]]*call[[:space:]]+(add|square|bump)[[:space:]]*$' "$WORK/inline.s"; then
+    echo "effect: an eligible leaf call survived inlining"
+    exit 1
+fi
+
 echo "Optimization effects: OK"
