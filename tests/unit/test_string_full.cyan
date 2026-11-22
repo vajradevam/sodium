@@ -1,0 +1,131 @@
+// EXPECT-EXIT: 0
+// EXPECT-STDOUT: string library ok
+
+// Comprehensive coverage for cyanlib/string.cyan: every function, plus
+// empty inputs, truncation/padding boundaries and overlapping buffers.
+
+#include "string.cyan"
+
+function main() {
+    // ── strlen ─────────────────────────────────────────────────────
+    if (strlen("") != 0) { return(1); }
+    if (strlen("hello") != 5) { return(2); }
+    var e1 = malloc(8);
+    strcpy(e1, "ABC");
+    *(e1 + 1) = 0;
+    if (strlen(e1) != 1) { return(3); }
+
+    // ── strcmp ─────────────────────────────────────────────────────
+    if (strcmp("abc", "abc") != 0) { return(4); }
+    if (strcmp("abc", "abd") >= 0) { return(5); }
+    if (strcmp("abd", "abc") <= 0) { return(6); }
+    if (strcmp("", "") != 0) { return(7); }
+    if (strcmp("abc", "abcdef") >= 0) { return(8); }
+    if (strcmp("abcdef", "abc") <= 0) { return(9); }
+    // Byte loads are unsigned: 200 must compare greater than 50.
+    var u1 = malloc(2);
+    memset(u1, 200, 1);
+    memset(u1 + 1, 0, 1);
+    var u2 = malloc(2);
+    memset(u2, 50, 1);
+    memset(u2 + 1, 0, 1);
+    if (strcmp(u1, u2) <= 0) { return(10); }
+
+    // ── strncmp ────────────────────────────────────────────────────
+    if (strncmp("abc", "abc", 3) != 0) { return(11); }
+    if (strncmp("abc", "abd", 2) != 0) { return(12); }
+    if (strncmp("abc", "abd", 3) >= 0) { return(13); }
+    if (strncmp("abc", "abcdef", 3) != 0) { return(14); }
+    if (strncmp("", "", 5) != 0) { return(15); }
+    if (strncmp("a", "b", 0) != 0) { return(16); }
+
+    // ── strcpy ─────────────────────────────────────────────────────
+    var d1 = malloc(16);
+    if (strcpy(d1, "hello") != d1) { return(17); }
+    if (strcmp(d1, "hello") != 0) { return(18); }
+    strcpy(d1, "");
+    if (strlen(d1) != 0) { return(19); }
+
+    // ── strncpy ────────────────────────────────────────────────────
+    var d2 = malloc(8);
+    memset(d2, 88, 8);
+    if (strncpy(d2, "ab", 4) != d2) { return(20); }
+    if (strcmp(d2, "ab") != 0) { return(21); }
+    if (*(d2 + 3) != 0) { return(22); }
+    strncpy(d2, "abcdefgh", 3);
+    if (memcmp(d2, "abc", 3) != 0) { return(23); }
+    strncpy(d2, "x", 0);
+    if (memcmp(d2, "abc", 3) != 0) { return(24); }
+
+    // ── strcat ─────────────────────────────────────────────────────
+    var d3 = malloc(16);
+    strcpy(d3, "hello");
+    if (strcat(d3, " world") != d3) { return(25); }
+    if (strcmp(d3, "hello world") != 0) { return(26); }
+    strcat(d3, "");
+    if (strcmp(d3, "hello world") != 0) { return(27); }
+
+    // ── strchr ─────────────────────────────────────────────────────
+    var s1 = "hello";
+    var r1 = strchr(s1, 108);
+    if (r1 - s1 != 2) { return(28); }
+    if (*r1 != 108) { return(29); }
+    var r2 = strchr(s1, 122);
+    if (r2 != null) { return(30); }
+    var r3 = strchr(s1, 104);
+    if (r3 - s1 != 0) { return(31); }
+    var r4 = strchr(s1, 0);
+    if (r4 - s1 != 5) { return(32); }
+
+    // ── strstr ─────────────────────────────────────────────────────
+    var h1 = "hello world";
+    var f1 = strstr(h1, "world");
+    if (f1 - h1 != 6) { return(33); }
+    var f2 = strstr(h1, "hello");
+    if (f2 - h1 != 0) { return(34); }
+    var f3 = strstr(h1, "xyz");
+    if (f3 != null) { return(35); }
+    var f4 = strstr(h1, "");
+    if (f4 - h1 != 0) { return(36); }
+    if (strstr("", "a") != null) { return(37); }
+    if (strstr(h1, "world!") != null) { return(38); }
+
+    // ── memcpy ─────────────────────────────────────────────────────
+    var m1 = malloc(8);
+    memset(m1, 0, 8);
+    if (memcpy(m1, "ABCDEF", 3) != m1) { return(39); }
+    if (memcmp(m1, "ABC", 3) != 0) { return(40); }
+    if (*(m1 + 3) != 0) { return(41); }
+    memcpy(m1, "Z", 0);
+    if (memcmp(m1, "ABC", 3) != 0) { return(42); }
+
+    // ── memmove (overlap-safe) ─────────────────────────────────────
+    var mv1 = malloc(16);
+    strcpy(mv1, "ABCDEFGHIJ");
+    memmove(mv1 + 2, mv1, 5);
+    if (strcmp(mv1, "ABABCDEHIJ") != 0) { return(43); }
+    strcpy(mv1, "ABCDEFGHIJ");
+    memmove(mv1, mv1 + 2, 5);
+    if (strcmp(mv1, "CDEFGFGHIJ") != 0) { return(44); }
+    strcpy(mv1, "ABCDEFGHIJ");
+    memmove(mv1 + 3, mv1 + 1, 0);
+    if (strcmp(mv1, "ABCDEFGHIJ") != 0) { return(45); }
+
+    // ── memset ─────────────────────────────────────────────────────
+    var s2 = malloc(8);
+    memset(s2, 0, 8);
+    if (memset(s2, 65, 5) != s2) { return(46); }
+    if (*(s2 + 0) != 65 || *(s2 + 4) != 65 || *(s2 + 5) != 0) { return(47); }
+    memset(s2, 0, 0);
+    if (*(s2 + 0) != 65) { return(48); }
+
+    // ── memcmp ─────────────────────────────────────────────────────
+    if (memcmp("hello", "hello", 5) != 0) { return(49); }
+    if (memcmp("hello", "hella", 5) == 0) { return(50); }
+    if (memcmp("hello", "hella", 3) != 0) { return(51); }
+    if (memcmp("abc", "xyz", 0) != 0) { return(52); }
+    if (memcmp("abc", "abd", 3) >= 0) { return(53); }
+
+    print("string library ok");
+    return(0);
+}

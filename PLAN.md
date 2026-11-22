@@ -110,7 +110,7 @@ anyway, tick the box, and note "not reproducible" in PROGRESS.md.
 - [x] **P3-END** full gate, tag, rewrite parts of docs that changed.
 
 ## Phase 4 — Standard library & runtime (Cyan-written wherever possible)
-- [ ] **L1 `cyanlib/string.cyan` rewritten with typed signatures:** strlen, strcmp, strncmp, strcpy, strncpy, strcat, strchr, strstr, memcpy, memmove (overlap-safe), memset, memcmp; tests for each incl. empty/overlap/boundary.
+- [x] **L1 `cyanlib/string.cyan` rewritten with typed signatures:** strlen, strcmp, strncmp, strcpy, strncpy, strcat, strchr, strstr, memcpy, memmove (overlap-safe), memset, memcmp; tests for each incl. empty/overlap/boundary.
 - [ ] **L2 `cyanlib/fmt.cyan`:** int→string (all bases), string→int with error reporting, `%x %c %u %ld`-style print specifiers in `print`.
 - [ ] **L3 `cyanlib/mem.cyan`** wrappers: calloc, realloc, aligned alloc; allocator leak check mode (`SODIUM_ALLOC_DEBUG`).
 - [ ] **L4 File I/O via raw syscalls** in sodium-rt (`open/close/read/write/lseek/unlink`) on both arches + `cyanlib/io.cyan` (read file to buffer, write buffer, line reader, `stderr` printing, exit codes).

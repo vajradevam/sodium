@@ -5,13 +5,9 @@
 // Include it in your program with:
 //     #include "string.cyan"
 //
-// All functions work with byte-level pointers (Ptr(u8)) so they handle
-// null-terminated strings and raw memory buffers correctly.
-//
-// NOTE: malloc() returns Ptr(i64) for backward compatibility. To use these
-// functions with malloc'd buffers, pass string literals or use the buffer
-// directly with pointer arithmetic — the type inference propagates Ptr(u8)
-// from string literals automatically.
+// All functions work with byte-level pointers (u8*) so they handle
+// null-terminated strings and raw memory buffers uniformly. malloc() returns
+// Ptr(u8), so malloc'd buffers can be passed directly to every function here.
 // ──────────────────────────────────────────────────────────────────────────────
 
 #pragma once
@@ -30,13 +26,57 @@ function strlen(s: u8*) -> i64 {
 // Returns 0 if equal, negative if a < b, positive if a > b.
 function strcmp(a: u8*, b: u8*) -> i64 {
     var i = 0;
-    while (1) {
+    while (*(a + i) != 0 || *(b + i) != 0) {
+        var ca = *(a + i);
+        var cb = *(b + i);
+        if (ca != cb) { return(ca - cb); }
+        i = i + 1;
+    }
+    return(*(a + i) - *(b + i));
+}
+
+// strncmp(a, b, n) — compares at most n bytes of two strings.
+// Stops early at a null terminator or at the first difference.
+function strncmp(a: u8*, b: u8*, n: i64) -> i64 {
+    var i = 0;
+    while (i < n) {
         var ca = *(a + i);
         var cb = *(b + i);
         if (ca != cb) { return(ca - cb); }
         if (ca == 0) { return(0); }
         i = i + 1;
     }
+    return(0);
+}
+
+// strcpy(dst, src) — copies src to dst (including null terminator).
+// dst must have enough space. Returns dst.
+function strcpy(dst: u8*, src: u8*) -> u8* {
+    var i = 0;
+    while (*(src + i) != 0) {
+        *(dst + i) = *(src + i);
+        i = i + 1;
+    }
+    *(dst + i) = 0;
+    return(dst);
+}
+
+// strncpy(dst, src, n) — copies at most n bytes from src to dst.
+// If src is shorter than n, the rest of dst is padded with null bytes.
+// Returns dst. Note: when src fills all n bytes no terminator is written.
+function strncpy(dst: u8*, src: u8*, n: i64) -> u8* {
+    var i = 0;
+    while (i < n) {
+        var c = *(src + i);
+        *(dst + i) = c;
+        if (c == 0) {
+            i = i + 1;
+            while (i < n) { *(dst + i) = 0; i = i + 1; }
+            return(dst);
+        }
+        i = i + 1;
+    }
+    return(dst);
 }
 
 // strcat(dst, src) — appends src to the end of dst.
@@ -52,26 +92,56 @@ function strcat(dst: u8*, src: u8*) -> u8* {
     return(dst);
 }
 
-// strcpy(dst, src) — copies src to dst (including null terminator).
-// dst must have enough space. Returns dst.
-function strcpy(dst: u8*, src: u8*) -> u8* {
+// strchr(s, c) — returns a pointer to the first occurrence of byte c in s,
+// or null if not found. The terminating null is considered part of s.
+function strchr(s: u8*, c: u8) -> u8* {
     var i = 0;
-    while (1) {
-        *(dst + i) = *(src + i);
-        if (*(src + i) == 0) { return(dst); }
+    while (*(s + i) != c && *(s + i) != 0) { i = i + 1; }
+    if (*(s + i) == c) { return(s + i); }
+    return(null);
+}
+
+// strstr(h, needle) — returns a pointer to the first occurrence of needle
+// in h, or null if not found. An empty needle matches at the start of h.
+function strstr(h: u8*, needle: u8*) -> u8* {
+    if (*needle == 0) { return(h); }
+    var i = 0;
+    while (*(h + i) != 0) {
+        var j = 0;
+        var ok = 1;
+        while (*(needle + j) != 0) {
+            if (*(h + i + j) == 0) { ok = 0; break; }
+            if (*(h + i + j) != *(needle + j)) { ok = 0; break; }
+            j = j + 1;
+        }
+        if (ok == 1) { return(h + i); }
         i = i + 1;
     }
+    return(null);
 }
 
 // ── Memory Functions ─────────────────────────────────────────────────────────
 
 // memcpy(dst, src, n) — copies n bytes from src to dst.
-// Returns dst.
+// The regions must not overlap; use memmove when they might. Returns dst.
 function memcpy(dst: u8*, src: u8*, n: i64) -> u8* {
     var i = 0;
     while (i < n) {
         *(dst + i) = *(src + i);
         i = i + 1;
+    }
+    return(dst);
+}
+
+// memmove(dst, src, n) — copies n bytes from src to dst, safe even when
+// the regions overlap. Returns dst.
+function memmove(dst: u8*, src: u8*, n: i64) -> u8* {
+    if (dst < src || dst >= src + n) {
+        var i = 0;
+        while (i < n) { *(dst + i) = *(src + i); i = i + 1; }
+    } else {
+        var i = n;
+        while (i > 0) { i = i - 1; *(dst + i) = *(src + i); }
     }
     return(dst);
 }
