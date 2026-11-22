@@ -667,6 +667,11 @@ void Generator::gen_stmt(const NodeStmt& stmt)
 
         // Type-aware store/load helpers
         void typed_store(uint32_t ptr, uint32_t val, size_t elem_size) const {
+            if (gen->m_null_check) {
+                const uint32_t nonnull = gen->m_ir.cmp_ne(
+                    IRValue::vreg(ptr), IRValue::imm_i64(0));
+                gen->emit_runtime_check(IRValue::vreg(nonnull), "null dereference\n");
+            }
             if (elem_size >= 8)      gen->m_ir.store(IRValue::vreg(ptr), 0, IRValue::vreg(val));
             else if (elem_size >= 4) gen->m_ir.store_32(IRValue::vreg(ptr), 0, IRValue::vreg(val));
             else if (elem_size >= 2) gen->m_ir.store_16(IRValue::vreg(ptr), 0, IRValue::vreg(val));
@@ -687,6 +692,11 @@ void Generator::gen_stmt(const NodeStmt& stmt)
         }
 
         uint32_t typed_load_val(uint32_t ptr, size_t elem_size, bool is_signed) const {
+            if (gen->m_null_check) {
+                const uint32_t nonnull = gen->m_ir.cmp_ne(
+                    IRValue::vreg(ptr), IRValue::imm_i64(0));
+                gen->emit_runtime_check(IRValue::vreg(nonnull), "null dereference\n");
+            }
             if (elem_size >= 8)      return gen->m_ir.load(IRValue::vreg(ptr), 0);
             else if (elem_size == 4) return is_signed ? gen->m_ir.load_s32(IRValue::vreg(ptr), 0) : gen->m_ir.load_u32(IRValue::vreg(ptr), 0);
             else if (elem_size == 2) return is_signed ? gen->m_ir.load_s16(IRValue::vreg(ptr), 0) : gen->m_ir.load_u16(IRValue::vreg(ptr), 0);

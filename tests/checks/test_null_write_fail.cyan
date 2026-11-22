@@ -1,0 +1,11 @@
+// COMPILE-FLAGS: --check-null
+// EXPECT-EXIT: 70
+// EXPECT-STDOUT: null dereference
+
+// X4b: writing through a null pointer must trigger the runtime check.
+
+function main() {
+    var p: i64* = 0;
+    *p = 7;
+    return 0;
+}

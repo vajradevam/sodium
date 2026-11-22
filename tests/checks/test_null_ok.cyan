@@ -1,0 +1,13 @@
+// COMPILE-FLAGS: --check-null
+// EXPECT-EXIT: 0
+// EXPECT-STDOUT: 9
+
+// X4b: a valid pointer must be unaffected by --check-null.
+
+function main() {
+    var x = 7;
+    var p = &x;
+    *p = 9;
+    print("%d", x);
+    return 0;
+}

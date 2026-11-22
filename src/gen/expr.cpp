@@ -418,6 +418,11 @@ void Generator::gen_expr(const NodeExpr& expr)
             gen->gen_expr(*deref->expr);
             Type ptr_type = gen->peek_type();
             uint32_t ptr = gen->pop_vreg();
+            if (gen->m_null_check) {
+                const uint32_t nonnull = gen->m_ir.cmp_ne(
+                    IRValue::vreg(ptr), IRValue::imm_i64(0));
+                gen->emit_runtime_check(IRValue::vreg(nonnull), "null dereference\n");
+            }
 
             if (ptr_type.kind == Type::Ptr && ptr_type.pointee) {
                 size_t elem_size = type_size(*ptr_type.pointee);

@@ -375,3 +375,12 @@ for every array index expression before computing the address. Added three tests
 targets, and a valid indexed loop is unchanged. All use `COMPILE-FLAGS: --bounds` and pass at
 -O0 and -O1. `scripts/check.sh --full` green: 679 -> 685 passed / 0 failed / 10 skipped at both
 levels; 289 C++ cases / 4296 checks; sweep 2070 -> 2088 invocations / 0 crashes; ASan/UBSan clean.
+
+## 2026-11-23 — X4b Null-deref checks
+Added `--check-null` and emitted a non-null comparison at pointer dereference reads
+(`NodeExprDeref`) and at every `typed_store`/`typed_load_val` write/read path, reusing the X4a
+runtime-check emitter (D-035). Added three tests under `tests/checks/`: null read and null write
+both fail with the `null dereference` diagnostic and a non-null pointer works unchanged, on both
+targets at -O0 and -O1. `scripts/check.sh --full` green: 685 -> 691 passed / 0 failed / 10 skipped
+at both levels; 289 C++ cases / 4296 checks; sweep 2088 -> 2106 invocations / 0 crashes;
+ASan/UBSan clean.
