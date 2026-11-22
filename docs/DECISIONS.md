@@ -392,3 +392,14 @@ save/restore them. In X5a a clobbered instruction acts as a conservative barrier
 register live across it is confined to callee-save registers, exactly like a value spanning a
 CALL. X5b refines this to per-register exclusions. There are no input/output operands in this
 minimal form — values cross the asm only through memory or the declared clobbers.
+
+## D-037 Debug line info via NASM `%line` and GAS `.loc` (X6)
+Debug information is opt-in with `-g` and provides line tables only (no DWARF DIEs for locals or
+types). Source locations are stamped onto IR instructions from the generator's statement
+locations; the emitter writes a marker whenever the line changes. The x86_64 backend emits NASM
+`%line N+0 "absolute/path.cyan"` (the `+0` is required to pin the line), assembled with
+`nasm -g -F dwarf`; the riscv64 backend emits GAS `.file N "absolute/path.cyan"` and `.loc N L 0`
+with its assembler `-g`. These are backend-specific directives behind a common
+`Backend::debug_line` method. The absolute Cyan path is used so gdb still finds the source after
+temporary assembly files are removed. Line markers are emitted only for user statements; runtime
+library frames have no debug info, which is acceptable for stepping Cyan source.
