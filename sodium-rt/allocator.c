@@ -69,6 +69,7 @@ static void *large_free_list __attribute__((used)) = 0;
 // Command-line arguments (populated by _start before calling main).
 long __sodium_argc __attribute__((used)) = 0;
 void *__sodium_argv __attribute__((used)) = 0;
+void *__sodium_envp __attribute__((used)) = 0;
 
 // ── Helpers ─────────────────────────────────────────────────────────────
 

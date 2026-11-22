@@ -355,6 +355,7 @@ std::string Generator::gen_prog_impl()
     m_backend_ptr->extern_sym("_sodium_sys_unlink");
     m_backend_ptr->extern_sym("__sodium_argc");
     m_backend_ptr->extern_sym("__sodium_argv");
+    m_backend_ptr->extern_sym("__sodium_envp");
 
     // Find and validate the main function
     NodeFuncDef* main_func = nullptr;
@@ -399,6 +400,11 @@ std::string Generator::gen_prog_impl()
         m_backend_ptr->store(m_backend_ptr->addr_label("__sodium_argc"), "rax");
         m_backend_ptr->emit_insn("lea", "rax, [rsp+8]");
         m_backend_ptr->store(m_backend_ptr->addr_label("__sodium_argv"), "rax");
+        // envp follows argv[argc] (the NULL terminator): rsp + 16 + argc*8.
+        // rax was reused for argv, so reload argc first.
+        m_backend_ptr->emit_insn("mov", "rax, [rsp]");
+        m_backend_ptr->emit_insn("lea", "rax, [rsp + rax*8 + 16]");
+        m_backend_ptr->store(m_backend_ptr->addr_label("__sodium_envp"), "rax");
     } else {
         // RISC-V: argc at [sp], argv at [sp+8] (stack convention in QEMU/Linux)
         m_backend_ptr->emit_insn("ld", "t0, 0(sp)");
@@ -406,6 +412,13 @@ std::string Generator::gen_prog_impl()
         m_backend_ptr->emit_insn("sd", "t0, 0(t1)");
         m_backend_ptr->emit_insn("addi", "t0, sp, 8");
         m_backend_ptr->emit_insn("la", "t1, __sodium_argv");
+        m_backend_ptr->emit_insn("sd", "t0, 0(t1)");
+        // Reload argc (t0 was reused for argv); envp is at sp + 16 + argc*8.
+        m_backend_ptr->emit_insn("ld", "t0, 0(sp)");
+        m_backend_ptr->emit_insn("slli", "t0, t0, 3");
+        m_backend_ptr->emit_insn("addi", "t0, t0, 16");
+        m_backend_ptr->emit_insn("add", "t0, sp, t0");
+        m_backend_ptr->emit_insn("la", "t1, __sodium_envp");
         m_backend_ptr->emit_insn("sd", "t0, 0(t1)");
     }
 

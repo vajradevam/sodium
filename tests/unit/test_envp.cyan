@@ -1,0 +1,24 @@
+// EXPECT-EXIT: 0
+// EXPECT-STDOUT: hello
+// ENV: CYAN_TEST_VALUE=hello
+
+// envp(i) walks the environment vector passed at process start.
+function main() {
+    var prefix = "CYAN_TEST_VALUE=";
+    var i = 0;
+    while (1) {
+        var p = envp(i);
+        if (p == null) { return(1); }
+        var j = 0;
+        var match = 1;
+        while (*(prefix + j) != 0) {
+            if (*(p + j) != *(prefix + j)) { match = 0; break; }
+            j = j + 1;
+        }
+        if (match == 1) {
+            print("%s", p + j);
+            return(0);
+        }
+        i = i + 1;
+    }
+}

@@ -60,6 +60,8 @@ std::string Generator::did_you_mean(const std::string& name) const {
     candidates.insert("free");
     candidates.insert("argc");
     candidates.insert("argv");
+    candidates.insert("exit");
+    candidates.insert("envp");
     candidates.insert("sys_open");
     candidates.insert("sys_close");
     candidates.insert("sys_read");

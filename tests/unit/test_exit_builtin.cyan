@@ -1,0 +1,10 @@
+// EXPECT-EXIT: 7
+// EXPECT-STDOUT: before
+
+// exit(n) terminates immediately with the given status.
+function main() {
+    print("before");
+    exit(7);
+    print("after");
+    return(0);
+}

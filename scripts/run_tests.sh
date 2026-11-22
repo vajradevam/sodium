@@ -81,12 +81,13 @@ STDIN_VAL=""
 ARGS_VAL=""
 TARGETS_VAL=""
 SKIP_REASON=""
+ENV_VALS=()
 STDOUT_LINES=()
 
 parse_headers() {
     EXPECT_EXIT=""; EXPECT_ERROR=""; EXPECT_WARNING=""; NO_WARNING=""
     COMPILE_FLAGS=""; STDIN_VAL=""; ARGS_VAL=""
-    TARGETS_VAL=""; SKIP_REASON=""; STDOUT_LINES=()
+    TARGETS_VAL=""; SKIP_REASON=""; ENV_VALS=(); STDOUT_LINES=()
     local line
     while IFS= read -r line || [ -n "$line" ]; do
         case "$line" in
@@ -98,6 +99,7 @@ parse_headers() {
             "// COMPILE-FLAGS: "*) COMPILE_FLAGS="${line#// COMPILE-FLAGS: }" ;;
             "// STDIN: "*)         STDIN_VAL="${line#// STDIN: }" ;;
             "// ARGS: "*)          ARGS_VAL="${line#// ARGS: }" ;;
+            "// ENV: "*)           ENV_VALS+=("${line#// ENV: }") ;;
             "// TARGETS: "*)       TARGETS_VAL="${line#// TARGETS: }" ;;
             "// SKIP-TEST: "*)     SKIP_REASON="${line#// SKIP-TEST: }" ;;
             "// EXPECT-STDOUT: "*) STDOUT_LINES+=("${line#// EXPECT-STDOUT: }") ;;
@@ -196,12 +198,14 @@ run_case() {
     [ "$target" = "riscv64" ] && runner=(qemu-riscv64 "$base.bin")
     local args=()
     [ -n "$ARGS_VAL" ] && read -r -a args <<< "$ARGS_VAL"
+    local envcmd=()
+    [ ${#ENV_VALS[@]} -gt 0 ] && envcmd=(env "${ENV_VALS[@]}")
 
     if [ -n "$STDIN_VAL" ]; then
         printf '%s\n' "$STDIN_VAL" > "$base.stdin"
-        "${runner[@]}" "${args[@]}" < "$base.stdin" > "$base.stdout" 2> "$base.stderr"
+        "${envcmd[@]}" "${runner[@]}" "${args[@]}" < "$base.stdin" > "$base.stdout" 2> "$base.stderr"
     else
-        "${runner[@]}" "${args[@]}" < /dev/null > "$base.stdout" 2> "$base.stderr"
+        "${envcmd[@]}" "${runner[@]}" "${args[@]}" < /dev/null > "$base.stdout" 2> "$base.stderr"
     fi
     local actual_exit=$?
 

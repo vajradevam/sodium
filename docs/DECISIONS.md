@@ -37,7 +37,7 @@ missing return, conflicting inferred pointer types.
 ## D-005 Tests
 Tests are discovered, not registered: every `tests/**/*.cyan` is run. Header comments declare expectations:
 `// EXPECT-EXIT: N`, `// EXPECT-STDOUT: <line>` (repeatable, ordered), `// EXPECT-ERROR: <substring>`,
-`// ARGS: ...`, `// STDIN: ...`, `// TARGETS: x86_64 riscv64` (default both). Files named `test_bad_*`
+`// ARGS: ...`, `// STDIN: ...`, `// ENV: NAME=value` (repeatable, applied with `env`), `// TARGETS: x86_64 riscv64` (default both). Files named `test_bad_*`
 must declare `EXPECT-ERROR`. `// SKIP-TEST: <reason>` marks a file that is included by other tests and
 is not a standalone test (currently `tests/include/helper.cyan`). An `EXPECT-STDOUT` header declares an
 exact, ordered line of stdout; when any are present the full stdout must match them line for line.
@@ -191,3 +191,11 @@ open-addressed string→i64 table with linear probing and tombstones so removals
 lookups; keys are copied into the map. `map_get` returns 0 for a missing key — callers that care
 must use `map_contains`. `vec_checksum` and `map_checksum` are deterministic digests intended for
 property tests (`map_checksum` is order-independent so it survives table growth).
+
+## D-020 exit and envp builtins (L6a)
+`exit(n)` is an expression-style builtin that calls `_sodium_exit(n)` and produces no value; its
+arity is checked at compile time. `envp(i)` returns the i-th environment pointer (`Ptr(u8)`) or null
+at the end, mirroring `argv(i)`. `__sodium_envp` is a runtime global captured by each target's
+`_start` at `sp/rsp + 16 + argc*8` (environment entries follow argv's NULL terminator), so both
+x86_64 and riscv64 see the same vector. The test runner accepts repeatable `// ENV: NAME=value`
+headers and runs the program under `env` with those variables set.

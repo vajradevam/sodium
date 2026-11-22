@@ -70,13 +70,13 @@ Type Generator::infer_expr_type(
                 result = Type::make_ptr(pointee);
                 return;
             }
-            if (fname == "argv") {
-                // argv(i) returns Ptr(u8)
+            if (fname == "argv" || fname == "envp") {
+                // argv(i)/envp(i) return Ptr(u8)
                 Type* pointee = gen->alloc_type(Type::make_int(IntType::u8));
                 result = Type::make_ptr(pointee);
                 return;
             }
-            if (fname == "free" || fname == "argc" || fname == "sys_open" ||
+            if (fname == "exit" || fname == "free" || fname == "argc" || fname == "sys_open" ||
                 fname == "sys_close" || fname == "sys_read" || fname == "sys_write" ||
                 fname == "sys_lseek" || fname == "sys_unlink") {
                 result = Type::make_int(IntType::i64);

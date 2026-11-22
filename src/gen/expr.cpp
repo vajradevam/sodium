@@ -459,6 +459,35 @@ void Generator::gen_expr(const NodeExpr& expr)
                 gen->m_tstack.back() = Type::make_int(IntType::i64);
                 return;
             }
+            if (fname == "exit") {
+                if (expr_call->args.size() != 1) {
+                    gen->fail(expr_call->name.loc,
+                              "exit() takes exactly 1 argument, got "
+                              + std::to_string(expr_call->args.size()));
+                }
+                gen->gen_expr(*expr_call->args[0]);
+                uint32_t code = gen->pop_vreg();
+                gen->m_ir.call("_sodium_exit", {IRValue::vreg(code)});
+                return;
+            }
+            if (fname == "envp") {
+                if (expr_call->args.size() != 1) {
+                    gen->fail(expr_call->name.loc,
+                              "envp() takes exactly 1 argument (the index), got "
+                              + std::to_string(expr_call->args.size()));
+                }
+                gen->gen_expr(*expr_call->args[0]);
+                uint32_t idx = gen->pop_vreg();
+                uint32_t addr = gen->m_ir.lea_label("__sodium_envp");
+                uint32_t envp_ptr = gen->m_ir.load(IRValue::vreg(addr), 0);
+                uint32_t offset = gen->m_ir.mul(IRValue::vreg(idx), IRValue::imm_i64(8));
+                uint32_t entry = gen->m_ir.add(IRValue::vreg(envp_ptr), IRValue::vreg(offset));
+                uint32_t str = gen->m_ir.load(IRValue::vreg(entry), 0);
+                gen->push_vreg(str);
+                Type* pointee = gen->alloc_type(Type::make_int(IntType::u8));
+                gen->m_tstack.back() = Type::make_ptr(pointee);
+                return;
+            }
             if (fname == "malloc") {
                 // Call _sodium_malloc with the size argument
                 for (auto it = expr_call->args.rbegin(); it != expr_call->args.rend(); ++it) {

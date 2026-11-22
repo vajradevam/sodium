@@ -1,0 +1,6 @@
+// EXPECT-ERROR: exit() takes exactly 1 argument
+
+function main() {
+    exit();
+    return(0);
+}
