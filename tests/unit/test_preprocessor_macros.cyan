@@ -1,0 +1,21 @@
+// EXPECT-EXIT: 0
+// EXPECT-STDOUT: 42 3
+// EXPECT-STDOUT: ANSWER stays literal
+
+// X2a: object macros and conditionals survive the preprocessor and produce
+// valid Cyan on both targets.
+
+#define ANSWER 42
+#define SHIFT 3
+
+function main() {
+    var x = ANSWER;
+#ifndef MISSING
+    var y = SHIFT;
+#else
+    var y = 0;
+#endif
+    print("%d %d", x, y);
+    print("ANSWER stays literal");
+    return 0;
+}

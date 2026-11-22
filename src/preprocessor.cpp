@@ -3,6 +3,7 @@
 
 #include <fstream>
 #include <filesystem>
+#include <unordered_map>
 #include <unordered_set>
 #include <cctype>
 #include <sstream>
@@ -58,22 +59,97 @@ static std::string resolve_include(
     return "";
 }
 
+// ── Macros and conditionals (X2) ──────────────────────────────────
+
+struct MacroDef {
+    std::string replacement;
+};
+using MacroTable = std::unordered_map<std::string, MacroDef>;
+
+static bool ident_start(char c) {
+    return std::isalpha(static_cast<unsigned char>(c)) || c == '_';
+}
+
+static bool ident_char(char c) {
+    return std::isalnum(static_cast<unsigned char>(c)) || c == '_';
+}
+
+/// Expand object-like macros in a line. Identifiers inside string or character
+/// literals are left alone (D-033). Expansion is recursive with a depth cap so
+/// a macro referring to itself cannot hang the compiler.
+static std::string expand_macros(const std::string& line, const MacroTable& macros,
+                                 int depth = 0) {
+    if (depth > 8) return line;
+    std::string out;
+    out.reserve(line.size());
+    char quote = 0;
+    for (size_t i = 0; i < line.size();) {
+        const char c = line[i];
+        if (quote != 0) {
+            out += c;
+            if (c == '\\' && i + 1 < line.size()) {
+                out += line[i + 1];
+                i += 2;
+                continue;
+            }
+            if (c == quote) quote = 0;
+            ++i;
+            continue;
+        }
+        if (c == '"' || c == '\'') {
+            quote = c;
+            out += c;
+            ++i;
+            continue;
+        }
+        if (ident_start(c)) {
+            size_t end = i + 1;
+            while (end < line.size() && ident_char(line[end])) ++end;
+            const std::string name = line.substr(i, end - i);
+            const auto it = macros.find(name);
+            if (it != macros.end()) {
+                out += expand_macros(it->second.replacement, macros, depth + 1);
+            } else {
+                out += name;
+            }
+            i = end;
+            continue;
+        }
+        out += c;
+        ++i;
+    }
+    return out;
+}
+
+struct CondFrame {
+    bool parent_active = true;
+    bool active = true;
+    bool taken = false;   // a branch in this #if group has already been selected
+};
+
 // Recursive worker.
 // visited: set of already-processed file paths (for #pragma once).
 // all_included: accumulates all resolved paths.
+// macros: shared across included files so include guards and headers cooperate.
 static std::string preprocess_impl(
     const std::string& source_text,
     const std::string& filename,
     const std::vector<std::string>& include_dirs,
     const std::string& system_include_dir,
     std::unordered_set<std::string>& visited,
-    std::vector<std::string>& all_included
+    std::vector<std::string>& all_included,
+    MacroTable& macros
 ) {
     std::ostringstream out;
     std::istringstream in(source_text);
     std::string line;
     size_t input_line_num = 0;
     bool pragma_once = false;
+    std::vector<CondFrame> conditions;
+
+    const auto active = [&]() {
+        return conditions.empty() || conditions.back().active;
+    };
 
     auto resolve_and_include = [&](const std::string& inc_path, bool is_angle) -> bool {
         fs::path parent_dir = fs::path(filename).parent_path();
@@ -97,7 +173,9 @@ static std::string preprocess_impl(
         register_source_file(resolved, inc_text);
 
         // Recursively process the included file
-        std::string processed = preprocess_impl(inc_text, resolved, include_dirs, system_include_dir, visited, all_included);
+        std::string processed = preprocess_impl(
+            inc_text, resolved, include_dirs, system_include_dir,
+            visited, all_included, macros);
 
         // Emit #line marker pointing back to the parent file (line after the include)
         out << "# 1 \"" << resolved << "\"\n";
@@ -109,6 +187,47 @@ static std::string preprocess_impl(
     while (std::getline(in, line)) {
         input_line_num++;
         std::string trimmed = trim(line);
+
+        // Conditional directives must be tracked even inside inactive branches.
+        if (trimmed.rfind("#ifdef", 0) == 0 || trimmed.rfind("#ifndef", 0) == 0) {
+            const bool negated = trimmed.rfind("#ifndef", 0) == 0;
+            const std::string rest = trim(trimmed.substr(negated ? 7 : 6));
+            const bool defined = !rest.empty() && macros.count(rest) != 0;
+            const bool value = negated ? !defined : defined;
+            const bool parent = active();
+            conditions.push_back({parent, parent && value, parent && value});
+            continue;
+        }
+        if (trimmed == "#else") {
+            if (!conditions.empty()) {
+                CondFrame& frame = conditions.back();
+                frame.active = frame.parent_active && !frame.taken;
+                frame.taken = frame.taken || frame.active;
+            }
+            continue;
+        }
+        if (trimmed == "#endif") {
+            if (!conditions.empty()) conditions.pop_back();
+            continue;
+        }
+
+        // Everything below applies only in active branches.
+        if (!active()) continue;
+
+        // ── #define NAME replacement ──────────────────────────────
+        if (trimmed.rfind("#define", 0) == 0) {
+            const std::string rest = trim(trimmed.substr(7));
+            const size_t space = rest.find_first_of(" \t");
+            if (space != std::string::npos) {
+                const std::string name = rest.substr(0, space);
+                if (!name.empty()) {
+                    macros[name] = MacroDef{trim(rest.substr(space + 1))};
+                }
+            } else if (!rest.empty()) {
+                macros[rest] = MacroDef{""};
+            }
+            continue;
+        }
 
         // ── #pragma once ──────────────────────────────────────────
         if (trimmed == "#pragma once") {
@@ -150,8 +269,8 @@ static std::string preprocess_impl(
             continue;
         }
 
-        // Regular line — pass through
-        out << line << "\n";
+        // Regular line — expand macros, then pass through.
+        out << expand_macros(line, macros) << "\n";
     }
 
     if (pragma_once) {
@@ -170,10 +289,11 @@ PreprocessedResult preprocess(
 ) {
     PreprocessedResult result;
     std::unordered_set<std::string> visited;
+    MacroTable macros;
     std::string expanded = preprocess_impl(
         source_text, source_filename,
         include_dirs, system_include_dir,
-        visited, result.included_files
+        visited, result.included_files, macros
     );
     result.expanded_source = std::move(expanded);
     return result;

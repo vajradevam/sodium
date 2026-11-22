@@ -1,7 +1,10 @@
 #include "test_framework.hpp"
 #include "preprocessor.hpp"
 
+#include <filesystem>
+#include <fstream>
 #include <string>
+#include <functional>
 
 static bool contains(const std::string& haystack, const std::string& needle) {
     return haystack.find(needle) != std::string::npos;
@@ -77,4 +80,90 @@ TEST(preprocessor_handles_empty_source) {
 TEST(preprocessor_preserves_regular_lines_verbatim) {
     auto r = preprocess("  var   spaced = 1;  \n", "s.cyan", {});
     CHECK_EQ(r.expanded_source, std::string("  var   spaced = 1;  \n"));
+}
+
+// --- X2a: object macros and conditionals ----------------------------------
+
+namespace {
+
+std::string pp_x2(const std::string& source) {
+    return preprocess(source, "<test>", {}, "").expanded_source;
+}
+
+} // namespace
+
+TEST(preprocessor_object_macro_expands_identifiers) {
+    std::string out = pp_x2("#define N 42\nvar x = N;\n");
+    CHECK(contains(out, "var x = 42;"));
+    CHECK(!contains(out, "\nN"));
+}
+
+TEST(preprocessor_object_macro_skips_string_literals) {
+    std::string out = pp_x2("#define N 42\nprint(\"N = N\", N);\n");
+    CHECK(contains(out, "\"N = N\""));
+    CHECK(contains(out, "42"));
+}
+
+TEST(preprocessor_object_macro_respects_identifier_boundaries) {
+    std::string out = pp_x2("#define N 42\nvar NAME = 1;\nvar N2 = 2;\n");
+    CHECK(contains(out, "var NAME = 1;"));
+    CHECK(contains(out, "var N2 = 2;"));
+}
+
+TEST(preprocessor_ifdef_selects_then_branch) {
+    std::string out = pp_x2(
+        "#define FEATURE 1\n#ifdef FEATURE\nvar a = 1;\n#else\nvar b = 2;\n#endif\n");
+    CHECK(contains(out, "var a = 1;"));
+    CHECK(!contains(out, "var b = 2;"));
+}
+
+TEST(preprocessor_ifndef_selects_else_branch) {
+    std::string out = pp_x2("#ifndef FEATURE\nvar a = 1;\n#else\nvar b = 2;\n#endif\n");
+    CHECK(contains(out, "var a = 1;"));
+    CHECK(!contains(out, "var b = 2;"));
+}
+
+TEST(preprocessor_nested_conditionals) {
+    std::string out = pp_x2(
+        "#define OUTER 1\n"
+        "#ifdef OUTER\n"
+        "var a = 1;\n"
+        "#ifndef INNER\n"
+        "var b = 2;\n"
+        "#else\n"
+        "var c = 3;\n"
+        "#endif\n"
+        "#endif\n");
+    CHECK(contains(out, "var a = 1;"));
+    CHECK(contains(out, "var b = 2;"));
+    CHECK(!contains(out, "var c = 3;"));
+}
+
+TEST(preprocessor_inactive_branch_does_not_expand_macros) {
+    std::string out = pp_x2("#define N 42\n#ifdef MISSING\nvar x = N;\n#endif\n");
+    CHECK(!contains(out, "var x"));
+    CHECK(!contains(out, "42"));
+}
+
+TEST(preprocessor_include_guard_prevents_double_definition) {
+    namespace fs = std::filesystem;
+    const fs::path dir = fs::temp_directory_path() /
+        ("sodium_pp_guard_" + std::to_string(static_cast<size_t>(
+            std::hash<std::string>{}(std::string(__FILE__)) ^ 0xA5A5u)));
+    fs::create_directories(dir);
+    {
+        std::ofstream(dir / "guard.cyan") <<
+            "#ifndef GUARD_H\n#define GUARD_H\nvar guarded = 7;\n#endif\n";
+    }
+    PreprocessedResult result = preprocess(
+        "#include \"guard.cyan\"\n#include \"guard.cyan\"\nvar main_var = 1;\n",
+        "<test>", {dir.string()}, "");
+    fs::remove_all(dir);
+    size_t count = 0;
+    size_t pos = 0;
+    while ((pos = result.expanded_source.find("var guarded", pos)) != std::string::npos) {
+        ++count;
+        pos += 4;
+    }
+    CHECK_EQ(count, size_t{1});
 }

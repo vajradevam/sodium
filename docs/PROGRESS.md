@@ -345,3 +345,13 @@ cases / 4267 checks; sweep 2058 invocations / 0 crashes; oracle 58/58 at both le
 regalloc benchmark 248 functions / 2 spills / 301688 callee-save assignments; ASan/UBSan clean.
 The 10 skips are the 8 ABI interop cases (run by their own script) and 2 include helpers. `bench/`
 shows -O1 instruction-count reductions on four of five programs (recursive fib is unchanged).
+
+## 2026-11-23 — X2a Object macros and conditionals
+Extended `src/preprocessor.cpp` with object-like `#define NAME replacement` expansion (string/
+character literals skipped, identifier-boundary aware, recursion depth capped) and
+`#ifdef`/`#ifndef`/`#else`/`#endif` handling. Inactive branches emit nothing, so they cannot leak
+tokens or trigger includes; the macro table is shared across `#include` boundaries, making the
+`#ifndef GUARD / #define GUARD / ... / #endif` idiom work. Added 8 C++ cases (including a
+temporary-file include-guard test) and `tests/unit/test_preprocessor_macros.cyan`, which runs at
+-O0 and -O1 on both targets. `scripts/check.sh` green: 675 -> 677 passed / 0 failed / 10 skipped
+at both levels; 275 -> 283 C++ cases / 4283 checks.
