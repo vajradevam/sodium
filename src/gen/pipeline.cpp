@@ -94,6 +94,11 @@ void Generator::gen_func_def(const NodeFuncDef& func)
             // Keep checking the remaining statements in this function.
             m_vstack.clear();
             m_tstack.clear();
+        } catch (const LSPAbort&) {
+            // In LSP mode fail() throws LSPAbort instead; keep recovering so
+            // later statements report their diagnostics too.
+            m_vstack.clear();
+            m_tstack.clear();
         }
     }
 
@@ -211,6 +216,9 @@ std::string Generator::gen_prog() {
             }
             exit(EXIT_FAILURE);
         }
+        return {};
+    } catch (const LSPAbort&) {
+        // Handled by the LSP server, which reads the engine's diagnostics.
         return {};
     }
 }
@@ -332,6 +340,13 @@ std::string Generator::gen_prog_impl()
         try {
             gen_func_def(*func);
         } catch (const GenAbort&) {
+            m_ir.end_function();
+            m_vstack.clear();
+            m_tstack.clear();
+            m_in_function = false;
+            m_scopes.clear();
+            m_scopes.push_back({0, {}});
+        } catch (const LSPAbort&) {
             m_ir.end_function();
             m_vstack.clear();
             m_tstack.clear();

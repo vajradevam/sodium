@@ -285,7 +285,7 @@ void walk_stmt(const NodeStmt& stmt, SymbolTable& table) {
 // If parsing fails, the symbol table may be partial (whatever was collected before the error).
 struct ParseResult {
     std::optional<NodeProg> prog; // present only if parsing + codegen succeeded
-    std::vector<LSPError> errors;
+    std::vector<Diagnostic> diagnostics; // errors, warnings and notes from all stages
     SymbolTable symbols;
 };
 
@@ -301,12 +301,20 @@ ParseResult parse_document(const std::string& text, const std::string& filename 
     PreprocessedResult pp = preprocess(text, filename, include_dirs);
     g_source_text = pp.expanded_source;
 
+    // E5: collect diagnostics owned by each stage, not just the legacy
+    // global error list. Warnings and notes are included with their severity.
+    auto collect = [&](const DiagnosticEngine& engine) {
+        for (const auto& d : engine.diagnostics()) result.diagnostics.push_back(d);
+    };
+
     try {
         Tokenizer tokenizer(std::string(pp.expanded_source), filename);
         std::vector<Token> tokens = tokenizer.tokenize();
+        collect(tokenizer.diagnostics());
 
         Parser parser(std::move(tokens));
         auto prog_opt = parser.parse_prog();
+        collect(parser.diagnostics());
         if (prog_opt.has_value()) {
             NodeProg prog = std::move(prog_opt.value());
 
@@ -353,28 +361,53 @@ ParseResult parse_document(const std::string& text, const std::string& filename 
                 walk_stmt(s, result.symbols);
             }
 
-            // Also run codegen to catch any semantic errors
+            // Also run codegen to catch semantic errors and emit warnings.
+            NullBackend null_backend;
+            TargetRegisterInfo lsp_tri = TargetRegisterInfo::dummy();
+            Generator generator(std::move(prog), null_backend, lsp_tri);
             try {
-                NullBackend null_backend;
-                TargetRegisterInfo lsp_tri = TargetRegisterInfo::dummy();
-                Generator generator(std::move(prog), null_backend, lsp_tri);
                 std::string _discard = generator.gen_prog();
-                (void)_discard; // discard output, we only want errors
-                // If we get here, codegen succeeded — store the prog (already moved though)
-                // We don't keep prog since we already walked symbols
+                (void)_discard; // discard output, we only want diagnostics
             } catch (const LSPAbort&) {
-                // Codegen errors collected in g_lsp_errors
+                // Diagnostics remain in the generator's engine.
             }
+            collect(generator.diagnostics());
 
             result.prog.emplace(); // mark that parsing + codegen succeeded
         }
     } catch (const LSPAbort&) {
-        // Parser error — g_lsp_errors already populated
+        // Parser/tokenizer error — their engines were collected above where
+        // possible; legacy lsp_exit sites are folded in below.
     }
 
-    result.errors = std::move(g_lsp_errors);
+    // A few legacy tokenizer sites still use lsp_exit(), which records into
+    // g_lsp_errors rather than an engine. Fold them in as errors.
+    for (const auto& err : g_lsp_errors) {
+        Diagnostic d;
+        d.severity = Severity::Error;
+        d.loc = err.loc;
+        d.message = err.msg;
+        result.diagnostics.push_back(std::move(d));
+    }
     g_lsp_errors.clear();
     g_lsp_mode = false;
+
+    // Deduplicate identical diagnostics (an error can reach both an engine
+    // and the legacy global list).
+    std::vector<Diagnostic> unique;
+    for (const auto& d : result.diagnostics) {
+        bool duplicate = false;
+        for (const auto& seen : unique) {
+            if (seen.severity == d.severity && seen.message == d.message &&
+                seen.loc.line == d.loc.line && seen.loc.col == d.loc.col &&
+                seen.loc.file == d.loc.file) {
+                duplicate = true;
+                break;
+            }
+        }
+        if (!duplicate) unique.push_back(d);
+    }
+    result.diagnostics = std::move(unique);
 
     return result;
 }
@@ -657,8 +690,8 @@ void LSPServer::publish_diagnostics(const std::string& uri, const std::string& t
 
     JsonValue::ArrayType diags;
 
-    for (const auto& err : parse_result.errors) {
-        Position p = loc_to_position(err.loc);
+    for (const auto& d : parse_result.diagnostics) {
+        Position p = loc_to_position(d.loc);
         JsonValue::ObjectType diag;
         JsonValue::ObjectType range;
         JsonValue::ObjectType start, end;
@@ -669,9 +702,22 @@ void LSPServer::publish_diagnostics(const std::string& uri, const std::string& t
         range["start"] = std::move(start);
         range["end"] = std::move(end);
         diag["range"] = std::move(range);
-        diag["severity"] = 1; // Error
+
+        // LSP severities: 1=Error, 2=Warning, 3=Information, 4=Hint.
+        int64_t lsp_severity = 1;
+        switch (d.severity) {
+            case Severity::Error:
+            case Severity::Fatal:   lsp_severity = 1; break;
+            case Severity::Warning: lsp_severity = 2; break;
+            case Severity::Note:    lsp_severity = 3; break;
+        }
+        diag["severity"] = lsp_severity;
         diag["source"] = "cyan-lsp";
-        diag["message"] = err.msg;
+
+        std::string message = d.message;
+        for (const auto& note : d.notes) message += "\nnote: " + note;
+        for (const auto& fix : d.fixits) message += "\nfix-it: " + fix.replacement;
+        diag["message"] = std::move(message);
         diags.push_back(std::move(diag));
     }
 
