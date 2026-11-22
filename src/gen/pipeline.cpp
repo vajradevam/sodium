@@ -146,6 +146,24 @@ void Generator::gen_func_def(const NodeFuncDef& func)
 // collect_globals
 // ==========================================================================
 
+void Generator::collect_enums() {
+    for (const auto* def : m_prog.enums) {
+        int64_t next = 0;
+        for (const auto& member : def->members) {
+            int64_t value = next;
+            if (member.value) {
+                auto constant = eval_const_expr(member.value);
+                if (!constant.has_value()) {
+                    fail(member.name.loc, "Enum value must be a compile-time constant");
+                }
+                value = constant.value();
+            }
+            m_constants[member.name.value.value()] = value;
+            next = value + 1;
+        }
+    }
+}
+
 void Generator::collect_globals(const std::vector<NodeStmt>& stmts)
 {
     for (const auto& stmt : stmts) {
@@ -243,6 +261,9 @@ std::string Generator::gen_prog_impl()
         m_struct_types[sd->name.value.value()] =
             StructInfo::compute_layout(sd->fields, sd->field_types);
     }
+
+    // Enumerators are compile-time constants available to the whole program.
+    collect_enums();
 
     // Flow-based warnings (unreachable code, missing return).
     check_flow_warnings();

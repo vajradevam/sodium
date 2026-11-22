@@ -95,7 +95,8 @@ enum class TokenType {
     _bool,
     _char,
     _as,
-    _type
+    _type,
+    _enum
 };
 
 struct Token {

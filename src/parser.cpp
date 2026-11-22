@@ -1867,6 +1867,8 @@ std::optional<NodeProg> Parser::parse_prog() {
                 prog.funcs.push_back(parse_func_def());
             } else if (peek().value().type == TokenType::_type) {
                 prog.aliases.push_back(parse_type_alias());
+            } else if (peek().value().type == TokenType::_enum) {
+                prog.enums.push_back(parse_enum_def());
             } else if (peek().value().type == TokenType::_struct) {
                 auto struct_def = parse_struct_def();
                 StructTypeInfo info;
@@ -1932,6 +1934,48 @@ NodeTypeAlias* Parser::parse_type_alias() {
     alias->name = name;
     alias->type = *type;
     return alias;
+}
+
+NodeEnumDef* Parser::parse_enum_def() {
+    consume(); // enum
+    if (!peek().has_value() || peek().value().type != TokenType::ident) {
+        error("Expected enum name after 'enum'");
+    }
+    Token name = consume();
+    if (!peek().has_value() || peek().value().type != TokenType::open_brace) {
+        error("Expected '{' after enum name");
+    }
+    consume(); // {
+    auto def = m_allocator.alloc<NodeEnumDef>();
+    def->name = name;
+    while (peek().has_value() && peek().value().type != TokenType::close_brace) {
+        if (peek().value().type != TokenType::ident) {
+            error("Expected enumerator name");
+        }
+        Token member = consume();
+        if (m_enumerators.contains(member.value.value())) {
+            fail_at(member.loc, "duplicate enumerator '" + member.value.value() + "'");
+        }
+        m_enumerators.insert(member.value.value());
+        EnumMember em;
+        em.name = member;
+        if (peek().has_value() && peek().value().type == TokenType::eq) {
+            consume();
+            auto value = parse_expr();
+            if (!value) error("Expected value after '=' in enum");
+            em.value = *value;
+        }
+        def->members.push_back(std::move(em));
+        if (peek().has_value() && peek().value().type == TokenType::comma) consume();
+        else if (peek().has_value() && peek().value().type != TokenType::close_brace)
+            error("Expected ',' or '}' in enum");
+    }
+    if (!peek().has_value() || peek().value().type != TokenType::close_brace) {
+        error("Expected '}' after enum members");
+    }
+    consume();
+    if (peek().has_value() && peek().value().type == TokenType::semi) consume();
+    return def;
 }
 
 NodeStructDef* Parser::parse_struct_def() {

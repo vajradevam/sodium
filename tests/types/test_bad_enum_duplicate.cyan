@@ -1,0 +1,8 @@
+// EXPECT-ERROR: duplicate enumerator 'X'
+
+enum A { X };
+enum B { X };
+
+function main() {
+    return(0);
+}

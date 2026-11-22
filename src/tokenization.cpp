@@ -321,6 +321,9 @@ std::vector<Token> Tokenizer::tokenize() {
             else if (buf == "type") {
                 tokens.push_back({ .type = TokenType::_type, .loc = tok_loc });
             }
+            else if (buf == "enum") {
+                tokens.push_back({ .type = TokenType::_enum, .loc = tok_loc });
+            }
             else {
                 tokens.push_back({ .type = TokenType::ident, .value = buf, .loc = tok_loc });
             }

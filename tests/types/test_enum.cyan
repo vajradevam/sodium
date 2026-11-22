@@ -1,0 +1,16 @@
+// EXPECT-EXIT: 0
+// EXPECT-STDOUT: 0
+// EXPECT-STDOUT: 5
+// EXPECT-STDOUT: 6
+// EXPECT-STDOUT: 5
+
+enum Color { Red, Green = 5, Blue };
+
+function main() {
+    print(Red);
+    print(Green);
+    print(Blue);
+    var c = Green;
+    print(c);
+    return(0);
+}

@@ -5,6 +5,7 @@
 #include <iterator>
 #include <optional>
 #include <unordered_map>
+#include <unordered_set>
 #include <variant>
 #include <vector>
 
@@ -328,11 +329,22 @@ struct NodeTypeAlias {
     Type type;
 };
 
+struct EnumMember {
+    Token name;
+    NodeExpr* value = nullptr; // nullptr = previous + 1
+};
+
+struct NodeEnumDef {
+    Token name;
+    std::vector<EnumMember> members;
+};
+
 struct NodeProg {
     std::vector<NodeStmt> stmts;
     std::vector<NodeFuncDef*> funcs;
     std::vector<NodeStructDef*> structs;
     std::vector<NodeTypeAlias*> aliases;
+    std::vector<NodeEnumDef*> enums;
 };
 
 // ── Struct type info (populated during parsing for type lookup) ────────────
@@ -395,6 +407,7 @@ public:
     NodeFuncDef*            parse_func_def();
     NodeStructDef*          parse_struct_def();
     NodeTypeAlias*          parse_type_alias();
+    NodeEnumDef*            parse_enum_def();
     std::optional<IntType>  parse_type();
     /// Parse an integer type with any number of trailing '*' pointer levels.
     std::optional<Type>     parse_full_type();
@@ -428,4 +441,5 @@ private:
     std::unordered_map<std::string, StructTypeInfo> m_struct_types;
     // Type aliases are resolved during parsing, so annotations carry real Types.
     std::unordered_map<std::string, Type> m_type_aliases;
+    std::unordered_set<std::string> m_enumerators;
 };
