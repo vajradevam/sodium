@@ -90,7 +90,8 @@ struct NodeExprIndex {
 struct NodeExprFieldAccess {
     Token obj_name;
     Token field_name;
-    bool arrow = false; // true for p->field (obj_name is a struct pointer)
+    bool arrow = false;    // true for p->field (obj_name is a struct pointer)
+    NodeExpr* base = nullptr; // non-null for chained access like a.b.c
 };
 
 // Address-of expression: &var
@@ -257,6 +258,7 @@ struct NodeStmtAssign {
 struct NodeStmtFieldAssign {
     Token obj_name;
     Token field_name;
+    NodeExpr* base = nullptr; // non-null for chained LHS like a.b.c
     NodeExpr* expr;
     AssignOp op = AssignOp::assign;
 };

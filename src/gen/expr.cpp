@@ -215,45 +215,8 @@ void Generator::gen_expr(const NodeExpr& expr)
 
         void operator()(const NodeExprFieldAccess* field_access) const
         {
-            const auto& obj_name = field_access->obj_name.value.value();
-            const auto& field_name = field_access->field_name.value.value();
-            auto var = gen->lookup_var(obj_name, field_access->obj_name.loc);
-            uint32_t base_addr;
-            std::string struct_name;
-            if (field_access->arrow) {
-                if (var.type.kind != Type::Ptr || !var.type.pointee ||
-                    var.type.pointee->kind != Type::Struct) {
-                    gen->fail(field_access->obj_name.loc, "Not a pointer to struct: " + obj_name);
-                }
-                struct_name = var.type.pointee->struct_name;
-                gen->load_var_to_vstack(obj_name);
-                base_addr = gen->pop_vreg();
-            } else {
-                if (var.struct_type.empty()) {
-                    gen->fail(field_access->obj_name.loc, "Not a struct variable: " + obj_name);
-                }
-                struct_name = var.struct_type;
-                base_addr = gen->m_ir.frame_addr(static_cast<int64_t>(var.stack_loc));
-            }
-            auto struct_info = gen->get_struct_info(struct_name);
-            if (!struct_info.has_value()) {
-                gen->fail(field_access->field_name.loc, "Unknown struct type: " + struct_name);
-            }
-            auto offset_it = struct_info.value().field_offsets.find(field_name);
-            if (offset_it == struct_info.value().field_offsets.end()) {
-                gen->fail(field_access->field_name.loc, "Unknown field '" + field_name + "' in struct '" + struct_name + "'");
-            }
-            size_t field_offset = offset_it->second;
-            // Struct storage grows downward from the base address; byte offset
-            // 0 is the base itself, field k lives at base - offset(k).
-            uint32_t field_addr = gen->m_ir.lea(IRValue::vreg(base_addr), -static_cast<int64_t>(field_offset));
-            size_t index = 0;
-            for (; index < struct_info.value().field_names.size(); index++) {
-                if (struct_info.value().field_names[index] == field_name) break;
-            }
-            Type field_type = index < struct_info.value().field_types.size()
-                                  ? struct_info.value().field_types[index]
-                                  : Type::make_int(IntType::i64);
+            Type field_type;
+            uint32_t field_addr = gen->field_addr(*field_access, field_type);
             uint32_t val = load_typed_field(gen->m_ir, field_addr, field_type);
             gen->push_vreg(val);
             gen->m_tstack.back() = field_type;
@@ -760,5 +723,54 @@ void Generator::gen_expr(const NodeExpr& expr)
 
     ExprVisitor visitor{ .gen = this };
     std::visit(visitor, expr.var);
+}
+
+uint32_t Generator::field_addr(const NodeExprFieldAccess& access, Type& out_type) {
+    uint32_t base_addr;
+    std::string struct_name;
+
+    if (access.base) {
+        auto* inner = std::get_if<NodeExprFieldAccess*>(&access.base->var);
+        if (!inner) fail(access.field_name.loc, "Unsupported field access base");
+        Type inner_type;
+        base_addr = field_addr(**inner, inner_type);
+        if (inner_type.kind != Type::Struct) {
+            fail(access.field_name.loc, "Field access requires a struct value");
+        }
+        struct_name = inner_type.struct_name;
+    } else {
+        auto var = lookup_var(access.obj_name.value.value(), access.obj_name.loc);
+        if (access.arrow) {
+            if (var.type.kind != Type::Ptr || !var.type.pointee ||
+                var.type.pointee->kind != Type::Struct) {
+                fail(access.obj_name.loc, "Not a pointer to struct: " + access.obj_name.value.value());
+            }
+            struct_name = var.type.pointee->struct_name;
+            load_var_to_vstack(access.obj_name.value.value());
+            base_addr = pop_vreg();
+        } else {
+            if (var.struct_type.empty()) {
+                fail(access.obj_name.loc, "Not a struct variable: " + access.obj_name.value.value());
+            }
+            struct_name = var.struct_type;
+            base_addr = m_ir.frame_addr(static_cast<int64_t>(var.stack_loc));
+        }
+    }
+
+    auto info = get_struct_info(struct_name);
+    if (!info.has_value()) fail(access.field_name.loc, "Unknown struct type: " + struct_name);
+    auto offset_it = info.value().field_offsets.find(access.field_name.value.value());
+    if (offset_it == info.value().field_offsets.end()) {
+        fail(access.field_name.loc, "Unknown field '" + access.field_name.value.value()
+             + "' in struct '" + struct_name + "'");
+    }
+    size_t index = 0;
+    for (; index < info.value().field_names.size(); index++) {
+        if (info.value().field_names[index] == access.field_name.value.value()) break;
+    }
+    out_type = index < info.value().field_types.size()
+                   ? info.value().field_types[index]
+                   : Type::make_int(IntType::i64);
+    return m_ir.lea(IRValue::vreg(base_addr), -static_cast<int64_t>(offset_it->second));
 }
 

@@ -586,7 +586,7 @@ std::optional<NodeExpr*> Parser::parse_primary_expr()
                     expr->var = expr_field;
                     return expr;
                 }
-                // Check for field access: ident.field
+                // Check for field access: ident.field (and chains a.b.c)
                 if (peek().has_value() && peek().value().type == TokenType::dot) {
                     consume(); // .
                     if (!peek().has_value() || peek().value().type != TokenType::ident) {
@@ -597,6 +597,17 @@ std::optional<NodeExpr*> Parser::parse_primary_expr()
                     expr_field->field_name = consume();
                     auto expr = m_allocator.alloc<NodeExpr>();
                     expr->var = expr_field;
+                    while (peek().has_value() && peek().value().type == TokenType::dot) {
+                        consume(); // .
+                        if (!peek().has_value() || peek().value().type != TokenType::ident) {
+                            error("Expected field name after '.'");
+                        }
+                        auto chained = m_allocator.alloc<NodeExprFieldAccess>();
+                        chained->base = expr;
+                        chained->field_name = consume();
+                        expr = m_allocator.alloc<NodeExpr>();
+                        expr->var = chained;
+                    }
                     return expr;
                 }
                 auto expr_ident = m_allocator.alloc<NodeExprIdent>();
@@ -1799,14 +1810,20 @@ std::optional<NodeStmt> Parser::parse_stmt() {
             peek().has_value() && peek().value().type == TokenType::ident
             && peek(1).has_value() && peek(1).value().type == TokenType::dot
             && peek(2).has_value() && peek(2).value().type == TokenType::ident
-            && peek(3).has_value()
-            && is_assign_op(peek(3).value().type)) {
+            && (peek(3).has_value() &&
+                (is_assign_op(peek(3).value().type) || peek(3).value().type == TokenType::dot))) {
+                auto lhs = parse_expr();
+                if (!lhs) error("Invalid field assignment target");
+                auto* access = std::get_if<NodeExprFieldAccess*>(&(*lhs)->var);
+                if (!access) error("Invalid field assignment target");
                 auto stmt_field_assign = m_allocator.alloc<NodeStmtFieldAssign>();
-                stmt_field_assign->obj_name = consume();
-                consume(); // .
-                stmt_field_assign->field_name = consume();
-                auto op_token = consume();
-                stmt_field_assign->op = token_to_assign_op(op_token.type);
+                stmt_field_assign->obj_name = (*access)->obj_name;
+                stmt_field_assign->field_name = (*access)->field_name;
+                if ((*access)->base) stmt_field_assign->base = (*access)->base;
+                if (!peek().has_value() || !is_assign_op(peek().value().type)) {
+                    error("Expected assignment operator after field access");
+                }
+                stmt_field_assign->op = token_to_assign_op(consume().type);
                 if (auto expr = parse_expr()) {
                     stmt_field_assign->expr = expr.value();
                 } else {

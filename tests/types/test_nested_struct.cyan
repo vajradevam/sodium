@@ -1,0 +1,15 @@
+// EXPECT-EXIT: 0
+// EXPECT-STDOUT: 7
+// EXPECT-STDOUT: 9
+
+struct Inner { var x: i64; var y: i64; };
+struct Outer { var inner: Inner; var z: i64; };
+
+function main() {
+    var o: Outer;
+    o.inner.x = 7;
+    o.inner.y = 9;
+    print(o.inner.x);
+    print(o.inner.y);
+    return(0);
+}

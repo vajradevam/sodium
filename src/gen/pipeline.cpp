@@ -256,10 +256,13 @@ std::string Generator::gen_prog_impl()
         m_func_names[func->name.value.value()] = true;
     }
 
-    // Populate struct type information with C-rule byte layout.
+    // Populate struct type information with C-rule byte layout. Earlier
+    // structs are laid out first so nested fields use their real sizes.
+    std::unordered_map<std::string, size_t> struct_sizes;
     for (const auto* sd : m_prog.structs) {
-        m_struct_types[sd->name.value.value()] =
-            StructInfo::compute_layout(sd->fields, sd->field_types);
+        StructInfo info = StructInfo::compute_layout(sd->fields, sd->field_types, struct_sizes);
+        struct_sizes[sd->name.value.value()] = info.size;
+        m_struct_types[sd->name.value.value()] = info;
     }
 
     // Enumerators are compile-time constants available to the whole program.

@@ -67,8 +67,10 @@ struct StructInfo {
     std::vector<Type> field_types;
 
     /// C-rule layout: natural alignment, internal and trailing padding.
-    static StructInfo compute_layout(const std::vector<Token>& names,
-                                     const std::vector<std::optional<Type>>& types) {
+    static StructInfo compute_layout(
+        const std::vector<Token>& names,
+        const std::vector<std::optional<Type>>& types,
+        const std::unordered_map<std::string, size_t>& struct_sizes = {}) {
         StructInfo info;
         size_t offset = 0;
         size_t struct_align = 1;
@@ -76,6 +78,10 @@ struct StructInfo {
             Type t = (i < types.size() && types[i]) ? *types[i]
                                                     : Type::make_int(IntType::i64);
             size_t sz = type_size(t);
+            if (t.kind == Type::Struct) {
+                auto known = struct_sizes.find(t.struct_name);
+                if (known != struct_sizes.end()) sz = known->second;
+            }
             size_t align = sz < 8 ? sz : 8;
             offset = (offset + align - 1) & ~(align - 1);
             info.field_names.push_back(names[i].value.value());
@@ -127,6 +133,9 @@ public:
     std::string did_you_mean(const std::string& name) const;
 
     void gen_expr(const NodeExpr& expr);
+    /// Compute the byte address of a (possibly chained) field access and
+    /// return its declared type through `out_type`.
+    uint32_t field_addr(const NodeExprFieldAccess& access, Type& out_type);
     void gen_stmt(const NodeStmt& stmt);
     void gen_func_def(const NodeFuncDef& func);
 

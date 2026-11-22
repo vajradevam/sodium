@@ -496,35 +496,20 @@ void Generator::gen_stmt(const NodeStmt& stmt)
 
         void operator()(const NodeStmtFieldAssign* stmt_field) const
         {
-            const auto& obj_name = stmt_field->obj_name.value.value();
-            const auto& field_name = stmt_field->field_name.value.value();
-            auto var = gen->lookup_var(obj_name, stmt_field->obj_name.loc);
-            if (var.struct_type.empty()) {
-                gen->fail(stmt_field->obj_name.loc, "Not a struct variable: " + obj_name);
+            NodeExprFieldAccess access;
+            access.field_name = stmt_field->field_name;
+            if (stmt_field->base) {
+                access.base = stmt_field->base;
+            } else {
+                access.obj_name = stmt_field->obj_name;
             }
-            auto struct_info = gen->get_struct_info(var.struct_type);
-            if (!struct_info.has_value()) {
-                gen->fail(stmt_field->field_name.loc, "Unknown struct type: " + var.struct_type);
-            }
-            auto offset_it = struct_info.value().field_offsets.find(field_name);
-            if (offset_it == struct_info.value().field_offsets.end()) {
-                gen->fail(stmt_field->field_name.loc, "Unknown field '" + field_name + "' in struct '" + var.struct_type + "'");
-            }
-            size_t field_offset = offset_it->second;
-            size_t field_index = 0;
-            for (; field_index < struct_info.value().field_names.size(); field_index++) {
-                if (struct_info.value().field_names[field_index] == field_name) break;
-            }
-            Type field_type = field_index < struct_info.value().field_types.size()
-                                  ? struct_info.value().field_types[field_index]
-                                  : Type::make_int(IntType::i64);
+            Type field_type;
+            uint32_t field_addr = gen->field_addr(access, field_type);
             size_t field_size = type_size(field_type);
             bool field_signed = (field_type.kind == Type::Int &&
                                  (field_type.int_type == IntType::i8 ||
                                   field_type.int_type == IntType::i16 ||
                                   field_type.int_type == IntType::i32));
-            uint32_t base_addr = gen->m_ir.frame_addr(static_cast<int64_t>(var.stack_loc));
-            uint32_t field_addr = gen->m_ir.lea(IRValue::vreg(base_addr), -static_cast<int64_t>(field_offset));
 
             if (stmt_field->op == AssignOp::assign) {
                 gen->gen_expr(*stmt_field->expr);

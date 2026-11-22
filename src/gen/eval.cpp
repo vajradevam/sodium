@@ -307,16 +307,10 @@ Type Generator::infer_expr_type(
             result = Type::make_int(IntType::i64);
         }
 
-        void operator()(const NodeExprFieldAccess* field) {
-            // struct.field → look up struct type
-            const auto& obj_name = field->obj_name.value.value();
-            auto si = gen->m_struct_types.find(obj_name);
-            if (si != gen->m_struct_types.end()) {
-                // Struct fields are always i64 for now
-                result = Type::make_int(IntType::i64);
-            } else {
-                result = Type::make_int(IntType::i64);
-            }
+        void operator()(const NodeExprFieldAccess*) {
+            // Static inference runs before local scopes exist; the generator's
+            // field_addr resolves the exact type once scopes are populated.
+            result = Type::make_int(IntType::i64);
         }
     };
 
@@ -485,10 +479,12 @@ void infer_stmt_types(
         }
 
         void operator()(const NodeStmtFieldAssign* field_assign) {
-            const auto& obj_name = field_assign->obj_name.value.value();
             Type val_t = gen->infer_expr_type(*field_assign->expr, scope);
-            if (scope.find(obj_name) == scope.end()) {
-                scope[obj_name] = val_t;
+            if (!field_assign->base && field_assign->obj_name.value.has_value()) {
+                const auto& obj_name = field_assign->obj_name.value.value();
+                if (scope.find(obj_name) == scope.end()) {
+                    scope[obj_name] = val_t;
+                }
             }
         }
 
