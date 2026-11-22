@@ -1,0 +1,131 @@
+// ──────────────────────────────────────────────────────────────────────────────
+// fmt.cyan — integer to string conversion for Cyan.
+//
+// Include it with:
+//     #include "fmt.cyan"
+//
+// All functions write a NUL-terminated string into the caller's `buf` and
+// return that same pointer. A buffer needs at most 66 bytes (one sign, 64
+// binary digits, one terminator). Bases 2..36 are supported; digits above 9
+// are a..z (or A..Z with `upper` set).
+//
+// Cyan has no unsigned division instruction, so unsigned conversion uses a
+// bit-at-a-time long division over the 64-bit pattern. This makes the full
+// u64 range available even though literals above i64 max cannot be written.
+// ──────────────────────────────────────────────────────────────────────────────
+
+#pragma once
+
+// Reconstruct an i64 bit pattern from eight little-endian bytes.
+function load_bits(p: u8*) -> i64 {
+    var v = 0;
+    var i = 7;
+    while (i >= 0) {
+        v = (v << 8) | *(p + i);
+        i = i - 1;
+    }
+    return(v);
+}
+
+// Store an i64 bit pattern as eight little-endian bytes.
+function store_bits(p: u8*, v: i64) -> u8* {
+    var i = 0;
+    while (i < 8) {
+        *(p + i) = (v >> (i * 8)) & 255;
+        i = i + 1;
+    }
+    return(p);
+}
+
+// Unsigned divide of `value` by `base`: the quotient's bit pattern is written
+// to `qout` (8 bytes) and the remainder (always < base) is returned.
+function udivmod(value: i64, base: i64, qout: u8*) -> i64 {
+    var r = 0;
+    var q = 0;
+    var k = 63;
+    while (k >= 0) {
+        r = r * 2 + ((value >> k) & 1);
+        var bit = 0;
+        if (r >= base) { r = r - base; bit = 1; }
+        q = (q << 1) | bit;
+        k = k - 1;
+    }
+    store_bits(qout, q);
+    return(r);
+}
+
+// Convert the unsigned bit pattern of `value` into LSB-first digits in tmp.
+function unsigned_digits(tmp: u8*, value: i64, base: i64) -> i64 {
+    var qbuf: u8[8];
+    var n = 0;
+    var v = value;
+    var out = tmp;
+    while (v != 0) {
+        *(out + n) = udivmod(v, base, qbuf);
+        n = n + 1;
+        v = load_bits(qbuf);
+    }
+    return(n);
+}
+
+// Reverse n digits from tmp into out, map them through the alphabet and
+// terminate the string. Returns out.
+function write_digits(out: u8*, tmp: u8*, n: i64, upper: i64) -> u8* {
+    var lower_table = "0123456789abcdefghijklmnopqrstuvwxyz";
+    var upper_table = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+    var table = lower_table;
+    if (upper == 1) { table = upper_table; }
+    var i = 0;
+    var src = tmp;
+    while (i < n) {
+        var j = n - 1 - i;
+        *(out + i) = *(table + *(src + j));
+        i = i + 1;
+    }
+    *(out + n) = 0;
+    return(out);
+}
+
+// fmt_uint(buf, value, base, upper) — writes the full 64-bit bit pattern of
+// `value` as an unsigned number in `base` (2..36). Returns buf.
+function fmt_uint(buf: u8*, value: i64, base: i64, upper: i64) -> u8* {
+    var tmp: u8[80];
+    if (value == 0) { tmp[0] = 0; return(write_digits(buf, tmp, 1, upper)); }
+    var n = unsigned_digits(tmp, value, base);
+    return(write_digits(buf, tmp, n, upper));
+}
+
+// fmt_number(buf, value, base, upper) — signed conversion: a negative value
+// is prefixed with '-' and the magnitude is converted as an unsigned pattern.
+// This also works for i64 min, whose magnitude does not fit in a signed i64.
+function fmt_number(buf: u8*, value: i64, base: i64, upper: i64) -> u8* {
+    if (value >= 0) { return(fmt_uint(buf, value, base, upper)); }
+    *buf = 45;  // '-' (Cyan has no character-literal syntax)
+    var tmp: u8[80];
+    var magnitude = (~value) + 1;
+    var n = unsigned_digits(tmp, magnitude, base);
+    write_digits(buf + 1, tmp, n, upper);
+    return(buf);
+}
+
+// ── Convenience wrappers ─────────────────────────────────────────────────────
+
+function itoa(buf: u8*, value: i64) -> u8* {
+    return(fmt_number(buf, value, 10, 0));
+}
+
+function binstr(buf: u8*, value: i64) -> u8* {
+    return(fmt_number(buf, value, 2, 0));
+}
+
+function octstr(buf: u8*, value: i64) -> u8* {
+    return(fmt_number(buf, value, 8, 0));
+}
+
+function hexstr(buf: u8*, value: i64) -> u8* {
+    return(fmt_number(buf, value, 16, 0));
+}
+
+function hexstr_upper(buf: u8*, value: i64) -> u8* {
+    return(fmt_number(buf, value, 16, 1));
+}

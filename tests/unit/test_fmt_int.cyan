@@ -1,0 +1,46 @@
+// EXPECT-EXIT: 0
+// EXPECT-STDOUT: 0
+// EXPECT-STDOUT: 42
+// EXPECT-STDOUT: -42
+// EXPECT-STDOUT: 9223372036854775807
+// EXPECT-STDOUT: -9223372036854775808
+// EXPECT-STDOUT: 2a
+// EXPECT-STDOUT: 2A
+// EXPECT-STDOUT: 101010
+// EXPECT-STDOUT: 52
+// EXPECT-STDOUT: -ff
+// EXPECT-STDOUT: z
+// EXPECT-STDOUT: Z
+// EXPECT-STDOUT: 10
+// EXPECT-STDOUT: ffffffffffffffff
+// EXPECT-STDOUT: 18446744073709551615
+// EXPECT-STDOUT: 8000000000000000
+// EXPECT-STDOUT: 0
+// EXPECT-STDOUT: 1
+
+// int-to-string in every base, including signed boundaries and the full
+// unsigned 64-bit bit pattern (which has no literal syntax of its own).
+#include "fmt.cyan"
+
+function main() {
+    var buf: u8[80];
+    print("%s", itoa(buf, 0));
+    print("%s", itoa(buf, 42));
+    print("%s", itoa(buf, -42));
+    print("%s", itoa(buf, 9223372036854775807));
+    print("%s", itoa(buf, -9223372036854775807 - 1));
+    print("%s", hexstr(buf, 42));
+    print("%s", hexstr_upper(buf, 42));
+    print("%s", binstr(buf, 42));
+    print("%s", octstr(buf, 42));
+    print("%s", hexstr(buf, -255));
+    print("%s", fmt_number(buf, 35, 36, 0));
+    print("%s", fmt_number(buf, 35, 36, 1));
+    print("%s", fmt_number(buf, 36, 36, 0));
+    print("%s", fmt_uint(buf, -1, 16, 0));
+    print("%s", fmt_uint(buf, -1, 10, 0));
+    print("%s", fmt_uint(buf, -9223372036854775807 - 1, 16, 0));
+    print("%s", fmt_uint(buf, 0, 16, 0));
+    print("%s", fmt_uint(buf, 1, 2, 0));
+    return(0);
+}
