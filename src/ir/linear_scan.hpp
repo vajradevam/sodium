@@ -107,22 +107,13 @@ public:
             // 2a. Expire old intervals.
             expire_old_intervals(range.start);
 
-            // 2b. Determine register preference order.
-            // If the value spans a call, prefer callee-save registers
-            // (which survive calls). Caller-save registers get clobbered
-            // by CALL instructions, so we avoid assigning them to values
-            // that span calls.
-            //
-            // NOTE: When callee-save registers are exhausted, we fall
-            // back to caller-save registers. The IRRewriter now handles
-            // spilled vregs by inserting fp-relative LOAD/STORE instructions,
-            // so values that exceed the callee-save pool are correctly
-            // saved to the stack across calls.
+            // 2b. Register candidates. A value that is live across a CALL
+            // may ONLY live in a callee-save register: caller-save registers
+            // are clobbered by the callee. If no callee-save register can be
+            // had, the value is spilled to the stack (see spill()).
             std::vector<int> preferred;
             if (range.spans_call) {
                 preferred = m_tri.callee_save_regs();
-                auto caller = m_tri.caller_save_regs();
-                preferred.insert(preferred.end(), caller.begin(), caller.end());
             } else {
                 preferred = all_regs;
             }
@@ -184,50 +175,27 @@ private:
         m_active.push_back({ range.vreg, preg, range.end });
     }
 
+    /// No register in `available` is free for `range`. Either evict the active
+    /// interval (holding a register from `available`) that ends furthest away,
+    /// or spill `range` itself.
     void spill(const LiveRange& range, const std::vector<int>& available) {
-        // Find the active interval with the furthest end position.
-        int spill_candidate = -1;
-        uint32_t furthest_end = 0;
         int furthest_idx = -1;
-
+        uint32_t furthest_end = 0;
         for (size_t i = 0; i < m_active.size(); i++) {
-            if (m_active[i].end_pos > furthest_end) {
+            bool usable = std::find(available.begin(), available.end(),
+                                    m_active[i].phys_reg) != available.end();
+            if (usable && m_active[i].end_pos >= furthest_end) {
                 furthest_end = m_active[i].end_pos;
                 furthest_idx = static_cast<int>(i);
-                spill_candidate = m_active[i].vreg;
             }
         }
 
-        if (spill_candidate < 0) {
-            // Should not happen (we checked there are no free regs, so active is non-empty)
-            // Just assign a register anyway.
-            if (!m_active.empty()) {
-                spill_candidate = m_active[0].vreg;
-                furthest_idx = 0;
-            } else {
-                // No active intervals? This means all regs are free but find_free said no.
-                // Fallback: just assign rax.
-                RegAllocEntry entry;
-                entry.kind = RegAllocEntry::PHYSICAL;
-                entry.preg = available[0];
-                m_allocation.entries[range.vreg] = entry;
-                m_active.push_back({ range.vreg, available[0], range.end });
-                return;
-            }
-        }
-
-        // If the new interval ends after the spill candidate, spill the candidate
-        // and assign its register to the new interval.
-        if (range.end > furthest_end) {
-            // Spill the active interval.
+        if (furthest_idx >= 0 && range.end > furthest_end) {
             int freed_reg = m_active[furthest_idx].phys_reg;
-            m_allocation.entries[spill_candidate] = make_spill_entry();
-
-            // Remove from active and add new one.
+            m_allocation.entries[m_active[furthest_idx].vreg] = make_spill_entry();
             m_active.erase(m_active.begin() + furthest_idx);
             assign_register(range, freed_reg);
         } else {
-            // Spill the new interval (it's short, better to spill it).
             m_allocation.entries[range.vreg] = make_spill_entry();
         }
     }

@@ -1,0 +1,36 @@
+// V2b regression: values live across calls must never sit in caller-save registers,
+// call arguments are a parallel move, spilled args load independently, and riscv64
+// spill slots must not overlap locals.
+// EXPECT-EXIT: 0
+// EXPECT-STDOUT: chain=465
+// EXPECT-STDOUT: s8=204
+// EXPECT-STDOUT: s8nest=336
+// EXPECT-STDOUT: sub=42
+// EXPECT-STDOUT: rec=193
+function id(a) { return(a); }
+function add(a, b) { return(a + b); }
+function s8(a0,a1,a2,a3,a4,a5,a6,a7) { return(a0*1+a1*2+a2*3+a3*4+a4*5+a5*6+a6*7+a7*8); }
+function s2(a, b) { return(a - b); }
+
+// 20-argument recursion: counts down while accumulating
+function rec20(n, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14, a15, a16, a17, a18, a19) {
+    if (n == 0) { return(a1 + a2 + a3 + a4 + a5 + a6 + a7 + a8 + a9 + a10 + a11 + a12 + a13 + a14 + a15 + a16 + a17 + a18 + a19); }
+    return(rec20(n - 1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14, a15, a16, a17, a18, a19, a1 + 1));
+}
+
+function main() {
+    // temporaries live across calls: more than any register file holds
+    var r = add(id(1), add(id(2), add(id(3), add(id(4), add(id(5), add(id(6), add(id(7), add(id(8), add(id(9), add(id(10), add(id(11), add(id(12), add(id(13), add(id(14), add(id(15), add(id(16), add(id(17), add(id(18), add(id(19), add(id(20), add(id(21), add(id(22), add(id(23), add(id(24), add(id(25), add(id(26), add(id(27), add(id(28), add(id(29), add(id(30), 0))))))))))))))))))))))))))))));
+    print("chain=%d", r);
+    // 8 arguments, each a call (register + stack arguments, results held across calls)
+    var q = s8(id(1),id(2),id(3),id(4),id(5),id(6),id(7),id(8));
+    print("s8=%d", q);
+    var z = s8(add(id(0),id(0)),add(id(1),id(1)),add(id(2),id(2)),add(id(3),id(3)),add(id(4),id(4)),add(id(5),id(5)),add(id(6),id(6)),add(id(7),id(7)));
+    print("s8nest=%d", z);
+    // operand order must survive argument-register shuffling
+    var d = s2(id(100), id(58));
+    print("sub=%d", d);
+    var n = rec20(3, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19);
+    print("rec=%d", n);
+    return(0);
+}

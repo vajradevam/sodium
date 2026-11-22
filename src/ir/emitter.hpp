@@ -312,17 +312,46 @@ public:
                 size_t nargs = insn.operands.size();
                 size_t n_arg_regs = m_tri.arg_regs.size();
 
-                // Set up register arguments IN REVERSE ORDER
-                // (highest-indexed arg first). This avoids clobbering:
-                // a later arg register might be used as temporary storage
-                // for an earlier arg value, and moving higher-indexed
-                // args first ensures those temporaries are consumed before
-                // they get overwritten.
+                // Set up register arguments as a parallel move: a source may
+                // itself live in another argument register, so moves are
+                // ordered so no pending source is overwritten, with cycles
+                // broken through the scratch register. Immediates go last.
                 int start = static_cast<int>((nargs < n_arg_regs) ? nargs : n_arg_regs);
-                for (int i = start - 1; i >= 0; i--) {
-                    std::string arg_reg = m_tri.name_of(m_tri.arg_regs[i]);
-                    m_backend.mov(arg_reg, operand_name(insn, static_cast<size_t>(i)));
+                struct Move { std::string dst, src; };
+                std::vector<Move> pending;
+                std::vector<Move> imms;
+                for (int i = 0; i < start; i++) {
+                    std::string dst = m_tri.name_of(m_tri.arg_regs[static_cast<size_t>(i)]);
+                    std::string src = operand_name(insn, static_cast<size_t>(i));
+                    if (insn.operands[static_cast<size_t>(i)].is_imm()) imms.push_back({dst, src});
+                    else if (dst != src) pending.push_back({dst, src});
                 }
+                const std::string tmp = m_tri.name_of(m_tri.scratch_reg);
+                while (!pending.empty()) {
+                    bool progressed = false;
+                    for (size_t m = 0; m < pending.size(); m++) {
+                        bool dst_needed = false;
+                        for (size_t o = 0; o < pending.size(); o++)
+                            if (o != m && pending[o].src == pending[m].dst) { dst_needed = true; break; }
+                        if (dst_needed) continue;
+                        m_backend.mov(pending[m].dst, pending[m].src);
+                        pending.erase(pending.begin() + static_cast<long>(m));
+                        progressed = true;
+                        break;
+                    }
+                    if (!progressed) {
+                        // Every remaining move is part of a cycle: park one
+                        // destination's current value in the scratch register.
+                        const std::string parked = pending[0].dst;
+                        m_backend.mov(tmp, parked);
+                        for (auto& mv : pending)
+                            if (mv.src == parked) mv.src = tmp;
+                    }
+                }
+                for (auto& mv : imms) m_backend.mov(mv.dst, mv.src);
+                for (auto& al : insn.arg_loads)
+                    m_backend.load(m_tri.name_of(al.first),
+                                   m_backend.addr_reg_offset(m_tri.name_of(m_tri.fp_reg), al.second));
 
                 m_backend.call(insn.call_target);
 

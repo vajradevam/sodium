@@ -48,7 +48,7 @@ anyway, tick the box, and note "not reproducible" in PROGRESS.md.
 ## Phase 1 — Verify and fix known suspicions (each: repro test first)
 - [x] **V1 >6 args (x86_64) / >8 args (riscv64)** incl. nested calls as arguments and recursion with stack args; RSP alignment at call.
 - [x] **V2 Register pressure / spills:** programs with 20+ live values across calls, in loops, on both targets; check spill slots don't collide with locals or arrays.
-- [ ] **V2b Caller-save values clobbered by nested/recursive calls (follow-up from V2).** With 20+ args and nested
+- [x] **V2b Caller-save values clobbered by nested/recursive calls (follow-up from V2).** With 20+ args and nested
   calls, a call result held in a caller-save arg register (e.g. riscv a7) is overwritten while setting up the next
   call; recursion with 20 args also fails on x86_64. Needs callee-save/spill selection that reserves argument
   registers, or save/restore around calls. Repro: nested `sum20(sum20(...), ...)` and `recurse20` cases.

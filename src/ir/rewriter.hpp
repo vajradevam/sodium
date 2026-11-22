@@ -62,9 +62,10 @@ private:
     int m_frame_base = 0;   // byte offset where spill slots begin below fp
 
     /// Compute the fp-relative offset for a given spill slot. Slots start
-    /// below the locals frame so they never overlap local variables.
+    /// below the locals frame so they never overlap local variables. The result
+    /// is a raw offset from the frame-pointer register (not passed through addr_fp).
     int spill_offset(int slot) const {
-        return -(m_frame_base + (slot + 1) * 8);
+        return -(m_frame_base + (slot + 1) * 8) + m_tri.fp_bias;
     }
 
     /// Insert spill code for vregs that were spilled to stack slots.
@@ -148,9 +149,30 @@ private:
                     }
                 }
 
+                // CALL register arguments: physical ones become their register
+                // number; spilled ones are loaded by the emitter straight into
+                // their argument register (after the parallel register moves),
+                // never through the shared scratch register.
+                if (insn.op == IROpcode::CALL) {
+                    for (size_t i = 0; i < insn.operands.size(); i++) {
+                        auto& op = insn.operands[i];
+                        if (!op.is_vreg()) continue;
+                        auto it = m_alloc.entries.find(op.vreg_id);
+                        if (it == m_alloc.entries.end()) continue;
+                        if (it->second.is_physical()) {
+                            op.vreg_id = static_cast<uint32_t>(it->second.preg);
+                        } else if (it->second.is_spilled()) {
+                            int areg = m_tri.arg_regs[i];
+                            insn.arg_loads.push_back({ areg, spill_offset(it->second.spill_slot) });
+                            op = IRValue::vreg(static_cast<uint32_t>(areg));
+                        }
+                    }
+                }
+
                 // --- Emit loads for spilled source operands ---
                 int spilled_src_count = 0;
                 for (auto& op : insn.operands) {
+                    if (insn.op == IROpcode::CALL) break;
                     if (!op.is_vreg()) continue;
                     auto it = m_alloc.entries.find(op.vreg_id);
                     if (it == m_alloc.entries.end()) continue;

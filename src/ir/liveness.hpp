@@ -109,7 +109,9 @@ inline LiveRanges compute_live_ranges(const IRFunction& func) {
         // Check if this interval spans any CALL instruction.
         r.spans_call = false;
         for (uint32_t cp : call_positions) {
-            if (cp > r.start && cp < r.end) {
+            // r.end is one past the last use, so a last use AT the call
+            // (cp + 1 == r.end) is consumed before the callee clobbers anything.
+            if (cp > r.start && cp + 1 < r.end) {
                 r.spans_call = true;
                 break;
             }
