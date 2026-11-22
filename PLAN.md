@@ -78,7 +78,9 @@ anyway, tick the box, and note "not reproducible" in PROGRESS.md.
 - [x] **P2-END** `check.sh --full`, tag.
 
 ## Phase 3 — Real type system (per D-002/D-003)
-- [ ] **Y1 Typed params and return types** (`function f(a: i32, p: u8*) -> i64`), arity + type checking at calls, implicit conversions only for safe widening / literal fit; untyped still accepted (warn after Y9).
+- [ ] **Y1a Typed signature syntax (split from Y1).** Add `->` token, parse `function f(a: i32, p: u8*) -> i64` (pointer types `T*`/`T**` via the parser arena); extend `NodeFuncDef` with param types and return type, keep untyped signatures accepted; AST/tokenizer unit tests. Generator behavior unchanged.
+- [ ] **Y1b Typed params + call checking (split from Y1).** Generator uses declared param types for frame slots/loads and checks call arity and argument types; implicit conversion only for safe widening or literal fit, otherwise compile error. Positive, negative and boundary tests on both targets.
+- [ ] **Y1c Return types and conversions (split from Y1).** Generator checks return expressions against declared return type, applies safe widening/truncation rules; positive + compile-error tests on both targets; tick Y1.
 - [ ] **Y2 Typed struct fields** + C-rule layout, `sizeof`, field loads/stores at correct width (fixes V5).
 - [ ] **Y3 Typed local arrays** (`var a: i32[10];`) with element-width loads/stores and `sizeof`; array-to-pointer decay in calls.
 - [ ] **Y4 `bool`, `char`, `true/false/null`.**
