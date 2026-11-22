@@ -1,0 +1,99 @@
+// ──────────────────────────────────────────────────────────────────────────────
+// mem.cyan — allocation wrappers and a leak-check counter for Cyan.
+//
+// Include it with:
+//     #include "mem.cyan"
+//
+// SODIUM_ALLOC_DEBUG (a compile-time constant below) controls leak tracking:
+// when it is 1, mem_malloc/mem_free and everything built on them maintain a
+// live-allocation count that mem_live_count() reports. Set it to 0 to remove
+// the tracking overhead. The counter is library-level: it counts buffers
+// handed out by these wrappers, not raw malloc() calls made elsewhere.
+// ──────────────────────────────────────────────────────────────────────────────
+
+#pragma once
+
+#include "string.cyan"
+
+const SODIUM_ALLOC_DEBUG = 1;
+global var g_live_allocs = 0;
+
+// Tracked allocation. Returns null on failure, like malloc.
+function mem_malloc(n: i64) -> u8* {
+    var p = malloc(n);
+    if (SODIUM_ALLOC_DEBUG != 0 && p != null) { g_live_allocs = g_live_allocs + 1; }
+    return(p);
+}
+
+// Tracked free. Safe on null.
+function mem_free(p: u8*) {
+    if (p == null) { return(0); }
+    if (SODIUM_ALLOC_DEBUG != 0) { g_live_allocs = g_live_allocs - 1; }
+    free(p);
+    return(0);
+}
+
+// Number of buffers currently live through these wrappers.
+function mem_live_count() -> i64 {
+    return(g_live_allocs);
+}
+
+// calloc(count, size) — zero-initialised allocation. Returns null when the
+// product overflows i64 or the allocation fails.
+function calloc(count: i64, size: i64) -> u8* {
+    if (count < 0 || size < 0) { return(null); }
+    var total = count * size;
+    if (count != 0 && total / count != size) { return(null); }
+    var p = mem_malloc(total);
+    if (p == null) { return(null); }
+    memset(p, 0, total);
+    return(p);
+}
+
+// realloc(p, old_size, new_size) — copies up to min(old_size, new_size) bytes
+// into a new allocation and frees p. The old size is explicit because the
+// allocator does not expose it. Returns null on failure, leaving p untouched.
+function realloc(p: u8*, old_size: i64, new_size: i64) -> u8* {
+    if (new_size < 0) { return(null); }
+    var q = mem_malloc(new_size);
+    if (q == null) { return(null); }
+    var n = old_size;
+    if (n > new_size) { n = new_size; }
+    if (p != null && n > 0) { memcpy(q, p, n); }
+    mem_free(p);
+    return(q);
+}
+
+// aligned_alloc(alignment, size) — returns a buffer whose address is a
+// multiple of `alignment` (any power of two >= 1), or null for bad arguments.
+// Release it with aligned_free(), not free(): the original malloc pointer is
+// stored in the eight bytes just before the returned address.
+function aligned_alloc(alignment: i64, size: i64) -> u8* {
+    if (alignment < 1 || (alignment & (alignment - 1)) != 0) { return(null); }
+    if (size < 0) { return(null); }
+    var raw = mem_malloc(size + alignment + 8);
+    if (raw == null) { return(null); }
+    var base = raw as i64;
+    var addr = (base + 8 + alignment - 1) & ~(alignment - 1);
+    var hdr = (addr - 8) as u8*;
+    var raw_bits = raw as i64;
+    var i = 0;
+    while (i < 8) {
+        *(hdr + i) = (raw_bits >> (i * 8)) & 255;
+        i = i + 1;
+    }
+    return(addr as u8*);
+}
+
+function aligned_free(p: u8*) {
+    if (p == null) { return(0); }
+    var hdr = (p as i64 - 8) as u8*;
+    var raw_bits = 0;
+    var i = 7;
+    while (i >= 0) {
+        raw_bits = (raw_bits << 8) | *(hdr + i);
+        i = i - 1;
+    }
+    mem_free(raw_bits as u8*);
+    return(0);
+}

@@ -1,0 +1,51 @@
+// EXPECT-EXIT: 0
+// EXPECT-STDOUT: 1
+// EXPECT-STDOUT: 0
+// EXPECT-STDOUT: 1
+// EXPECT-STDOUT: 0
+// EXPECT-STDOUT: 1
+// EXPECT-STDOUT: 0
+// EXPECT-STDOUT: 0
+
+// cyanlib/mem.cyan: calloc, realloc, aligned alloc and the leak counter.
+#include "mem.cyan"
+
+function main() {
+    var z = calloc(8, 8);
+    if (z == null) { return(1); }
+    var i = 0;
+    while (i < 64) {
+        if (*(z + i) != 0) { return(2); }
+        i = i + 1;
+    }
+    print(mem_live_count());
+
+    mem_free(z);
+    print(mem_live_count());
+
+    var p = mem_malloc(16);
+    memset(p, 65, 16);
+    var q = realloc(p, 16, 64);
+    if (q == null) { return(3); }
+    print(mem_live_count());
+    i = 0;
+    while (i < 16) {
+        if (*(q + i) != 65) { return(5); }
+        i = i + 1;
+    }
+    mem_free(q);
+    print(mem_live_count());
+
+    var a = aligned_alloc(64, 32);
+    if (a == null) { return(6); }
+    if ((a as i64) % 64 != 0) { return(7); }
+    print(mem_live_count());
+    memset(a, 7, 32);
+    aligned_free(a);
+    print(mem_live_count());
+
+    if (calloc(9223372036854775807, 2) != null) { return(9); }
+    if (aligned_alloc(3, 16) != null) { return(10); }
+    print(mem_live_count());
+    return(0);
+}

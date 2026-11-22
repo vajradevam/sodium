@@ -148,3 +148,19 @@ struct arguments and returns work through pointers too.
 Each conversion consumes one argument, and a shortage is a compile error. Conversion lives in the
 freestanding runtime (`sodium-rt/printfmt.c` plus a `_sodium_write_buf` write helper in each
 backend's `print.asm`), not in generated IR, so both targets share the same formatting rules.
+
+## D-016 Allocation wrappers and leak-check mode (L3)
+`cyanlib/mem.cyan` is the Cyan-side memory wrapper layer:
+
+- `calloc(count, size)` zeroes the allocation and returns null if `count * size` overflows i64.
+- `realloc(p, old_size, new_size)` takes the **old size explicitly**: the runtime allocator does not
+  expose a block's usable size, so a C-style one-argument `realloc` cannot be both safe and portable
+  here. It copies `min(old_size, new_size)` bytes and frees the old block.
+- `aligned_alloc(alignment, size)` accepts any power of two and over-allocates to align the address;
+  the original malloc pointer is stored in the eight bytes immediately before the result. It must be
+  released with `aligned_free`, not `free`.
+- `SODIUM_ALLOC_DEBUG` is a **compile-time Cyan constant** (1 by default) controlling a library-level
+  live-allocation counter. `mem_malloc`/`mem_free` and everything built on them update it;
+  `mem_live_count()` reports it. Setting the constant to 0 removes the tracking. This is deliberately
+  a Cyan-level count, not a flag read from the environment: the freestanding runtime has no env
+  access on either backend.
