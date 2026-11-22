@@ -161,3 +161,19 @@ Phase 4 complete, verified against code at HEAD 93d6c7a. The Cyan standard libra
 
 ## 2026-11-22 — Test runner: report skipped count in Results line
 `scripts/run_tests.sh` now prints `Results: N passed, N failed, N skipped`, so the total matches `Run-equivalents` (659 + 0 + 10 = 669). The 10 skips are intentional: 8 ABI interop cases (run by `scripts/test_abi_interop.sh`, which needs the C object) and the 2 include helper cases. No test added or changed; count unchanged.
+
+## 2026-11-22 — O1 IR verifier
+Added `src/ir/verify.hpp`: checks unique block labels, JMP/BR targets (no dangling labels),
+terminator shape, operand counts/kinds/widths, and CFG dominance (a use must be dominated by a
+def of that same vreg). Fallthrough blocks and dead instructions after a terminator are tolerated,
+matching the generator's IR. `--verify-ir` requests a check explicitly; Debug builds (including
+the ASan build) define `SODIUM_IR_VERIFY` and always run it. Added 19 C++ cases covering each
+check and extended `scripts/sweep.sh` with a `--verify-ir` mode over every test on both targets
+that fails on an `IR verification failed` message. The verifier exposed a real ternary codegen
+bug: each arm left its own vreg on the vstack and the join used only the else one, which happened
+to work because the allocator gave both the same physical register. Ternary now defines a shared
+result vreg before the branch and copies each arm into it; the regression
+`tests/unit/test_ir_verify_ternary.cyan` uses `// COMPILE-FLAGS: --verify-ir` and fails with the
+old codegen on both targets. `scripts/check.sh --full` green: 659 -> 661 passed, 0 failed,
+10 skipped; 167 -> 186 C++ cases / 4023 checks; sweep 1340 -> 2016 invocations (added verify
+mode), 0 crashes; ASan/UBSan clean.

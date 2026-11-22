@@ -157,21 +157,35 @@ void Generator::gen_expr(const NodeExpr& expr)
             auto label_end = gen->new_label();
             auto label_then = gen->new_label();
 
+            // Both arms must write their result to the same vreg, and that vreg
+            // needs a dominating definition in the entry block: a def in only
+            // one arm does not dominate the join. (The old code left two
+            // arm-local vregs on the vstack and used the else one in the join;
+            // it only worked because the allocator happened to give both the
+            // same physical register.)
+            uint32_t result = gen->m_ir.load_i64(0);
+
             // br(cond, true_label, false_label): if cond != 0 → true_label
             gen->m_ir.br(IRValue::vreg(cond), label_then, label_else);
 
             // Then branch
             gen->m_ir.new_block(label_then);
             gen->gen_expr(*ternary->then_expr);
-            // Result is on vstack; jump to end
+            uint32_t then_v = gen->pop_vreg();
+            gen->m_ir.emit(IRInstruction::copy(result, IRValue::vreg(then_v)));
             gen->m_ir.jmp(label_end);
 
             // Else branch
             gen->m_ir.new_block(label_else);
             gen->gen_expr(*ternary->else_expr);
+            Type result_type = gen->peek_type();
+            uint32_t else_v = gen->pop_vreg();
+            gen->m_ir.emit(IRInstruction::copy(result, IRValue::vreg(else_v)));
 
             // End
             gen->m_ir.new_block(label_end);
+            gen->push_vreg(result);
+            gen->m_tstack.back() = result_type;
         }
 
         void operator()(const NodeExprRead* read_expr) const

@@ -126,7 +126,7 @@ anyway, tick the box, and note "not reproducible" in PROGRESS.md.
 - [x] **P4-END** full gate, tag.
 
 ## Phase 5 — IR & optimization (D-006; all behind `-O1` first)
-- [ ] **O1 IR verifier** (`--verify-ir`, run automatically in debug builds): defs dominate uses, operand types, block terminators, no dangling labels. Run it over the whole suite.
+- [x] **O1 IR verifier** (`--verify-ir`, run automatically in debug builds): defs dominate uses, operand types, block terminators, no dangling labels. Run it over the whole suite.
 - [ ] **O2 Constant folding & algebraic simplification** (x+0, x*1, x*2^n → shift, strength reduction), with overflow semantics identical to runtime.
 - [ ] **O3 Dead code / unreachable block elimination**, jump threading, empty-block removal.
 - [ ] **O4 Local value numbering / CSE; redundant load-store elimination** within basic blocks.

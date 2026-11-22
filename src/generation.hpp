@@ -23,6 +23,7 @@ struct GenAbort {};
 #include "ir/linear_scan.hpp"
 #include "ir/rewriter.hpp"
 #include "ir/target_regs.hpp"
+#include "ir/verify.hpp"
 #include <list>
 #include "ir/emitter.hpp"
 
@@ -182,6 +183,7 @@ public:
 
     void set_no_alloc(bool v) { m_no_alloc = v; }
     void set_emit_ir(bool v) { m_emit_ir = v; }
+    void set_verify_ir(bool v) { m_verify_ir = v; }
 
     [[nodiscard]] std::string gen_prog();
 
@@ -374,6 +376,7 @@ private:
     // ---- options ----
     bool m_no_alloc = false;
     bool m_emit_ir = false;
+    bool m_verify_ir = false;
 
     // ---- IR state ----
     IRBuilder m_ir;

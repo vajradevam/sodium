@@ -102,6 +102,11 @@ set(SODIUM_WARNING_FLAGS
 target_compile_options(sodium PRIVATE ${SODIUM_WARNING_FLAGS})
 target_compile_options(cyan-lsp PRIVATE ${SODIUM_WARNING_FLAGS})
 
+# O1: debug builds run the IR verifier on every function before allocation;
+# release builds do so only when --verify-ir is passed.
+target_compile_definitions(sodium PRIVATE $<$<CONFIG:Debug>:SODIUM_IR_VERIFY>)
+target_compile_definitions(cyan-lsp PRIVATE $<$<CONFIG:Debug>:SODIUM_IR_VERIFY>)
+
 # T4: native C++ unit tests (no network, no external framework).
 file(GLOB UNIT_TEST_SOURCES tests/cpp/test_*.cpp)
 add_executable(unit_tests

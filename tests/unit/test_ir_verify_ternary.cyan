@@ -1,0 +1,20 @@
+// EXPECT-EXIT: 46
+// EXPECT-STDOUT: 10 20 7 9
+// COMPILE-FLAGS: --verify-ir
+
+// Ternary arms write a shared result vreg that is defined before the branch,
+// so the join's use is dominated on both targets (O1 verifier regression).
+
+function pick(flag: i64, a: i64, b: i64) -> i64 {
+    return (flag ? a : b);
+}
+
+function main() {
+    var x = 5;
+    var r = (x > 3) ? 10 : 20;
+    var s = (x < 3) ? 10 : 20;
+    var t = pick(1, 7, 9);
+    var u = pick(0, 7, 9);
+    print("%d %d %d %d", r, s, t, u);
+    return r + s + t + u;
+}

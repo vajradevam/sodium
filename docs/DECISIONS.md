@@ -207,3 +207,14 @@ headers and runs the program under `env` with those variables set.
 a library function rather than a special statement, so it composes with the rest of the language
 and needs no new parser form. The runner's `// EXPECT-STDERR: <substring>` header performs a
 substring check on stderr (stdout keeps exact ordered-line comparison).
+
+## D-022 IR verifier (O1)
+`--verify-ir` checks each IR function after generation and before allocation; Debug builds always
+run it (`SODIUM_IR_VERIFY`). The checks are: unique block labels; JMP/BR targets name existing
+blocks; terminators have the required shape and never define a result; operand counts, vreg-vs-
+immediate kinds and widths are consistent; and every use of a virtual register is dominated by a
+definition of that same vreg in the CFG (fallthrough edges included, dead instructions after the
+first terminator ignored). Because a join with multiple predecessors has no dominating arm-local
+def, multi-arm expressions write a shared result vreg defined before the branch. A verifier failure
+is an internal compiler error: print `IR verification failed` and abort compilation rather than
+emitting a source diagnostic.

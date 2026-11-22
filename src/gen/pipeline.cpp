@@ -24,6 +24,21 @@ void Generator::flush_function() {
         std::cerr << "; --- end IR ---\n";
     }
 
+    // O1: check the IR before any transform can hide a problem. Explicit
+    // --verify-ir asks for it; debug builds (SODIUM_IR_VERIFY) always run it.
+#if defined(SODIUM_IR_VERIFY)
+    const bool want_verify = true;
+#else
+    const bool want_verify = m_verify_ir;
+#endif
+    if (want_verify) {
+        IRVerifyResult result = verify_function(*func);
+        if (!result.ok()) {
+            std::cerr << "IR verification failed:\n" << result.to_string();
+            throw GenAbort{};
+        }
+    }
+
     auto allocation = [&]() {
         LinearScanAllocator alloc(*m_tri_ptr);
         return alloc.allocate(*func);
