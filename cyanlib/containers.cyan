@@ -1,0 +1,147 @@
+// ──────────────────────────────────────────────────────────────────────────────
+// containers.cyan — dynamic containers written in Cyan.
+//
+// Include it with:
+//     #include "containers.cyan"
+//
+// All containers are passed by pointer: init, then push/get/set, then free.
+// Growth doubles capacity, so a run of pushes is amortised O(1) each.
+// ──────────────────────────────────────────────────────────────────────────────
+
+#pragma once
+
+#include "string.cyan"
+
+// ── Vec: growable array of i64 ───────────────────────────────────────────────
+
+struct Vec {
+    var data: i64*;
+    var len: i64;
+    var cap: i64;
+};
+
+function vec_init(v: Vec*, cap: i64) {
+    var c = cap;
+    if (c < 1) { c = 4; }
+    v->data = malloc(c * 8) as i64*;
+    v->len = 0;
+    v->cap = c;
+    return(0);
+}
+
+function vec_push(v: Vec*, x: i64) {
+    if (v->len == v->cap) {
+        var nc = v->cap * 2;
+        var nd = malloc(nc * 8) as i64*;
+        var i = 0;
+        while (i < v->len) {
+            *(nd + i) = *(v->data + i);
+            i = i + 1;
+        }
+        free(v->data);
+        v->data = nd;
+        v->cap = nc;
+    }
+    *(v->data + v->len) = x;
+    v->len = v->len + 1;
+    return(0);
+}
+
+function vec_get(v: Vec*, i: i64) -> i64 {
+    return(*(v->data + i));
+}
+
+function vec_set(v: Vec*, i: i64, x: i64) {
+    *(v->data + i) = x;
+    return(0);
+}
+
+function vec_len(v: Vec*) -> i64 {
+    return(v->len);
+}
+
+// Stable checksum used by the property tests: sum(data[i] * 31^(n-1-i)).
+function vec_checksum(v: Vec*) -> i64 {
+    var s = 0;
+    var i = 0;
+    while (i < v->len) {
+        s = s * 31 + *(v->data + i);
+        i = i + 1;
+    }
+    return(s);
+}
+
+function vec_free(v: Vec*) {
+    free(v->data);
+    v->data = null;
+    v->len = 0;
+    v->cap = 0;
+    return(0);
+}
+
+// ── Str: growable byte-string builder ────────────────────────────────────────
+
+struct Str {
+    var data: u8*;
+    var len: i64;
+    var cap: i64;
+};
+
+function str_init(s: Str*, cap: i64) {
+    var c = cap;
+    if (c < 1) { c = 8; }
+    s->data = malloc(c);
+    s->len = 0;
+    s->cap = c;
+    return(0);
+}
+
+function str_grow(s: Str*) {
+    var nc = s->cap * 2;
+    var nd = malloc(nc);
+    var i = 0;
+    while (i < s->len) {
+        *(nd + i) = *(s->data + i);
+        i = i + 1;
+    }
+    free(s->data);
+    s->data = nd;
+    s->cap = nc;
+    return(0);
+}
+
+function str_push(s: Str*, c: u8) {
+    if (s->len + 1 >= s->cap) { str_grow(s); }
+    *(s->data + s->len) = c;
+    s->len = s->len + 1;
+    return(0);
+}
+
+function str_append(s: Str*, p: u8*) {
+    var i = 0;
+    while (*(p + i) != 0) {
+        str_push(s, *(p + i));
+        i = i + 1;
+    }
+    return(0);
+}
+
+// Finalise in place: append the terminator and return the buffer. The Str
+// still owns that buffer, so release it with str_free, not free.
+function str_build(s: Str*) -> u8* {
+    if (s->len + 1 >= s->cap) { str_grow(s); }
+    *(s->data + s->len) = 0;
+    return(s->data);
+}
+
+function str_len(s: Str*) -> i64 {
+    return(s->len);
+}
+
+function str_free(s: Str*) {
+    free(s->data);
+    s->data = null;
+    s->len = 0;
+    s->cap = 0;
+    return(0);
+}

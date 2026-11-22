@@ -118,7 +118,7 @@ anyway, tick the box, and note "not reproducible" in PROGRESS.md.
 - [x] **L3 `cyanlib/mem.cyan`** wrappers: calloc, realloc, aligned alloc; allocator leak check mode (`SODIUM_ALLOC_DEBUG`).
 - [x] **L4a Raw file syscalls:** generic syscall3/syscall4 stubs in both runtime backends and freestanding C wrappers for open/close/read/write/lseek/unlink (riscv64 uses openat). Expose them as compiler builtins with arity/type checks and extern registration; tests on both targets for open/write/read/close, lseek and unlink, including error paths.
 - [x] **L4b `cyanlib/io.cyan`:** read a whole file to a buffer, write a buffer, a line reader over a file buffer, `stderr` printing and exit-code helpers, built on the L4a builtins; tests for empty files, missing files, multiple lines and large buffers on both targets.
-- [ ] **L5a Vec and Str:** growable i64 vector and byte-string builder in `cyanlib/containers.cyan`, with push/get/set/build/free and property tests using many random operations against a reference checksum, on both targets.
+- [x] **L5a Vec and Str:** growable i64 vector and byte-string builder in `cyanlib/containers.cyan`, with push/get/set/build/free and property tests using many random operations against a reference checksum, on both targets.
 - [ ] **L5b HashMap:** open-addressed string→i64 map in `cyanlib/containers.cyan` with put/get/remove/checksum, plus property tests comparing many random operations against a reference model, on both targets.
 - [ ] **L6 `argv`/`envp`/`exit` handling polish;** `print` to fd; `assert(cond, "msg")` builtin.
 - [ ] **P4-END** full gate, tag.

@@ -1,0 +1,74 @@
+// EXPECT-EXIT: 0
+// EXPECT-STDOUT: containers ok
+
+// Property tests: many pseudo-random operations checked against a reference
+// array and an incrementally maintained checksum.
+#include "containers.cyan"
+
+global var g_seed = 12345;
+
+function rnd() -> i64 {
+    g_seed = (g_seed * 1103515245 + 12345) & 0x7fffffff;
+    return(g_seed);
+}
+
+function main() {
+    var v: Vec;
+    vec_init(&v, 2);
+    var ref: i64[256];
+    var n = 200;
+    var i = 0;
+    var cs = 0;
+    while (i < n) {
+        var x = rnd() % 1000;
+        vec_push(&v, x);
+        ref[i] = x;
+        cs = cs * 31 + x;
+        if (vec_len(&v) != i + 1) { return(1); }
+        if (vec_checksum(&v) != cs) { return(2); }
+        i = i + 1;
+    }
+
+    i = 0;
+    while (i < 50) {
+        var idx = rnd() % n;
+        var x = rnd() % 1000;
+        vec_set(&v, idx, x);
+        ref[idx] = x;
+        i = i + 1;
+    }
+    cs = 0;
+    i = 0;
+    while (i < n) {
+        cs = cs * 31 + ref[i];
+        i = i + 1;
+    }
+    if (vec_checksum(&v) != cs) { return(3); }
+    i = 0;
+    while (i < n) {
+        if (vec_get(&v, i) != ref[i]) { return(4); }
+        i = i + 1;
+    }
+
+    var s: Str;
+    str_init(&s, 4);
+    var expected: u8[128];
+    var m = 0;
+    i = 0;
+    while (i < 60) {
+        var c = 97 + rnd() % 26;
+        str_push(&s, c as u8);
+        expected[m] = c as u8;
+        m = m + 1;
+        i = i + 1;
+    }
+    expected[m] = 0;
+    var built = str_build(&s);
+    if (strlen(built) != m) { return(5); }
+    if (strcmp(built, expected) != 0) { return(6); }
+
+    str_free(&s);
+    vec_free(&v);
+    print("containers ok");
+    return(0);
+}
