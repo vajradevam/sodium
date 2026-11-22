@@ -1,0 +1,7 @@
+// EXPECT-WARNING: unreachable code
+
+function main() {
+    return(0);
+    print(1);
+    return(2);
+}

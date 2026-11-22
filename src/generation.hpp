@@ -103,6 +103,9 @@ public:
     std::optional<int64_t> eval_const_expr(const NodeExpr* expr) const;
     void collect_globals(const std::vector<NodeStmt>& stmts);
 
+    /// AST flow pass: unreachable statements and missing returns (E3c).
+    void check_flow_warnings();
+
     void enter_scope();
     void exit_scope();
 

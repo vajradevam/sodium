@@ -1,0 +1,15 @@
+// NO-WARNING: unreachable
+// NO-WARNING: missing return
+// EXPECT-EXIT: 0
+
+function f(a) {
+    if (a > 0) {
+        return(1);
+    }
+    return(0);
+}
+
+function main() {
+    print(f(1));
+    return(0);
+}

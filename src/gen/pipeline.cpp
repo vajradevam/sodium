@@ -120,7 +120,9 @@ void Generator::gen_func_def(const NodeFuncDef& func)
             }
         }
     }
-    exit_scope();
+    // Already warned above, so pop directly rather than through exit_scope()
+    // (which would report the same locals a second time).
+    m_scopes.pop_back();
     m_stack_size = saved_stack_size;
 
     // Finalize this function: run allocator and emit to backend
@@ -231,6 +233,9 @@ std::string Generator::gen_prog_impl()
         info.size = sd->fields.size();
         m_struct_types[sd->name.value.value()] = info;
     }
+
+    // Flow-based warnings (unreachable code, missing return).
+    check_flow_warnings();
 
     // Pre-collect globals
     collect_globals(m_prog.stmts);
