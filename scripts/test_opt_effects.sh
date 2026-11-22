@@ -30,4 +30,19 @@ if grep -q 'shl .* 3' "$WORK/ir0"; then
     exit 1
 fi
 
+cat > "$WORK/cfg.cyan" <<'CYAN'
+function f() -> i64 {
+    return 7;
+}
+function main() {
+    return f();
+}
+CYAN
+
+"$COMPILER" -O1 --emit-ir -S -o "$WORK/out.s" "$WORK/cfg.cyan" 2> "$WORK/cfg1"
+"$COMPILER" -O0 --emit-ir -S -o "$WORK/out.s" "$WORK/cfg.cyan" 2> "$WORK/cfg0"
+ret1=$(grep -c 'ret' "$WORK/cfg1")
+ret0=$(grep -c 'ret' "$WORK/cfg0")
+[ "$ret1" -lt "$ret0" ] || { echo "effect: dead instructions after ret were not removed"; exit 1; }
+
 echo "Optimization effects: OK"

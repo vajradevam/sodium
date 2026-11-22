@@ -192,3 +192,15 @@ bug: constants from phi-like ternary result vregs were propagated using linear o
 ternaries folded to the wrong arm; folding now propagates only single-def vregs. `scripts/check.sh
 --full` green: 661 -> 663 passed, 0 failed, 10 skipped at both -O0 and -O1; 186 -> 206 C++ cases /
 4071 checks; sweep 2016 -> 2022 invocations, 0 crashes; ASan/UBSan clean.
+
+## 2026-11-22 — O3 CFG cleanup
+Added `src/ir/cleanup.hpp` under `-O1`, after folding: drops unused pure results and dead tails
+after terminators, removes unreachable blocks, and threads jumps through empty/jmp-only blocks.
+Multi-def vregs are kept as a unit so dominance survives. Added 14 C++ cases and
+`tests/unit/test_opt_cleanup.cyan` for loops/branches/ternaries under `-O1`; the IR-dump effect
+check now also asserts that dead instructions after `ret` disappear at `-O1` but remain at `-O0`.
+Running the whole `-O1` suite exposed a real bug: removing a jmp-only block changed the fallthrough
+of its predecessor into the following block, crashing the hashmap library test on both targets;
+the predecessor now gets an explicit JMP to the removed block's target, with a regression unit
+test. `scripts/check.sh --full` green: 663 -> 665 passed, 0 failed, 10 skipped at both levels;
+206 -> 220 C++ cases / 4115 checks; ASan/UBSan clean.

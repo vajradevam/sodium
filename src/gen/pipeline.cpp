@@ -35,7 +35,10 @@ void Generator::flush_function() {
     };
     if (!check_ir()) throw GenAbort{};
 
-    if (m_opt_level >= 1) fold_function(*func);
+    if (m_opt_level >= 1) {
+        fold_function(*func);
+        cleanup_function(*func);
+    }
     if (!check_ir()) throw GenAbort{};  // catch a pass that breaks the IR
 
     // Dump the IR after optimization, so --emit-ir shows what is actually

@@ -229,3 +229,11 @@ rewriting uses, so dominance is unchanged. Constants are propagated only through
 single definition; phi-like shared result vregs (from ternary expressions) are never treated as
 constants, since their value depends on which branch was taken. `-O0` remains the default and is
 verified to contain none of these rewrites; the suite is run under both levels.
+
+## D-024 CFG cleanup under -O1 (O3)
+The `-O1` pipeline removes unused pure results (never loads or calls), drops the dead tail after
+a block's first terminator, deletes unreachable blocks, and threads jumps through empty and
+jmp-only blocks. A vreg with several definitions is kept as a whole: if it has any use, all its
+definitions stay so dominance is unaffected. Removing a jmp-only block must make an implicit
+fallthrough from the preceding block explicit as a JMP to the block's target; otherwise that
+predecessor would fall into the block that follows the removed one. `-O0` never runs this pass.

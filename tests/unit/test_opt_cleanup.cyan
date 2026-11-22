@@ -1,0 +1,28 @@
+// EXPECT-EXIT: 0
+// EXPECT-STDOUT: 45 0 21 6
+// COMPILE-FLAGS: -O1
+
+// O3: CFG cleanup must not change control-flow results on either target.
+
+function sum_to(n: i64) -> i64 {
+    var acc = 0;
+    var i = 0;
+    while (i < n) {
+        acc = acc + i;
+        i = i + 1;
+    }
+    return acc;
+}
+
+function choose(x: i64) -> i64 {
+    if (x > 10) { return 1; } else { return 0; }
+}
+
+function main() {
+    var a = sum_to(10);
+    var b = choose(5);
+    var c = (1 > 0) ? 21 : 0;
+    var d = sum_to(4);
+    print("%d %d %d %d", a, b, c, d);
+    return 0;
+}
