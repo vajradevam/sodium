@@ -268,18 +268,28 @@ static bool is_register_name(const std::string& s) {
     return !s.empty() && std::isalpha(static_cast<unsigned char>(s[0]));
 }
 
+// x86-64 encodes a register shift count only in CL. Writing CL is destructive:
+// a live value that the allocator placed in RCX would lose its low byte. r11 is
+// reserved (never allocated), so use it to preserve RCX across the shift. When
+// the destination is RCX itself, shift in r11 and move the result back.
+static void emit_variable_shift(X8664Backend& backend, const char* mnemonic,
+                                const std::string& dst, const std::string& src) {
+    if (dst == "rcx") {
+        backend.mov("r11", dst);
+        backend.mov("cl", low8(src));
+        backend.emit_insn(mnemonic, "r11, cl");
+        backend.mov("rcx", "r11");
+    } else {
+        backend.mov("r11", "rcx");
+        backend.mov("cl", low8(src));
+        backend.emit_insn(mnemonic, dst + ", cl");
+        backend.mov("rcx", "r11");
+    }
+}
+
 void X8664Backend::shl(const std::string& dst, const std::string& src) {
-    // x86-64 requires shift count in CL for register-counted shifts
     if (is_register_name(src) && src != "cl") {
-        if (dst == "rcx") {
-            mov("r11", dst);
-            mov("cl", low8(src));
-            emit_insn("shl", "r11, cl");
-            mov("rcx", "r11");
-        } else {
-            mov("cl", low8(src));
-            emit_insn("shl", dst + ", cl");
-        }
+        emit_variable_shift(*this, "shl", dst, src);
     } else {
         emit_insn("shl", dst + ", " + src);
     }
@@ -287,15 +297,7 @@ void X8664Backend::shl(const std::string& dst, const std::string& src) {
 
 void X8664Backend::shr(const std::string& dst, const std::string& src) {
     if (is_register_name(src) && src != "cl") {
-        if (dst == "rcx") {
-            mov("r11", dst);
-            mov("cl", low8(src));
-            emit_insn("shr", "r11, cl");
-            mov("rcx", "r11");
-        } else {
-            mov("cl", low8(src));
-            emit_insn("shr", dst + ", cl");
-        }
+        emit_variable_shift(*this, "shr", dst, src);
     } else {
         emit_insn("shr", dst + ", " + src);
     }
@@ -303,15 +305,7 @@ void X8664Backend::shr(const std::string& dst, const std::string& src) {
 
 void X8664Backend::ashr(const std::string& dst, const std::string& src) {
     if (is_register_name(src) && src != "cl") {
-        if (dst == "rcx") {
-            mov("r11", dst);
-            mov("cl", low8(src));
-            emit_insn("sar", "r11, cl");
-            mov("rcx", "r11");
-        } else {
-            mov("cl", low8(src));
-            emit_insn("sar", dst + ", cl");
-        }
+        emit_variable_shift(*this, "sar", dst, src);
     } else {
         emit_insn("sar", dst + ", " + src);
     }
