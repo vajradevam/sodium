@@ -111,7 +111,9 @@ anyway, tick the box, and note "not reproducible" in PROGRESS.md.
 
 ## Phase 4 — Standard library & runtime (Cyan-written wherever possible)
 - [x] **L1 `cyanlib/string.cyan` rewritten with typed signatures:** strlen, strcmp, strncmp, strcpy, strncpy, strcat, strchr, strstr, memcpy, memmove (overlap-safe), memset, memcmp; tests for each incl. empty/overlap/boundary.
-- [ ] **L2 `cyanlib/fmt.cyan`:** int→string (all bases), string→int with error reporting, `%x %c %u %ld`-style print specifiers in `print`.
+- [ ] **L2a `print` specifiers:** add `%x` (lowercase hex), `%u` (unsigned decimal), `%c` (single byte) and `%ld` (i64 decimal alias of `%d`) to the format-string parser and codegen, with freestanding runtime helpers on both targets; positive tests for each plus compile-error tests for malformed specifiers.
+- [ ] **L2b `cyanlib/fmt.cyan` int→string:** binary/octal/decimal/hex (upper and lower) conversion for signed and unsigned i64, with tests for zero, negative, min/max and base boundaries on both targets.
+- [ ] **L2c `cyanlib/fmt.cyan` string→int with error reporting:** parse decimal (and other bases) with explicit success/overflow/invalid diagnostics; tests for valid, empty, invalid characters, sign and overflow on both targets.
 - [ ] **L3 `cyanlib/mem.cyan`** wrappers: calloc, realloc, aligned alloc; allocator leak check mode (`SODIUM_ALLOC_DEBUG`).
 - [ ] **L4 File I/O via raw syscalls** in sodium-rt (`open/close/read/write/lseek/unlink`) on both arches + `cyanlib/io.cyan` (read file to buffer, write buffer, line reader, `stderr` printing, exit codes).
 - [ ] **L5 Dynamic containers in Cyan:** `Vec` (growable array), `Str` builder, hash map (string→i64). Property-style tests with many random operations vs expected checksums.
