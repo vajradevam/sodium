@@ -144,8 +144,15 @@ struct NodeExprArrLit {
     std::vector<NodeExpr*> elements;
 };
 
+struct NodeExprSizeof {
+    std::optional<Type> type;    // sizeof(i32), sizeof(u8*)
+    std::string struct_name;     // sizeof(S)
+    NodeExpr* expr = nullptr;    // sizeof(expr)
+    SourceLoc loc{};
+};
+
 struct NodeExpr {
-    std::variant<NodeExprIntLit*, NodeExprIdent*, BinExpr*, NodeExprCall*, NodeExprStringLit*, NodeExprIndex*, NodeExprBitNot*, NodeExprLogNot*, NodeExprTernary*, NodeExprRead*, NodeExprArrLit*, NodeExprFieldAccess*, NodeExprAddrOf*, NodeExprDeref*> var;
+    std::variant<NodeExprIntLit*, NodeExprIdent*, BinExpr*, NodeExprCall*, NodeExprStringLit*, NodeExprIndex*, NodeExprBitNot*, NodeExprLogNot*, NodeExprTernary*, NodeExprRead*, NodeExprArrLit*, NodeExprFieldAccess*, NodeExprAddrOf*, NodeExprDeref*, NodeExprSizeof*> var;
 };
 
 // ── Statement AST nodes ────────────────────────────────────────────────────

@@ -83,7 +83,7 @@ anyway, tick the box, and note "not reproducible" in PROGRESS.md.
 - [x] **Y1c Return types and conversions (split from Y1).** Generator checks return expressions against declared return type, applies safe widening/truncation rules; positive + compile-error tests on both targets; tick Y1.
 - [x] **Y2a Typed field syntax + C layout (split from Y2).** Parse `struct S { var x: i8; var y: i32; };` with a parallel field-type list (untyped field = i64); compute C-rule layout (natural alignment, padding, trailing pad) in Generator's StructInfo using byte offsets/sizes; AST/layout unit tests.
 - [x] **Y2b Typed field loads/stores (split from Y2).** Field read/write and address-of use each field's declared width/signedness instead of unconditional 8-byte ops; regression tests for adjacent fields and no neighbor corruption on both targets.
-- [ ] **Y2c `sizeof` builtin (split from Y2).** Compile-time `sizeof(T)` / `sizeof(expr)` for int types, pointers and structs, usable in const expressions and codegen; tests on both targets; tick Y2.
+- [x] **Y2c `sizeof` builtin (split from Y2).** Compile-time `sizeof(T)` / `sizeof(expr)` for int types, pointers and structs, usable in const expressions and codegen; tests on both targets; tick Y2.
 - [ ] **Y3 Typed local arrays** (`var a: i32[10];`) with element-width loads/stores and `sizeof`; array-to-pointer decay in calls.
 - [ ] **Y4 `bool`, `char`, `true/false/null`.**
 - [ ] **Y5 Casts** `as`; explicit narrowing required where Y1 rules reject implicit.

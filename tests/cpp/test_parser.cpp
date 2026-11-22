@@ -242,3 +242,17 @@ TEST(parser_typed_struct_fields) {
     if (s.field_types[0]) CHECK(*s.field_types[0] == Type::make_int(IntType::i8));
     if (s.field_types[1]) CHECK(*s.field_types[1] == Type::make_int(IntType::i32));
 }
+
+TEST(parser_sizeof_type_and_expr) {
+    NodeProg prog = parse_program("struct S { var a: i8; }; function f() { print(sizeof(i32)); print(sizeof(x)); print(sizeof(S)); return(0); }");
+    CHECK_EQ(prog.funcs.size(), size_t(1));
+    if (prog.funcs.empty() || prog.funcs[0]->body->stmts.size() < 3) return;
+    auto* p1 = std::get_if<NodeStmtPrint*>(&prog.funcs[0]->body->stmts[0].var);
+    CHECK(p1 != nullptr);
+    if (!p1 || (*p1)->args.empty()) return;
+    auto* sz = std::get_if<NodeExprSizeof*>(&(*p1)->args[0]->var);
+    CHECK(sz != nullptr);
+    if (!sz) return;
+    CHECK((*sz)->type.has_value());
+    if ((*sz)->type) CHECK(*((*sz)->type) == Type::make_int(IntType::i32));
+}

@@ -130,6 +130,8 @@ public:
     void gen_func_def(const NodeFuncDef& func);
 
     std::optional<int64_t> eval_const_expr(const NodeExpr* expr) const;
+    /// Byte size of a sizeof() operand (type, struct name, or expression).
+    std::optional<int64_t> sizeof_value(const NodeExprSizeof& sz) const;
     void collect_globals(const std::vector<NodeStmt>& stmts);
 
     /// AST flow pass: unreachable statements and missing returns (E3c).

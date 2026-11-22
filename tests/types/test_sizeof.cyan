@@ -1,0 +1,18 @@
+// EXPECT-EXIT: 0
+// EXPECT-STDOUT: 1
+// EXPECT-STDOUT: 4
+// EXPECT-STDOUT: 8
+// EXPECT-STDOUT: 8
+// EXPECT-STDOUT: 8
+
+struct S { var a: i8; var b: i32; };
+
+function main() {
+    var x = 1;
+    print(sizeof(i8));
+    print(sizeof(i32));
+    print(sizeof(u8*));
+    print(sizeof(S));
+    print(sizeof(x));
+    return(0);
+}

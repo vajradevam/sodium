@@ -141,6 +141,10 @@ Type Generator::infer_expr_type(
             result = Type::make_ptr(pointee);
         }
 
+        void operator()(const NodeExprSizeof*) {
+            result = Type::make_int(IntType::i64);
+        }
+
         void operator()(const BinExpr* bin) {
             struct BinTypeInferrer {
                 Generator* gen;
@@ -557,6 +561,32 @@ void Generator::collect_call_types()
 // eval_const_expr — compile-time constant expression evaluation
 // ==========================================================================
 
+[[nodiscard]] std::optional<int64_t> Generator::sizeof_value(const NodeExprSizeof& sz) const {
+    if (sz.type.has_value()) return static_cast<int64_t>(type_size(*sz.type));
+    if (!sz.struct_name.empty()) {
+        auto info = get_struct_info(sz.struct_name);
+        if (info.has_value()) return static_cast<int64_t>(info->size);
+        return std::nullopt;
+    }
+    if (sz.expr) {
+        // Only the width matters. Identifiers resolve to their declared type;
+        // everything else is 64-bit (which is also correct for pointers).
+        Type t = Type::make_int(IntType::i64);
+        if (auto* ident = std::get_if<NodeExprIdent*>(&sz.expr->var)) {
+            const std::string& name = (*ident)->ident.value.value();
+            for (auto it = m_scopes.rbegin(); it != m_scopes.rend(); ++it) {
+                auto found = it->vars.find(name);
+                if (found != it->vars.end()) {
+                    t = found->second.type;
+                    break;
+                }
+            }
+        }
+        return static_cast<int64_t>(type_size(t));
+    }
+    return std::nullopt;
+}
+
 [[nodiscard]] std::optional<int64_t> Generator::eval_const_expr(const NodeExpr* expr) const
 {
     struct ConstEvalVisitor {
@@ -727,6 +757,10 @@ void Generator::collect_call_types()
             if (!cond) return;
             auto branch = cond.value() ? ternary->then_expr : ternary->else_expr;
             result = gen->eval_const_expr(branch);
+        }
+
+        void operator()(const NodeExprSizeof* sz) {
+            result = gen->sizeof_value(*sz);
         }
 
         void operator()(const NodeExprCall*) {}

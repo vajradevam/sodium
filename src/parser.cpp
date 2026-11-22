@@ -471,6 +471,39 @@ std::optional<NodeExpr*> Parser::parse_primary_expr()
             expr->var = read_expr;
             return expr;
         }
+        else if (peek().has_value() && peek().value().type == TokenType::ident
+                 && peek().value().value.has_value() && *peek().value().value == "sizeof"
+                 && peek(1).has_value() && peek(1).value().type == TokenType::open_paren) {
+            SourceLoc loc = consume().loc; // sizeof
+            consume(); // (
+            auto sz = m_allocator.alloc<NodeExprSizeof>();
+            sz->loc = loc;
+            auto int_type = parse_type();
+            if (int_type.has_value()) {
+                Type base = Type::make_int(*int_type);
+                while (peek().has_value() && peek().value().type == TokenType::star) {
+                    consume();
+                    Type* pointee = m_allocator.alloc<Type>();
+                    *pointee = base;
+                    base = Type::make_ptr(pointee);
+                }
+                sz->type = base;
+            } else if (peek().has_value() && peek().value().type == TokenType::ident
+                       && m_struct_types.contains(*peek().value().value)) {
+                sz->struct_name = consume().value.value();
+            } else if (auto operand = parse_expr()) {
+                sz->expr = operand.value();
+            } else {
+                error("Expected type or expression in sizeof()");
+            }
+            if (!peek().has_value() || peek().value().type != TokenType::close_paren) {
+                error("Expected ')' after sizeof");
+            }
+            consume();
+            auto expr = m_allocator.alloc<NodeExpr>();
+            expr->var = sz;
+            return expr;
+        }
         else if (peek().has_value() && peek().value().type == TokenType::ident) {
             if (peek(1).has_value() && peek(1).value().type == TokenType::open_square) {
                 auto expr_index = m_allocator.alloc<NodeExprIndex>();

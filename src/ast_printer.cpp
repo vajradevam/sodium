@@ -81,6 +81,9 @@ void print_ast_expr(const NodeExpr& expr, int indent) {
         [indent](const NodeExprFieldAccess* e) {
             std::cout << std::string(indent, ' ') << "FieldAccess(" << e->obj_name.value.value() << "." << e->field_name.value.value() << ")\n";
         },
+        [indent](const NodeExprSizeof*) {
+            std::cout << std::string(indent, ' ') << "Sizeof\n";
+        },
         [indent](const NodeExprAddrOf* e) {
             std::cout << std::string(indent, ' ') << "AddrOf\n";
             print_ast_expr(e->expr, indent + 2);

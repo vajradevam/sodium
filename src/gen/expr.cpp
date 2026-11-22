@@ -336,6 +336,16 @@ void Generator::gen_expr(const NodeExpr& expr)
             }
         }
 
+        void operator()(const NodeExprSizeof* sz) const
+        {
+            auto size = gen->sizeof_value(*sz);
+            if (!size.has_value()) {
+                gen->fail(sz->loc, "Invalid operand to sizeof");
+            }
+            uint32_t v = gen->m_ir.load_i64(size.value());
+            gen->push_vreg(v);
+        }
+
         void operator()(const NodeExprDeref* deref) const
         {
             // *ptr — evaluate ptr, then load from that address
