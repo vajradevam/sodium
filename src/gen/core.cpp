@@ -98,3 +98,28 @@ std::optional<StructInfo> Generator::get_struct_info(const std::string& name) co
     if (it != m_struct_types.end()) return it->second;
     return {};
 }
+
+// ==========================================================================
+// Frame layout (Y2d)
+// ==========================================================================
+
+size_t Generator::frame_bytes(const Var& var) const {
+    if (!var.struct_type.empty()) return align_frame(var.array_size, 8);
+    if (var.array_size > 0) return align_frame(var.array_size * var.elem_size, 8);
+    return type_size(var.type);
+}
+
+uint32_t Generator::object_addr(size_t slot, size_t bytes) {
+    // frame_addr(o) is fp - 8 - o; the object's lowest byte is fp - slot - bytes.
+    return m_ir.frame_addr(static_cast<int64_t>(slot + bytes) - 8);
+}
+
+uint32_t Generator::var_addr(const Var& var) {
+    return object_addr(var.stack_loc, frame_bytes(var));
+}
+
+uint32_t Generator::alloc_object(size_t bytes) {
+    uint32_t slot = static_cast<uint32_t>(align_frame(m_next_frame_offset, 8));
+    m_next_frame_offset = slot + static_cast<uint32_t>(align_frame(bytes, 8));
+    return slot;
+}

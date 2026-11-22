@@ -172,21 +172,6 @@ void RISCV64Backend::lea(const std::string& reg, const std::string& addr) {
     }
 }
 
-/// Helper: parse "offset(reg)" string into its components.
-static void parse_riscv_addr(const std::string& addr, std::string& reg_out, int& offset_out) {
-    // Format: "offset(reg)" e.g. "0(t1)" or "-24(s0)"
-    size_t paren = addr.find('(');
-    if (paren == std::string::npos) {
-        reg_out = addr;
-        offset_out = 0;
-        return;
-    }
-    std::string off_str = addr.substr(0, paren);
-    size_t end = addr.find(')', paren);
-    reg_out = addr.substr(paren + 1, end - paren - 1);
-    offset_out = std::stoi(off_str);
-}
-
 void RISCV64Backend::load_s8(const std::string& dst, const std::string& addr) {
     // 1-byte, no direction issue
     emit_insn("lb", dst + ", " + addr);
@@ -197,70 +182,19 @@ void RISCV64Backend::load_u8(const std::string& dst, const std::string& addr) {
 }
 
 void RISCV64Backend::load_s16(const std::string& dst, const std::string& addr) {
-    // Packed offsets go DOWN, but loads go UP. Decompose into two byte loads.
-    std::string reg;
-    int off;
-    parse_riscv_addr(addr, reg, off);
-    // byte 0 (low) at off(reg), byte 1 (high) at (off-1)(reg)
-    emit_insn("lbu", m_scratch + ", " + std::to_string(off) + "(" + reg + ")");
-    emit_insn("lbu", dst + ", " + std::to_string(off - 1) + "(" + reg + ")");
-    emit_ri("slli", dst, dst, 8);
-    emit_rri("or", dst, m_scratch, dst);
-    // sign-extend from 16 bits
-    emit_ri("slli", dst, dst, 48);
-    emit_ri("srai", dst, dst, 48);
+    emit_insn("lh", dst + ", " + addr);
 }
 
 void RISCV64Backend::load_u16(const std::string& dst, const std::string& addr) {
-    std::string reg;
-    int off;
-    parse_riscv_addr(addr, reg, off);
-    emit_insn("lbu", m_scratch + ", " + std::to_string(off) + "(" + reg + ")");
-    emit_insn("lbu", dst + ", " + std::to_string(off - 1) + "(" + reg + ")");
-    emit_ri("slli", dst, dst, 8);
-    emit_rri("or", dst, m_scratch, dst);
-    // Upper bits already zero from lbu + shifts
+    emit_insn("lhu", dst + ", " + addr);
 }
 
 void RISCV64Backend::load_s32(const std::string& dst, const std::string& addr) {
-    // 4 bytes: byte 0 at off, byte 1 at off-1, byte 2 at off-2, byte 3 at off-3
-    std::string reg;
-    int off;
-    parse_riscv_addr(addr, reg, off);
-    // Use two lhu to load (byte 0,1) and (byte 2,3) separately? No, lhu has same direction issue.
-    // Decompose into four byte loads.
-    emit_insn("lbu", m_scratch + ", " + std::to_string(off) + "(" + reg + ")");   // byte 0
-    emit_insn("lbu", dst + ", " + std::to_string(off - 1) + "(" + reg + ")");
-    emit_ri("slli", dst, dst, 8);
-    emit_rri("or", dst, m_scratch, dst);  // now dst has bytes 0-1
-    emit_insn("lbu", m_scratch + ", " + std::to_string(off - 2) + "(" + reg + ")");
-    emit_ri("slli", m_scratch, m_scratch, 16);
-    emit_rri("or", dst, dst, m_scratch);
-    emit_insn("lbu", m_scratch + ", " + std::to_string(off - 3) + "(" + reg + ")");
-    emit_ri("slli", m_scratch, m_scratch, 24);
-    emit_rri("or", dst, dst, m_scratch);
-    // sign-extend from 32 bits
-    emit_ri("slli", dst, dst, 32);
-    emit_ri("srai", dst, dst, 32);
+    emit_insn("lw", dst + ", " + addr);
 }
 
 void RISCV64Backend::load_u32(const std::string& dst, const std::string& addr) {
-    std::string reg;
-    int off;
-    parse_riscv_addr(addr, reg, off);
-    emit_insn("lbu", m_scratch + ", " + std::to_string(off) + "(" + reg + ")");
-    emit_insn("lbu", dst + ", " + std::to_string(off - 1) + "(" + reg + ")");
-    emit_ri("slli", dst, dst, 8);
-    emit_rri("or", dst, m_scratch, dst);
-    emit_insn("lbu", m_scratch + ", " + std::to_string(off - 2) + "(" + reg + ")");
-    emit_ri("slli", m_scratch, m_scratch, 16);
-    emit_rri("or", dst, dst, m_scratch);
-    emit_insn("lbu", m_scratch + ", " + std::to_string(off - 3) + "(" + reg + ")");
-    emit_ri("slli", m_scratch, m_scratch, 24);
-    emit_rri("or", dst, dst, m_scratch);
-    // Upper 32 bits already zero from lbu+shifts
-    emit_ri("slli", dst, dst, 32);
-    emit_ri("srli", dst, dst, 32);
+    emit_insn("lwu", dst + ", " + addr);
 }
 
 void RISCV64Backend::store_8(const std::string& addr, const std::string& src) {
@@ -269,34 +203,11 @@ void RISCV64Backend::store_8(const std::string& addr, const std::string& src) {
 }
 
 void RISCV64Backend::store_16(const std::string& addr, const std::string& src) {
-    // sh goes UP, but packed offsets go DOWN. Decompose into two byte stores.
-    // byte 0 (low) at addr, byte 1 (high) at addr-1
-    std::string reg;
-    int off;
-    parse_riscv_addr(addr, reg, off);
-    emit_ri("andi", m_scratch, src, 0xFF);
-    emit_insn("sb", m_scratch + ", " + std::to_string(off) + "(" + reg + ")");
-    emit_ri("srli", m_scratch, src, 8);
-    emit_ri("andi", m_scratch, m_scratch, 0xFF);
-    emit_insn("sb", m_scratch + ", " + std::to_string(off - 1) + "(" + reg + ")");
+    emit_insn("sh", src + ", " + addr);
 }
 
 void RISCV64Backend::store_32(const std::string& addr, const std::string& src) {
-    // sw goes UP, but packed offsets go DOWN. Decompose into four byte stores.
-    std::string reg;
-    int off;
-    parse_riscv_addr(addr, reg, off);
-    emit_ri("andi", m_scratch, src, 0xFF);
-    emit_insn("sb", m_scratch + ", " + std::to_string(off) + "(" + reg + ")");
-    emit_ri("srli", m_scratch, src, 8);
-    emit_ri("andi", m_scratch, m_scratch, 0xFF);
-    emit_insn("sb", m_scratch + ", " + std::to_string(off - 1) + "(" + reg + ")");
-    emit_ri("srli", m_scratch, src, 16);
-    emit_ri("andi", m_scratch, m_scratch, 0xFF);
-    emit_insn("sb", m_scratch + ", " + std::to_string(off - 2) + "(" + reg + ")");
-    emit_ri("srli", m_scratch, src, 24);
-    emit_ri("andi", m_scratch, m_scratch, 0xFF);
-    emit_insn("sb", m_scratch + ", " + std::to_string(off - 3) + "(" + reg + ")");
+    emit_insn("sw", src + ", " + addr);
 }
 
 void RISCV64Backend::movzx(const std::string& dst, const std::string& src, size_t src_bits) {

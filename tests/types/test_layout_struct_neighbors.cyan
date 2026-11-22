@@ -1,0 +1,36 @@
+// Structs with narrow fields keep every field inside the struct's own region.
+// EXPECT-EXIT: 0
+// EXPECT-STDOUT: 1
+// EXPECT-STDOUT: 2
+// EXPECT-STDOUT: 77
+// EXPECT-STDOUT: 88
+// EXPECT-STDOUT: 3
+// EXPECT-STDOUT: 400
+// EXPECT-STDOUT: 5
+// EXPECT-STDOUT: 99
+// EXPECT-STDOUT: 2
+
+struct Half { var a: i32; var b: i32; };
+struct Mixed { var x: i8; var y: i16; var z: i8; };
+
+function main() {
+    var before: i64 = 77;
+    var h: Half = { .a = 1, .b = 2 };
+    var after: i64 = 88;
+    print(h.a);
+    print(h.b);
+    print(before);
+    print(after);
+
+    var m: Mixed = { .x = 3, .y = 400, .z = 5 };
+    var guard: i64 = 99;
+    print(m.x);
+    print(m.y);
+    print(m.z);
+    print(guard);
+
+    // The address of a field matches the field's place in the struct.
+    var q: Half* = &h;
+    print(q->b);
+    return(0);
+}

@@ -134,6 +134,21 @@ public:
     std::string did_you_mean(const std::string& name) const;
 
     void gen_expr(const NodeExpr& expr);
+
+    /// Frame layout (Y2d). Every local object occupies `frame_bytes(var)` bytes
+    /// of the frame starting at `stack_loc`, and its bytes ascend in memory from
+    /// the lowest address (the C layout), so `base + offset` addresses a field or
+    /// element and pointers into it can be walked forward.
+    static size_t align_frame(size_t bytes, size_t align) { return (bytes + align - 1) & ~(align - 1); }
+    /// Bytes of frame storage a variable occupies (arrays/structs: 8-byte granular).
+    size_t frame_bytes(const Var& var) const;
+    /// Lowest address of a frame object of `bytes` bytes starting at frame offset `slot`.
+    uint32_t object_addr(size_t slot, size_t bytes);
+    /// Lowest address of a local variable's storage.
+    uint32_t var_addr(const Var& var);
+    /// Reserve `bytes` of frame storage for an array/struct (8-byte aligned); returns its slot.
+    uint32_t alloc_object(size_t bytes);
+
     /// Compute the byte address of a (possibly chained) field access and
     /// return its declared type through `out_type`.
     uint32_t field_addr(const NodeExprFieldAccess& access, Type& out_type);

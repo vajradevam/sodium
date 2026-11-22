@@ -100,3 +100,11 @@ RISC-V LP64), so Cyan code stays binary-compatible with C. Scope: integer and po
 - Known non-goals: floating-point/SSE classification, structs with 16-byte alignment.
 - IR consequence: two-register results need `RET2` and a CALL with a second destination (`dst2`);
   `TargetRegisterInfo::ret_reg2` names the second return register (rdx / a1).
+
+## D-013 Memory layout is C layout (Y2d)
+Objects in memory follow C: arrays and struct fields ascend in address (`base + i*size`,
+`base + field_offset`), 16/32/64-bit values are stored little-endian at their own address, local
+arrays and structs are 8-byte aligned and occupy a multiple of 8 bytes of frame, and scalars
+are packed at their natural alignment. Earlier compilers addressed local aggregates downward and
+stored narrow values byte-reversed at `addr-w+1`; that corrupted neighbouring locals and made
+`ptr + n` on a decayed local array walk backwards. Struct ABI (D-012) and C interop depend on this.

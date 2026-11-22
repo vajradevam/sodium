@@ -1,0 +1,45 @@
+// Narrow values are stored little-endian at their own address (C layout), so a
+// byte view of a wider value sees the low byte first and arrays walk forward.
+// EXPECT-EXIT: 0
+// EXPECT-STDOUT: 4
+// EXPECT-STDOUT: 3
+// EXPECT-STDOUT: 2
+// EXPECT-STDOUT: 1
+// EXPECT-STDOUT: -3
+// EXPECT-STDOUT: 65533
+// EXPECT-STDOUT: -70000
+// EXPECT-STDOUT: 4000000000
+// EXPECT-STDOUT: 40
+// EXPECT-STDOUT: 30
+
+function main() {
+    var w: i32 = 16909060;
+    var bp: u8* = &w as u8*;
+    print(*bp);
+    print(*(bp + 1));
+    print(*(bp + 2));
+    print(*(bp + 3));
+
+    var s: i16[2];
+    var u: u16[2];
+    s[0] = -3;
+    u[0] = -3;
+    print(s[0]);
+    print(u[0]);
+
+    var big: i32[2];
+    var ubig: u32[2];
+    big[1] = -70000;
+    ubig[1] = 4000000000;
+    print(big[1]);
+    print(ubig[1]);
+
+    var h: i16[3];
+    h[0] = 10;
+    h[1] = 20;
+    h[2] = 30;
+    var hp: i16* = h;
+    print(*(hp + 2) + 10);
+    print(*(hp + 2));
+    return(0);
+}

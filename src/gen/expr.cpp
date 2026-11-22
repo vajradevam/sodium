@@ -161,13 +161,9 @@ void Generator::gen_expr(const NodeExpr& expr)
                                 gen->fail((*ident)->ident.loc,
                                     "read() requires an array variable, but '" + name + "' is a scalar");
                             }
-                            // Local arrays grow downward from stack_loc: index 0
-                            // is the highest slot. read_str writes forward from
-                            // the pointer, so start at the lowest slot.
-                            int64_t bottom_byte = static_cast<int64_t>(var.stack_loc)
-                                + (static_cast<int64_t>(var.array_size) - 1) * 8;
-                            uint32_t addr = gen->m_ir.frame_addr(bottom_byte);
-                            int64_t byte_size = static_cast<int64_t>(var.array_size) * 8;
+                            // read_str writes forward from the lowest address.
+                            uint32_t addr = gen->var_addr(var);
+                            int64_t byte_size = static_cast<int64_t>(var.array_size * var.elem_size);
                             uint32_t result = gen->m_ir.call("_sodium_read_str",
                                 {IRValue::vreg(addr), IRValue::imm_i64(byte_size)});
                             gen->push_vreg(result);
@@ -229,7 +225,7 @@ void Generator::gen_expr(const NodeExpr& expr)
                     if (it->vars.contains(name)) {
                         gen->mark_var_used(name);
                         const auto& var = it->vars.at(name);
-                        uint32_t addr = gen->m_ir.frame_addr(static_cast<int64_t>(var.stack_loc));
+                        uint32_t addr = gen->var_addr(var);
                         gen->push_vreg(addr);
                         // Stack slots are now packed by type size, so &x gives Ptr(typeof(x)).
                         Type* pointee = gen->alloc_type(var.type);
@@ -261,10 +257,10 @@ void Generator::gen_expr(const NodeExpr& expr)
                     if (it->vars.contains(name)) {
                         gen->mark_var_used(name);
                         const auto& var = it->vars.at(name);
-                        uint32_t base_addr = gen->m_ir.frame_addr(static_cast<int64_t>(var.stack_loc));
+                        uint32_t base_addr = gen->var_addr(var);
                         uint32_t offset = gen->m_ir.mul(IRValue::vreg(idx),
                             IRValue::imm_i64(static_cast<int64_t>(var.elem_size)));
-                        uint32_t elem_addr = gen->m_ir.sub(IRValue::vreg(base_addr), IRValue::vreg(offset));
+                        uint32_t elem_addr = gen->m_ir.add(IRValue::vreg(base_addr), IRValue::vreg(offset));
                         gen->push_vreg(elem_addr);
                         Type* pointee = gen->alloc_type(var.type);
                         gen->m_tstack.back() = Type::make_ptr(pointee);
@@ -304,8 +300,8 @@ void Generator::gen_expr(const NodeExpr& expr)
                     gen->fail((*field)->field_name.loc, "Unknown field '" + field_name + "' in struct '" + var.struct_type + "'");
                 }
                 size_t field_offset = offset_it->second;
-                uint32_t base_addr = gen->m_ir.frame_addr(static_cast<int64_t>(var.stack_loc));
-                uint32_t field_addr = gen->m_ir.lea(IRValue::vreg(base_addr), -static_cast<int64_t>(field_offset));
+                uint32_t base_addr = gen->var_addr(var);
+                uint32_t field_addr = gen->m_ir.lea(IRValue::vreg(base_addr), static_cast<int64_t>(field_offset));
                 gen->push_vreg(field_addr);
                 size_t index = 0;
                 for (; index < struct_info.value().field_names.size(); index++) {
@@ -764,7 +760,7 @@ uint32_t Generator::field_addr(const NodeExprFieldAccess& access, Type& out_type
                 fail(access.obj_name.loc, "Not a struct variable: " + access.obj_name.value.value());
             }
             struct_name = var.struct_type;
-            base_addr = m_ir.frame_addr(static_cast<int64_t>(var.stack_loc));
+            base_addr = var_addr(var);
         }
     }
 
@@ -782,7 +778,7 @@ uint32_t Generator::field_addr(const NodeExprFieldAccess& access, Type& out_type
     out_type = index < info.value().field_types.size()
                    ? info.value().field_types[index]
                    : Type::make_int(IntType::i64);
-    return m_ir.lea(IRValue::vreg(base_addr), -static_cast<int64_t>(offset_it->second));
+    return m_ir.lea(IRValue::vreg(base_addr), static_cast<int64_t>(offset_it->second));
 }
 
 
@@ -820,7 +816,7 @@ uint32_t Generator::index_addr(const NodeExprIndex& index, Type& out_type) {
         have_offset = true;
     }
 
-    uint32_t base = m_ir.frame_addr(static_cast<int64_t>(var.stack_loc));
+    uint32_t base = var_addr(var);
     out_type = var.type;
-    return have_offset ? m_ir.sub(IRValue::vreg(base), IRValue::vreg(offset)) : base;
+    return have_offset ? m_ir.add(IRValue::vreg(base), IRValue::vreg(offset)) : base;
 }

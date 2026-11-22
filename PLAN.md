@@ -95,6 +95,7 @@ anyway, tick the box, and note "not reproducible" in PROGRESS.md.
 - [x] **Y7d1 Arrays of structs (split from Y7).** `var a: Point[2]` with real struct element size, `a[0].x` reads/writes via a field-access base that is an index expression; tests on both targets.
 - [x] **Y7d2 Struct literals (split from Y7).** `{ .x = 1 }` initializer expressions for typed struct locals; tests on both targets; tick Y7 once done.
 - [x] **Y8a Struct assignment (split from Y8).** `a = b` copies all bytes between typed struct locals with correct field widths; tests on both targets.
+- [x] **Y2d C memory layout (inserted before Y8b; prerequisite of D-012).** Frame objects (arrays, structs) are 8-byte aligned/granular with ascending addresses, narrow (16/32-bit) loads and stores are plain little-endian, `base + offset` addresses fields/elements, pointer arithmetic on decayed arrays walks forward; fixes neighbour corruption for sub-8-byte arrays/structs/scalars. Regression tests on both targets.
 - [ ] **Y8b Struct params/returns (split from Y8).** ABI chosen in D-012 (platform ABI per target). Sub-tasks below; tick Y8b when all are done.
   - [ ] **Y8b1** Struct values as call arguments (<= 16 bytes, in registers) and `p: Point` parameters; struct-valued expressions evaluate to an address with `Type::Struct`; tests on both targets.
   - [ ] **Y8b2** Struct returns <= 16 bytes: `RET2`, `dst2` on CALL, `ret_reg2` in target info; tests incl. sizes 1..16 and spilled values on both targets.

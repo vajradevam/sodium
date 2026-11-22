@@ -70,8 +70,10 @@ void Generator::gen_func_def(const NodeFuncDef& func)
         std::string param_name = func.params[i].value.value();
         auto& scope = m_scopes.back();
 
-        uint32_t offset = m_next_frame_offset;
-        m_next_frame_offset += 8;
+        // Parameters use 8-byte, 8-aligned slots; the value is stored at the
+        // variable's own width so loads through var_addr() see it.
+        uint32_t offset = static_cast<uint32_t>(align_frame(m_next_frame_offset, 8));
+        m_next_frame_offset = offset + 8;
         // Declared types take precedence; otherwise use call-site inference.
         if (i >= func.param_types.size() || !func.param_types[i]) {
             m_diag.warning(func.params[i].loc, "untyped parameter '" + param_name
@@ -93,8 +95,13 @@ void Generator::gen_func_def(const NodeFuncDef& func)
         // Load parameter from ABI-defined location (argument register or stack)
         // using the target-agnostic LOAD_PARAM opcode.
         uint32_t param_val = m_ir.load_param(static_cast<int64_t>(i));
-        uint32_t slot_addr = m_ir.frame_addr(static_cast<int64_t>(offset));
-        m_ir.store(IRValue::vreg(slot_addr), 0, IRValue::vreg(param_val));
+        uint32_t slot_addr = var_addr(scope.vars.at(param_name));
+        switch (param_type.kind == Type::Int ? type_size(param_type) : 8) {
+            case 1:  m_ir.store_8(IRValue::vreg(slot_addr), 0, IRValue::vreg(param_val)); break;
+            case 2:  m_ir.store_16(IRValue::vreg(slot_addr), 0, IRValue::vreg(param_val)); break;
+            case 4:  m_ir.store_32(IRValue::vreg(slot_addr), 0, IRValue::vreg(param_val)); break;
+            default: m_ir.store(IRValue::vreg(slot_addr), 0, IRValue::vreg(param_val)); break;
+        }
     }
 
     for (const auto& s : func.body->stmts) {
