@@ -366,3 +366,15 @@ in mem), CamelCase names are reserved for struct types, and deliberately unprefi
 shims (`strlen`, `strcmp`, `memcpy`, `atoi`, `calloc`, `realloc`) are the exception. New cyanlib
 APIs must use a module prefix; collisions are compile errors and are not silently resolved. The
 convention is written down in `docs/MODULES.md`.
+
+## D-035 Optional runtime checks (X4)
+`--bounds`, `--check-null` and `--stack-probe` are opt-in compiler flags; none changes the
+generated code by default, so valid programs keep their current output and performance. A failed
+check prints a fixed message to stdout via the existing `_sodium_print_raw_str` runtime helper and
+calls `_sodium_exit(70)`, so no new runtime library or target-specific assembly is needed. Bounds
+checks guard every array index against its declared dimension (rejecting negative and
+out-of-range indices before the address is computed); null checks guard pointer dereference reads
+and writes. The stack probe compares the current stack pointer at function entry with a limit
+established in `_start` and fails when a call would descend below it; it needs a small backend
+instruction to read the stack pointer into an IR vreg. Tests for every mode assert both that an
+invalid program triggers the diagnostic and that a valid program is unchanged.
