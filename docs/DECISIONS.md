@@ -108,3 +108,21 @@ arrays and structs are 8-byte aligned and occupy a multiple of 8 bytes of frame,
 are packed at their natural alignment. Earlier compilers addressed local aggregates downward and
 stored narrow values byte-reversed at `addr-w+1`; that corrupted neighbouring locals and made
 `ptr + n` on a decayed local array walk backwards. Struct ABI (D-012) and C interop depend on this.
+
+## D-014 Indirect calls use a dedicated opcode (Y10)
+Calls through a function pointer are a separate IR opcode, `CALL_INDIRECT`, not a thunk or a
+trampoline: `%dst = call_indirect %target(args...)`. The target is the *last* operand, so the
+argument operands keep their positions (argument i is operand i) and liveness sees the target as an
+ordinary use. `reg_args`, `dst2` and stack arguments behave exactly as for `CALL` (D-012), so
+struct arguments and returns work through pointers too.
+- The call-target register is a fixed non-argument, caller-saved register
+  (`TargetRegisterInfo::call_target_reg`: rax on x86_64, t6 on riscv64). The emitter treats it as one
+  more destination of the argument parallel move, so a target living in an argument register, in
+  another argument's source, or in a spill slot is read before it is overwritten.
+- `Backend::call_reg(reg)` emits `call reg` / `jalr reg`. Direct `CALL` is unchanged.
+- Surface language (extends D-001..): type `fn(T1, T2) -> R` (return type optional, void when absent),
+  `&func` yields a pointer to a defined function, calling a variable/parameter/field of that type
+  uses ordinary call syntax. The compiler checks argument count and types against the signature.
+- Rejected: thunks/trampolines (an extra jump per call, a per-function data table, and the call
+  path would differ from a direct call); loading the target into an argument register and
+  interpreting it in the backend (breaks for 6+ register arguments).
