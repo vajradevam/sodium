@@ -1,0 +1,11 @@
+// EXPECT-ERROR: argument 1 to 'first' has type i64*, expected u8*
+
+function first(p: u8*) {
+    return(*p);
+}
+
+function main() {
+    var x = 65;
+    print(first(&x));
+    return(0);
+}

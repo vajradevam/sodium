@@ -1,0 +1,11 @@
+// EXPECT-ERROR: argument 1 to 'f' has type i64, expected u8
+
+function f(a: u8) {
+    return(a);
+}
+
+function main() {
+    var x = 300;
+    print(f(x));
+    return(0);
+}

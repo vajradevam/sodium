@@ -423,6 +423,7 @@ void Generator::gen_expr(const NodeExpr& expr)
             for (size_t i = 0; i < expr_call->args.size(); i++) {
                 gen->gen_expr(*expr_call->args[i]);
             }
+            gen->check_call_args(*expr_call, expr_call->name.loc);
             // Pop in reverse to get evaluation order
             for (size_t i = 0; i < expr_call->args.size(); i++) {
                 uint32_t arg = gen->pop_vreg();

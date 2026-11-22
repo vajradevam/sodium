@@ -1,0 +1,10 @@
+// EXPECT-ERROR: wrong number of arguments to 'add'
+
+function add(a: i32, b: i32) {
+    return(a + b);
+}
+
+function main() {
+    print(add(1));
+    return(0);
+}

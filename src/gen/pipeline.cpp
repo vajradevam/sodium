@@ -70,11 +70,15 @@ void Generator::gen_func_def(const NodeFuncDef& func)
 
         uint32_t offset = m_next_frame_offset;
         m_next_frame_offset += 8;
-        // Use inferred parameter type if available, otherwise default i64
+        // Declared types take precedence; otherwise use call-site inference.
         Type param_type = Type::make_int(IntType::i64);
-        auto inferred_it = m_inferred_param_types.find(func.name.value.value());
-        if (inferred_it != m_inferred_param_types.end() && i < inferred_it->second.size()) {
-            param_type = inferred_it->second[i];
+        if (i < func.param_types.size() && func.param_types[i]) {
+            param_type = *func.param_types[i];
+        } else {
+            auto inferred_it = m_inferred_param_types.find(func.name.value.value());
+            if (inferred_it != m_inferred_param_types.end() && i < inferred_it->second.size()) {
+                param_type = inferred_it->second[i];
+            }
         }
         scope.vars[param_name] = Var { .stack_loc = offset, .type = param_type, .struct_type = "",
                                         .decl_loc = func.params[i].loc, .is_param = true };

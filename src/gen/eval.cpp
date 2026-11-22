@@ -87,8 +87,10 @@ Type Generator::infer_expr_type(
                 Type arg_t = gen->infer_expr_type(*call->args[i], scope);
                 inferred_args.push_back(arg_t);
             }
-            // Record inferred parameter types for the callee
-            if (!fname.empty() && gen->m_func_names.contains(fname)) {
+            // Declared signatures are authoritative: do not infer (and do
+            // not emit conflicting-pointer warnings) for typed functions.
+            if (!fname.empty() && gen->m_func_names.contains(fname) &&
+                !gen->has_declared_param_types(fname)) {
                 auto& existing = gen->m_inferred_param_types[fname];
                 if (existing.empty()) {
                     existing = inferred_args;

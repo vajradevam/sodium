@@ -1,0 +1,11 @@
+// EXPECT-EXIT: 0
+// EXPECT-STDOUT: 255
+
+function f(a: u8) {
+    return(a);
+}
+
+function main() {
+    print(f(255));
+    return(0);
+}

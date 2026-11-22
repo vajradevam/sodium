@@ -118,6 +118,13 @@ public:
     /// Warn when the result of a pure function call is discarded (E3d).
     void warn_unused_result(const NodeExpr& expr, SourceLoc loc);
 
+    /// Look up a user function definition by name.
+    const NodeFuncDef* find_func(const std::string& name) const;
+    bool has_declared_param_types(const std::string& name) const;
+    /// Check arity/types at a call to a typed function; insert safe widening
+    /// conversions into the argument vregs. Fails on a mismatch (Y1b).
+    void check_call_args(const NodeExprCall& call, SourceLoc loc);
+
     void enter_scope();
     void exit_scope();
 

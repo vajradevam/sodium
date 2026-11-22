@@ -1,0 +1,11 @@
+// EXPECT-EXIT: 0
+// EXPECT-STDOUT: 65
+
+function first(p: u8*) {
+    return(*p);
+}
+
+function main() {
+    print(first("A"));
+    return(0);
+}
