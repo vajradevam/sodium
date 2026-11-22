@@ -20,7 +20,7 @@
 
 // strlen(s) — returns the length of the null-terminated string s,
 // excluding the null terminator.
-function strlen(s) {
+function strlen(s: u8*) -> i64 {
     var n = 0;
     while (*(s + n) != 0) { n = n + 1; }
     return(n);
@@ -28,7 +28,7 @@ function strlen(s) {
 
 // strcmp(a, b) — compares two strings lexicographically.
 // Returns 0 if equal, negative if a < b, positive if a > b.
-function strcmp(a, b) {
+function strcmp(a: u8*, b: u8*) -> i64 {
     var i = 0;
     while (1) {
         var ca = *(a + i);
@@ -41,7 +41,7 @@ function strcmp(a, b) {
 
 // strcat(dst, src) — appends src to the end of dst.
 // dst must have enough space. Returns dst.
-function strcat(dst, src) {
+function strcat(dst: u8*, src: u8*) -> u8* {
     var i = strlen(dst);
     var j = 0;
     while (*(src + j) != 0) {
@@ -54,7 +54,7 @@ function strcat(dst, src) {
 
 // strcpy(dst, src) — copies src to dst (including null terminator).
 // dst must have enough space. Returns dst.
-function strcpy(dst, src) {
+function strcpy(dst: u8*, src: u8*) -> u8* {
     var i = 0;
     while (1) {
         *(dst + i) = *(src + i);
@@ -67,7 +67,7 @@ function strcpy(dst, src) {
 
 // memcpy(dst, src, n) — copies n bytes from src to dst.
 // Returns dst.
-function memcpy(dst, src, n) {
+function memcpy(dst: u8*, src: u8*, n: i64) -> u8* {
     var i = 0;
     while (i < n) {
         *(dst + i) = *(src + i);
@@ -78,7 +78,7 @@ function memcpy(dst, src, n) {
 
 // memset(p, c, n) — sets the first n bytes at p to byte value c.
 // Returns p.
-function memset(p, c, n) {
+function memset(p: u8*, c: u8, n: i64) -> u8* {
     var i = 0;
     while (i < n) {
         *(p + i) = c;
@@ -89,7 +89,7 @@ function memset(p, c, n) {
 
 // memcmp(a, b, n) — compares the first n bytes of a and b.
 // Returns 0 if equal, negative if a < b, positive if a > b.
-function memcmp(a, b, n) {
+function memcmp(a: u8*, b: u8*, n: i64) -> i64 {
     var i = 0;
     while (i < n) {
         if (*(a + i) != *(b + i)) {

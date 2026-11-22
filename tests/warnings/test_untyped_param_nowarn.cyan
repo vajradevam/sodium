@@ -1,0 +1,12 @@
+// COMPILE-FLAGS: -w
+// NO-WARNING: untyped parameter
+// EXPECT-EXIT: 0
+
+function f(a) {
+    return(a);
+}
+
+function main() {
+    print(f(1));
+    return(0);
+}

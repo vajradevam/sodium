@@ -97,7 +97,7 @@ anyway, tick the box, and note "not reproducible" in PROGRESS.md.
 - [x] **Y8a Struct assignment (split from Y8).** `a = b` copies all bytes between typed struct locals with correct field widths; tests on both targets.
 - [ ] **Y8b Struct params/returns (split from Y8).** Pass/return structs by value on both ABIs (hidden pointer or flattened registers, record choice in DECISIONS); tests on both targets; tick Y8.
 - [x] **Y9a Multi-dimensional arrays (split from Y9).** Parse `var a: i32[2][3]` and `a[i][j]`; row-major layout with compile-time dimension sizes; reads/writes on both targets.
-- [ ] **Y9b Const correctness + untyped fallback (split from Y9).** Keep call-site inference strictly as a fallback that emits a warning for untyped params; verify `const` declarations cannot be written; migrate cyanlib/tests to typed signatures incrementally; tick Y9.
+- [x] **Y9b Const correctness + untyped fallback (split from Y9).** Keep call-site inference strictly as a fallback that emits a warning for untyped params; verify `const` declarations cannot be written; migrate cyanlib/tests to typed signatures incrementally; tick Y9.
 - [ ] **Y10 Function pointers** and indirect calls on both targets.
 - [ ] **P3-END** full gate, tag, rewrite parts of docs that changed.
 

@@ -73,6 +73,10 @@ void Generator::gen_func_def(const NodeFuncDef& func)
         uint32_t offset = m_next_frame_offset;
         m_next_frame_offset += 8;
         // Declared types take precedence; otherwise use call-site inference.
+        if (i >= func.param_types.size() || !func.param_types[i]) {
+            m_diag.warning(func.params[i].loc, "untyped parameter '" + param_name
+                                               + "' uses inferred type");
+        }
         Type param_type = Type::make_int(IntType::i64);
         if (i < func.param_types.size() && func.param_types[i]) {
             param_type = *func.param_types[i];

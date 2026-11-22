@@ -1,0 +1,10 @@
+// EXPECT-WARNING: untyped parameter 'a' uses inferred type
+
+function f(a) {
+    return(a);
+}
+
+function main() {
+    print(f(1));
+    return(0);
+}
