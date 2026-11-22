@@ -101,6 +101,14 @@ anyway, tick the box, and note "not reproducible" in PROGRESS.md.
 - [ ] **O2 Constant folding & algebraic simplification** (x+0, x*1, x*2^n → shift, strength reduction), with overflow semantics identical to runtime.
 - [ ] **O3 Dead code / unreachable block elimination**, jump threading, empty-block removal.
 - [ ] **O4 Local value numbering / CSE; redundant load-store elimination** within basic blocks.
+- [ ] **O0 Loop-aware liveness (precondition for O5 and any optimization that keeps values in vregs).** `compute_live_ranges`
+  (`src/ir/liveness.hpp`) builds one interval per vreg from first def/use to last use in linear instruction order and
+  ignores back edges. A vreg defined before a loop and used only early in the loop body is live around the whole loop,
+  but its interval ends at the last textual use, so its register can be reused (or it can look like it does not span a
+  later CALL in the body). Fix with real dataflow liveness (live-in/live-out per block, iterate to fixpoint) and extend
+  each interval over every block where the vreg is live. Done when: a hand-built IR/`.cyan` repro that keeps a value in
+  a vreg across a loop containing calls and register pressure fails before and passes after on both targets; C++
+  unit tests cover straight-line, if/else, nested loops, and loop-carried values.
 - [ ] **O5 mem2reg-style promotion** of non-address-taken scalar locals to vregs (decide phi vs. block-args and record in DECISIONS.md).
 - [ ] **O6 Register allocator quality:** live-range splitting or better spill heuristics; callee-saved use; measure spills on a benchmark set.
 - [ ] **O7 Peephole per backend;** inlining of small leaf functions.
