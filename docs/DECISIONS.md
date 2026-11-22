@@ -84,3 +84,19 @@ Cyan uses C-like `p->field` for accessing a field through a pointer to a struct.
 `(*p).field` is not supported: field access accepts only an identifier (or another field
 access) as its base, not an arbitrary parenthesized expression. `&s.field` yields a pointer
 to the field. Struct identity is carried in `Type` so pointer types retain their pointee struct.
+
+## D-012 Struct-by-value ABI (Y8b)
+Structs passed or returned by value follow the platform ABI of each target (System V AMD64 and
+RISC-V LP64), so Cyan code stays binary-compatible with C. Scope: integer and pointer fields only
+(no floating point exists in Cyan), natural-alignment C layout (D-002 style).
+- **Value representation inside the compiler:** an expression of struct type evaluates to the
+  *address* of its bytes (a variable, or a temporary for call results); consumers copy from it.
+- **Parameters:** size <= 16 bytes: the struct is split into 8-byte words in order, each word in
+  the next integer argument register (a trailing partial word is zero-extended; only the real
+  bytes are read from the source). Larger structs: x86_64 copies them to the stack argument area;
+  riscv64 passes a pointer to a caller-made copy.
+- **Returns:** size <= 8 in rax / a0; size <= 16 in rax:rdx / a0:a1; larger via a hidden pointer
+  passed as the first argument (rdi / a0) which the callee also returns.
+- Known non-goals: floating-point/SSE classification, structs with 16-byte alignment.
+- IR consequence: two-register results need `RET2` and a CALL with a second destination (`dst2`);
+  `TargetRegisterInfo::ret_reg2` names the second return register (rdx / a1).
