@@ -1,0 +1,26 @@
+// EXPECT-EXIT: 0
+// EXPECT-STDOUT: 5 5 40 -9223372036854775808 -3 -2 0 42
+// COMPILE-FLAGS: -O1
+
+// O2: folding must preserve runtime semantics, including i64 wraparound,
+// truncating division and power-of-two strength reduction.
+
+function twice(v: i64) -> i64 {
+    return v * 2;
+}
+
+function main() {
+    var a = 2 + 3;
+    var b = a + 0;
+    var x = 5;
+    var c = x * 8;
+    var big = 9223372036854775807;
+    var one = 1;
+    var d = big + one;
+    var e = -17 / 5;
+    var f = -17 % 5;
+    var g = x ^ x;
+    var h = twice(21);
+    print("%d %d %d %ld %d %d %d %d", a, b, c, d, e, f, g, h);
+    return 0;
+}

@@ -177,3 +177,18 @@ result vreg before the branch and copies each arm into it; the regression
 old codegen on both targets. `scripts/check.sh --full` green: 659 -> 661 passed, 0 failed,
 10 skipped; 167 -> 186 C++ cases / 4023 checks; sweep 1340 -> 2016 invocations (added verify
 mode), 0 crashes; ASan/UBSan clean.
+
+## 2026-11-22 — O2 Constant folding
+Added `src/ir/fold.hpp`, run from `flush_function` under the new `-O1` flag (`-O0` stays the
+default). It folds pure constant arithmetic/comparisons/conversions with wrapping two's-complement
+semantics, leaves trapping divisions alone, and applies algebraic identities (x+0, x*1, x*0,
+x^x, shift-by-zero, x*2^n → SHL). IR is verified before and after the pass, and `--emit-ir` now
+dumps the post-pass IR so its effect is observable. Added 20 C++ cases (including wraparound,
+trapping division, width conversions, multi-def vregs) and
+`tests/unit/test_opt_fold.cyan` with `// COMPILE-FLAGS: -O1` for semantics on both targets.
+`scripts/test_opt_effects.sh` checks the IR effect and that `-O0` does none of it; `scripts/check.sh`
+now also runs the whole suite through `scripts/sodium-o1.sh`. Running that suite exposed a real
+bug: constants from phi-like ternary result vregs were propagated using linear order, so nested
+ternaries folded to the wrong arm; folding now propagates only single-def vregs. `scripts/check.sh
+--full` green: 661 -> 663 passed, 0 failed, 10 skipped at both -O0 and -O1; 186 -> 206 C++ cases /
+4071 checks; sweep 2016 -> 2022 invocations, 0 crashes; ASan/UBSan clean.

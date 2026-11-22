@@ -218,3 +218,14 @@ first terminator ignored). Because a join with multiple predecessors has no domi
 def, multi-arm expressions write a shared result vreg defined before the branch. A verifier failure
 is an internal compiler error: print `IR verification failed` and abort compilation rather than
 emitting a source diagnostic.
+
+## D-023 Constant folding semantics (O2)
+`-O1` runs `src/ir/fold.hpp` over each function before allocation. Folding uses unsigned
+two's-complement arithmetic so wrapping addition/subtraction/multiplication matches what the
+backend emits; division/modulo are folded only when the divisor is non-zero and the case
+`INT64_MIN / -1` cannot occur, because those trap at runtime. Shifts are folded only for counts
+0..63. Algebraic rewrites keep the original `dst` and turn into `copy`/`load_i64` rather than
+rewriting uses, so dominance is unchanged. Constants are propagated only through vregs with a
+single definition; phi-like shared result vregs (from ternary expressions) are never treated as
+constants, since their value depends on which branch was taken. `-O0` remains the default and is
+verified to contain none of these rewrites; the suite is run under both levels.

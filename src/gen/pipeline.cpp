@@ -17,13 +17,6 @@ void Generator::flush_function() {
     std::string func_name = func->name;
     auto blocks = func->blocks; // copy blocks
 
-    // Dump IR before allocation if requested
-    if (m_emit_ir) {
-        std::cerr << "; --- IR for " << func_name << " ---\n";
-        std::cerr << func->to_string();
-        std::cerr << "; --- end IR ---\n";
-    }
-
     // O1: check the IR before any transform can hide a problem. Explicit
     // --verify-ir asks for it; debug builds (SODIUM_IR_VERIFY) always run it.
 #if defined(SODIUM_IR_VERIFY)
@@ -31,12 +24,26 @@ void Generator::flush_function() {
 #else
     const bool want_verify = m_verify_ir;
 #endif
-    if (want_verify) {
+    auto check_ir = [&]() {
+        if (!want_verify) return true;
         IRVerifyResult result = verify_function(*func);
         if (!result.ok()) {
             std::cerr << "IR verification failed:\n" << result.to_string();
-            throw GenAbort{};
+            return false;
         }
+        return true;
+    };
+    if (!check_ir()) throw GenAbort{};
+
+    if (m_opt_level >= 1) fold_function(*func);
+    if (!check_ir()) throw GenAbort{};  // catch a pass that breaks the IR
+
+    // Dump the IR after optimization, so --emit-ir shows what is actually
+    // allocated and emitted.
+    if (m_emit_ir) {
+        std::cerr << "; --- IR for " << func_name << " ---\n";
+        std::cerr << func->to_string();
+        std::cerr << "; --- end IR ---\n";
     }
 
     auto allocation = [&]() {

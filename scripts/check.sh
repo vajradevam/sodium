@@ -21,6 +21,10 @@ step "IR/assembly regression sweep (both targets)"
 ./scripts/sweep.sh > build/last_sweep.log 2>&1 || die "sweep (see build/last_sweep.log)"
 tail -2 build/last_sweep.log
 
+step "optimization IR effects (-O0 vs -O1)"
+./scripts/test_opt_effects.sh > build/last_opt.log 2>&1 || die "optimization effects (see build/last_opt.log)"
+tail -1 build/last_opt.log
+
 step "differential oracle (Cyan vs C, both targets)"
 ./scripts/oracle.sh > build/last_oracle.log 2>&1 || die "oracle (see build/last_oracle.log)"
 tail -2 build/last_oracle.log
@@ -39,6 +43,11 @@ tail -4 build/last_tests.log
 grep -E "SKIP|FAIL" build/last_tests.log | grep -v "^Results" | head -20
 [ $rc -eq 0 ] || die "tests (see build/last_tests.log)"
 grep -q "RISC-V backend: SKIPPED" build/last_tests.log && die "riscv64 tests were skipped (qemu-riscv64 missing)"
+
+step "test suite under -O1"
+COMPILER=./scripts/sodium-o1.sh ./scripts/run_tests.sh > build/last_tests_o1.log 2>&1 \
+    || die "tests under -O1 (see build/last_tests_o1.log)"
+tail -4 build/last_tests_o1.log
 
 step "harness self-test (wrong EXPECT-* must fail)"
 ./scripts/run_tests.sh --self-test > build/last_selftest.log 2>&1 || die "harness self-test (see build/last_selftest.log)"
