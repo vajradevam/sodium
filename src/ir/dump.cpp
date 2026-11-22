@@ -67,6 +67,24 @@ const char* ir_opcode_name(IROpcode op) {
         case IROpcode::PUSH_FRAME:  return "push_frame";
         case IROpcode::POP:         return "pop";
         case IROpcode::ASM:         return "asm";
+        case IROpcode::FCONST:      return "fconst";
+        case IROpcode::FCOPY:       return "fcopy";
+        case IROpcode::FNEG:        return "fneg";
+        case IROpcode::FADD:        return "fadd";
+        case IROpcode::FSUB:        return "fsub";
+        case IROpcode::FMUL:        return "fmul";
+        case IROpcode::FDIV:        return "fdiv";
+        case IROpcode::FCMP_EQ:     return "fcmp_eq";
+        case IROpcode::FCMP_NE:     return "fcmp_ne";
+        case IROpcode::FCMP_LT:     return "fcmp_lt";
+        case IROpcode::FCMP_LE:     return "fcmp_le";
+        case IROpcode::FCMP_GT:     return "fcmp_gt";
+        case IROpcode::FCMP_GE:     return "fcmp_ge";
+        case IROpcode::I2F:         return "i2f";
+        case IROpcode::F2I:         return "f2i";
+        case IROpcode::F2F:         return "f2f";
+        case IROpcode::FLOAD:       return "fload";
+        case IROpcode::FSTORE:      return "fstore";
     }
     return "???";
 }
@@ -80,6 +98,8 @@ std::string IRValue::to_string() const {
         case IRWidth::I16: ss << "i16:"; break;
         case IRWidth::I32: ss << "i32:"; break;
         case IRWidth::I64: ss << "";     break;
+        case IRWidth::F32: ss << "f32:"; break;
+        case IRWidth::F64: ss << "f64:"; break;
     }
     if (kind == Kind::VREG) {
         ss << "%" << vreg_id;
@@ -162,6 +182,34 @@ std::string IRInstruction::to_string() const {
 
         case IROpcode::LEA_LABEL:
             ss << " " << label_true;
+            break;
+
+        case IROpcode::FCONST:
+            ss << (dst_width == IRWidth::F32 ? " f32 0x" : " f64 0x") << std::hex
+               << (dst_width == IRWidth::F32 ? (static_cast<uint64_t>(imm_arg) & 0xFFFFFFFFu)
+                                             : static_cast<uint64_t>(imm_arg))
+               << std::dec;
+            break;
+
+        case IROpcode::FLOAD:
+            ss << (dst_width == IRWidth::F32 ? " f32 [" : " f64 [");
+            append_operands(ss, operands);
+            if (imm_arg != 0) ss << " + " << imm_arg;
+            ss << "]";
+            break;
+
+        case IROpcode::FSTORE:
+            ss << " [";
+            if (!operands.empty()) ss << operands[0].to_string();
+            if (imm_arg != 0) ss << " + " << imm_arg;
+            ss << "], ";
+            if (operands.size() > 1) ss << operands[1].to_string();
+            break;
+
+        case IROpcode::I2F:
+        case IROpcode::F2F:
+            ss << (dst_width == IRWidth::F32 ? " to f32 " : " to f64 ");
+            if (!operands.empty()) ss << operands[0].to_string();
             break;
 
         case IROpcode::JMP:
@@ -269,7 +317,27 @@ size_t IRInstruction::operand_count() const {
         case IROpcode::LOAD_U32:
         case IROpcode::LEA:
         case IROpcode::RET:
+        case IROpcode::FCOPY:
+        case IROpcode::FNEG:
+        case IROpcode::I2F:
+        case IROpcode::F2I:
+        case IROpcode::F2F:
+        case IROpcode::FLOAD:
             return 1;
+        case IROpcode::FCONST:
+            return 0;
+        case IROpcode::FSTORE:
+        case IROpcode::FADD:
+        case IROpcode::FSUB:
+        case IROpcode::FMUL:
+        case IROpcode::FDIV:
+        case IROpcode::FCMP_EQ:
+        case IROpcode::FCMP_NE:
+        case IROpcode::FCMP_LT:
+        case IROpcode::FCMP_LE:
+        case IROpcode::FCMP_GT:
+        case IROpcode::FCMP_GE:
+            return 2;
         case IROpcode::STORE:
         case IROpcode::STORE_8:
         case IROpcode::STORE_16:

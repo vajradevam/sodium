@@ -5,6 +5,16 @@
 #include <vector>
 #include <cassert>
 
+/// Marks an FP register number in contexts that also carry integer registers, such as the
+/// (register, frame offset) pairs of IRInstruction::arg_loads.
+constexpr int FP_REG_FLAG = 0x1000;
+constexpr int FP_SINGLE_FLAG = 0x2000;   ///< with FP_REG_FLAG: the value is a 32-bit float
+constexpr int FP_REG_MASK = 0xFFF;
+
+/// Parameter ordinals at or above this value name FP argument register `ordinal - base`
+/// (STORE_PARAM); smaller ordinals are the integer register / stack indices of D-012.
+constexpr int64_t FP_PARAM_ORDINAL_BASE = 1000;
+
 /// Describes a target's physical register file for the allocator.
 struct TargetRegisterInfo {
     struct Reg {
@@ -36,6 +46,21 @@ struct TargetRegisterInfo {
     bool large_struct_by_ref = false;
     int fp_bias = 0;             ///< added to raw fp-relative spill offsets (riscv64: s0 sits 16 bytes above the
                                  ///< x86 rbp-equivalent because ra/s0 are saved below it)
+
+    // ---- floating point (D-038) ----
+    // FP registers are numbered in their own file (xmm0-15 / f0-f31). Every FP register is
+    // caller-saved and FP vregs live in stack homes, so only the ABI registers and two scratch
+    // registers matter to the compiler.
+    std::string fp_prefix;               ///< "xmm" or "f"; register n is named fp_prefix + n
+    std::vector<int> fp_arg_regs;        ///< FP argument registers in order
+    int fp_ret_reg = 0;                  ///< FP result register
+    int fp_scratch0 = 0;                 ///< scratch FP registers used by lowered FP operations
+    int fp_scratch1 = 1;
+    /// When the FP argument registers run out, further FP arguments use the integer argument
+    /// registers (RISC-V LP64D); otherwise they go on the stack (System V).
+    bool fp_overflow_to_gpr = false;
+
+    std::string fp_name(int n) const { return fp_prefix + std::to_string(n); }
 
     /// Add a register.
     void add(int num, const std::string& name,
@@ -127,6 +152,12 @@ struct TargetRegisterInfo {
         info.scratch_reg = 11;  // r11
         info.call_target_reg = 0;  // rax
 
+        info.fp_prefix = "xmm";
+        info.fp_arg_regs = {0, 1, 2, 3, 4, 5, 6, 7};
+        info.fp_ret_reg = 0;
+        info.fp_scratch0 = 0;
+        info.fp_scratch1 = 1;
+
         return info;
     }
 
@@ -193,6 +224,13 @@ struct TargetRegisterInfo {
         info.scratch_reg = 5;  // t0
         info.call_target_reg = 31;  // t6
 
+        info.fp_prefix = "f";
+        info.fp_arg_regs = {10, 11, 12, 13, 14, 15, 16, 17};  // fa0-fa7
+        info.fp_ret_reg = 10;                                   // fa0
+        info.fp_scratch0 = 0;                                   // ft0
+        info.fp_scratch1 = 1;                                   // ft1
+        info.fp_overflow_to_gpr = true;                         // LP64D
+
         return info;
     }
 
@@ -203,6 +241,33 @@ struct TargetRegisterInfo {
         info.arg_regs = {};
         info.ret_reg = 0;
         info.scratch_reg = 0;
+        info.fp_prefix = "f";
         return info;
     }
 };
+
+/// Where one register-passed call operand travels.
+struct ArgRegAssign {
+    bool fp = false;   ///< true: FP register `preg` of the FP file; false: integer register `preg`
+    int preg = -1;
+};
+
+/// Assign argument registers to the register-passed operands of a call, in order. Integer
+/// operands take the next integer argument register; a float takes the next FP argument
+/// register, or, once those are used up on a target that allows it (LP64D), the next integer
+/// one. The caller (ArgPlacer) guarantees the operands fit.
+inline std::vector<ArgRegAssign> assign_arg_regs(const TargetRegisterInfo& tri,
+                                                 const std::vector<bool>& is_fp) {
+    std::vector<ArgRegAssign> out;
+    size_t next_int = 0;
+    size_t next_fp = 0;
+    for (bool fp : is_fp) {
+        if (fp && next_fp < tri.fp_arg_regs.size()) {
+            out.push_back({true, tri.fp_arg_regs[next_fp++]});
+        } else {
+            assert(next_int < tri.arg_regs.size());
+            out.push_back({false, tri.arg_regs[next_int++]});
+        }
+    }
+    return out;
+}

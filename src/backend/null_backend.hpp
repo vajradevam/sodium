@@ -27,6 +27,18 @@ public:
     void stack_probe_check(const std::string&, const std::string&,
                            const std::string&, const std::string&) override {}
 
+    void fp_load(const std::string&, const std::string&, int) override {}
+    void fp_store(const std::string&, const std::string&, int) override {}
+    void fp_const(const std::string&, uint64_t, int, const std::string&) override {}
+    void fp_arith(char, const std::string&, const std::string&, const std::string&, int) override {}
+    void fp_neg(const std::string&, const std::string&, int, const std::string&) override {}
+    void fp_cmp(const std::string&, const std::string&, const std::string&, const std::string&,
+                int) override {}
+    void int_to_fp(const std::string&, const std::string&, int) override {}
+    void fp_to_int(const std::string&, const std::string&, int) override {}
+    void fp_convert(const std::string&, const std::string&, int) override {}
+    void note_fp_arg_count(int) override {}
+
     void emit_insn(const std::string& insn, const std::string& ops) override { (void)insn; (void)ops; }
     void debug_line(const std::string& file, uint32_t line) override { (void)file; (void)line; }
     void load_imm(const std::string& reg, int64_t value) override { (void)reg; (void)value; }

@@ -3,6 +3,7 @@
 #include "block.hpp"
 #include <string>
 #include <vector>
+#include <set>
 #include <cstdint>
 
 /// An IR function: a collection of basic blocks forming a CFG.
@@ -19,6 +20,17 @@ struct IRFunction {
 
     /// Allocate a new virtual register.
     uint32_t new_vreg() { return next_vreg++; }
+
+    /// Allocate a virtual register of the floating-point class (D-038).
+    uint32_t new_fp_vreg() {
+        uint32_t v = next_vreg++;
+        fp_vregs.insert(v);
+        return v;
+    }
+
+    /// Vregs of the floating-point class; every other vreg is an integer.
+    std::set<uint32_t> fp_vregs;
+    bool is_fp(uint32_t vreg) const { return fp_vregs.count(vreg) != 0; }
 
     /// Get or create a block by name.
     IRBlock* get_block(const std::string& label) {

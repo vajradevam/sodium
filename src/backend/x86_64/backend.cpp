@@ -400,6 +400,92 @@ void X8664Backend::cmp_result(const std::string& dst, const std::string& a,
     movzx(dst, low8(dst), 8);
 }
 
+// ---- floating point (D-038) ----
+
+void X8664Backend::fp_load(const std::string& freg, const std::string& addr, int bits) {
+    emit_insn(bits == 32 ? "movss" : "movsd", freg + ", " + addr);
+}
+
+void X8664Backend::fp_store(const std::string& addr, const std::string& freg, int bits) {
+    emit_insn(bits == 32 ? "movss" : "movsd", addr + ", " + freg);
+}
+
+void X8664Backend::fp_const(const std::string& freg, uint64_t pattern, int bits,
+                            const std::string& gpr) {
+    if (bits == 32) {
+        emit_insn("mov", low32(gpr) + ", " + std::to_string(pattern & 0xFFFFFFFFu));
+        emit_insn("movd", freg + ", " + low32(gpr));
+    } else {
+        emit_insn("mov", gpr + ", " + std::to_string(pattern));
+        emit_insn("movq", freg + ", " + gpr);
+    }
+}
+
+void X8664Backend::fp_arith(char op, const std::string& dst, const std::string& a,
+                            const std::string& b, int bits) {
+    if (dst != a) emit_insn("movaps", dst + ", " + a);
+    const char* name = op == '+' ? "add" : op == '-' ? "sub" : op == '*' ? "mul" : "div";
+    emit_insn(std::string(name) + (bits == 32 ? "ss" : "sd"), dst + ", " + b);
+}
+
+void X8664Backend::fp_neg(const std::string& dst, const std::string& src, int bits,
+                          const std::string& gpr) {
+    // Flip the sign bit through an integer register; this also negates zeros and NaNs.
+    if (bits == 32) {
+        emit_insn("movd", low32(gpr) + ", " + src);
+        emit_insn("btc", low32(gpr) + ", 31");
+        emit_insn("movd", dst + ", " + low32(gpr));
+    } else {
+        emit_insn("movq", gpr + ", " + src);
+        emit_insn("btc", gpr + ", 63");
+        emit_insn("movq", dst + ", " + gpr);
+    }
+}
+
+void X8664Backend::fp_cmp(const std::string& dst_gpr, const std::string& cc, const std::string& a,
+                          const std::string& b, int bits) {
+    // ucomis sets ZF/PF/CF; an unordered result sets all three, so `above` style conditions
+    // are already false for NaN. lt/le swap the operands to reuse those conditions.
+    const std::string cmp_op = bits == 32 ? "ucomiss" : "ucomisd";
+    const std::string d8 = low8(dst_gpr);
+    const std::string t8 = low8("r11");
+    if (cc == "eq" || cc == "ne") {
+        emit_insn(cmp_op, a + ", " + b);
+        if (cc == "eq") {
+            emit_insn("sete", d8);
+            emit_insn("setnp", t8);
+            emit_insn("and", d8 + ", " + t8);
+        } else {
+            emit_insn("setne", d8);
+            emit_insn("setp", t8);
+            emit_insn("or", d8 + ", " + t8);
+        }
+    } else if (cc == "gt" || cc == "ge") {
+        emit_insn(cmp_op, a + ", " + b);
+        emit_insn(cc == "gt" ? "seta" : "setae", d8);
+    } else {
+        emit_insn(cmp_op, b + ", " + a);
+        emit_insn(cc == "lt" ? "seta" : "setae", d8);
+    }
+    emit_insn("movzx", dst_gpr + ", " + d8);
+}
+
+void X8664Backend::int_to_fp(const std::string& freg, const std::string& gpr, int bits) {
+    emit_insn(bits == 32 ? "cvtsi2ss" : "cvtsi2sd", freg + ", " + gpr);
+}
+
+void X8664Backend::fp_to_int(const std::string& gpr, const std::string& freg, int bits) {
+    emit_insn(bits == 32 ? "cvttss2si" : "cvttsd2si", gpr + ", " + freg);
+}
+
+void X8664Backend::fp_convert(const std::string& dst, const std::string& src, int from_bits) {
+    emit_insn(from_bits == 32 ? "cvtss2sd" : "cvtsd2ss", dst + ", " + src);
+}
+
+void X8664Backend::note_fp_arg_count(int count) {
+    emit_insn("mov", "eax, " + std::to_string(count));
+}
+
 // ---- control ----
 
 void X8664Backend::call(const std::string& target) {

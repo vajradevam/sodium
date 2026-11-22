@@ -62,6 +62,8 @@ inline InlineStats inline_leaves(std::vector<InlineItem>& items) {
     auto eligible = [&](const IRFunction* f) {
         if (!f || address_taken.count(f->name) != 0) return false;
         if (f->blocks.empty() || f->blocks.size() > 2) return false;
+        // Inlining remaps vregs as integers; float-class functions are left alone (D-038).
+        if (!f->fp_vregs.empty()) return false;
         // gen_func_def always appends a safety-net epilogue block containing
         // only ret_void; it is not a real branch in the callee body.
         for (size_t bi = 1; bi < f->blocks.size(); ++bi) {

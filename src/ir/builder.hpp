@@ -312,10 +312,98 @@ public:
         emit(IRInstruction::syscall());
     }
 
+    // ---- floating point (D-038) ----
+    // Results are vregs of the FP class. Operands are passed as FP IRValues (IRValue::fvreg).
+
+    /// A float constant given as its raw IEEE bit pattern (32 bits for F32).
+    uint32_t fconst(IRWidth w, uint64_t bits) {
+        auto dst = new_fp_vreg();
+        emit(IRInstruction::fconst(dst, w, static_cast<int64_t>(bits)));
+        return dst;
+    }
+    uint32_t fcopy(IRValue src) {
+        auto dst = new_fp_vreg();
+        emit(IRInstruction::fcopy(dst, src));
+        return dst;
+    }
+    uint32_t fneg(IRValue src) {
+        auto dst = new_fp_vreg();
+        emit(IRInstruction::fneg(dst, src));
+        return dst;
+    }
+    uint32_t fadd(IRValue a, IRValue b) { return fbin(IROpcode::FADD, a, b); }
+    uint32_t fsub(IRValue a, IRValue b) { return fbin(IROpcode::FSUB, a, b); }
+    uint32_t fmul(IRValue a, IRValue b) { return fbin(IROpcode::FMUL, a, b); }
+    uint32_t fdiv(IRValue a, IRValue b) { return fbin(IROpcode::FDIV, a, b); }
+
+    /// Float comparison producing an integer 0/1. `op` is one of FCMP_*.
+    uint32_t fcmp(IROpcode op, IRValue a, IRValue b) {
+        auto dst = new_vreg();
+        emit(IRInstruction::fcmp(op, dst, a, b));
+        return dst;
+    }
+    uint32_t i2f(IRWidth to, IRValue src) {
+        auto dst = new_fp_vreg();
+        emit(IRInstruction::i2f(dst, to, src));
+        return dst;
+    }
+    uint32_t f2i(IRValue src) {
+        auto dst = new_vreg();
+        emit(IRInstruction::f2i(dst, src));
+        return dst;
+    }
+    uint32_t f2f(IRWidth to, IRValue src) {
+        auto dst = new_fp_vreg();
+        emit(IRInstruction::f2f(dst, to, src));
+        return dst;
+    }
+    uint32_t fload(IRWidth w, IRValue base, int64_t offset) {
+        auto dst = new_fp_vreg();
+        emit(IRInstruction::fload(dst, w, base, offset));
+        return dst;
+    }
+    void fstore(IRValue base, int64_t offset, IRValue src) {
+        emit(IRInstruction::fstore(base, offset, src));
+    }
+
+    /// Call whose result is a float of width `w` (returned in the FP result register).
+    uint32_t call_f(const std::string& func, const std::vector<IRValue>& args, IRWidth w,
+                    int reg_args = -1) {
+        auto dst = new_fp_vreg();
+        auto insn = IRInstruction::call(dst, func, args);
+        insn.dst_width = w;
+        insn.reg_args = reg_args;
+        emit(insn);
+        return dst;
+    }
+    uint32_t call_indirect_f(IRValue target, const std::vector<IRValue>& args, IRWidth w,
+                             int reg_args = -1) {
+        auto dst = new_fp_vreg();
+        auto insn = IRInstruction::call_indirect(dst, target, args);
+        insn.dst_width = w;
+        insn.reg_args = reg_args;
+        emit(insn);
+        return dst;
+    }
+
+    /// The vreg classes of the function being built.
+    const IRFunction* function() const { return m_func.get(); }
+
 private:
     uint32_t new_vreg() {
         assert(m_func);
         return m_func->new_vreg();
+    }
+
+    uint32_t new_fp_vreg() {
+        assert(m_func);
+        return m_func->new_fp_vreg();
+    }
+
+    uint32_t fbin(IROpcode op, IRValue a, IRValue b) {
+        auto dst = new_fp_vreg();
+        emit(IRInstruction::fbinary(op, dst, a, b));
+        return dst;
     }
 
     std::unique_ptr<IRFunction> m_func;

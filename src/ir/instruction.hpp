@@ -206,6 +206,41 @@ struct IRInstruction {
         return insn;
     }
 
+    // ---- floating point (D-038) ----
+    // FP operands are IRValues whose width is IRWidth::F32 / F64.
+
+    static IRInstruction fconst(uint32_t dst, IRWidth w, int64_t bits) {
+        return { IROpcode::FCONST, dst, w, {}, "", "", "", bits, {}, NONE_VREG, -1, {}, {}, 0, "" };
+    }
+    static IRInstruction fcopy(uint32_t dst, IRValue src) {
+        return { IROpcode::FCOPY, dst, src.width, {src}, "", "", "", 0, {}, NONE_VREG, -1, {}, {}, 0, "" };
+    }
+    static IRInstruction fneg(uint32_t dst, IRValue src) {
+        return { IROpcode::FNEG, dst, src.width, {src}, "", "", "", 0, {}, NONE_VREG, -1, {}, {}, 0, "" };
+    }
+    static IRInstruction fbinary(IROpcode op, uint32_t dst, IRValue a, IRValue b) {
+        return { op, dst, a.width, {a, b}, "", "", "", 0, {}, NONE_VREG, -1, {}, {}, 0, "" };
+    }
+    /// Float comparison; the result is an integer 0/1.
+    static IRInstruction fcmp(IROpcode op, uint32_t dst, IRValue a, IRValue b) {
+        return { op, dst, IRWidth::I64, {a, b}, "", "", "", 0, {}, NONE_VREG, -1, {}, {}, 0, "" };
+    }
+    static IRInstruction i2f(uint32_t dst, IRWidth to, IRValue src) {
+        return { IROpcode::I2F, dst, to, {src}, "", "", "", 0, {}, NONE_VREG, -1, {}, {}, 0, "" };
+    }
+    static IRInstruction f2i(uint32_t dst, IRValue src) {
+        return { IROpcode::F2I, dst, IRWidth::I64, {src}, "", "", "", 0, {}, NONE_VREG, -1, {}, {}, 0, "" };
+    }
+    static IRInstruction f2f(uint32_t dst, IRWidth to, IRValue src) {
+        return { IROpcode::F2F, dst, to, {src}, "", "", "", 0, {}, NONE_VREG, -1, {}, {}, 0, "" };
+    }
+    static IRInstruction fload(uint32_t dst, IRWidth w, IRValue base, int64_t offset) {
+        return { IROpcode::FLOAD, dst, w, {base}, "", "", "", offset, {}, NONE_VREG, -1, {}, {}, 0, "" };
+    }
+    static IRInstruction fstore(IRValue base, int64_t offset, IRValue src) {
+        return { IROpcode::FSTORE, NONE_VREG, IRWidth::I64, {base, src}, "", "", "", offset, {}, NONE_VREG, -1, {}, {}, 0, "" };
+    }
+
     /// Format for IR dump.
     std::string to_string() const;
     size_t operand_count() const;

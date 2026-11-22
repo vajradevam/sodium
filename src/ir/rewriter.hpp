@@ -99,6 +99,179 @@ private:
 
     Loc locate_vreg(uint32_t vreg) const { return locate(IRValue::vreg(vreg)); }
 
+    // ---- floating point (D-038) ----
+    // Float vregs are always spilled. Each FP operation is lowered to: load the operands from
+    // their stack homes into the two scratch FP registers, operate, store the result back.
+    // In the lowered instructions FP operands carry FP register numbers (of the FP file) in
+    // vreg_id, and a width of F32/F64.
+
+    static bool is_fp_insn(IROpcode op) {
+        switch (op) {
+            case IROpcode::FCONST: case IROpcode::FCOPY: case IROpcode::FNEG:
+            case IROpcode::FADD: case IROpcode::FSUB: case IROpcode::FMUL: case IROpcode::FDIV:
+            case IROpcode::FCMP_EQ: case IROpcode::FCMP_NE: case IROpcode::FCMP_LT:
+            case IROpcode::FCMP_LE: case IROpcode::FCMP_GT: case IROpcode::FCMP_GE:
+            case IROpcode::I2F: case IROpcode::F2I: case IROpcode::F2F:
+            case IROpcode::FLOAD: case IROpcode::FSTORE:
+                return true;
+            default:
+                return false;
+        }
+    }
+
+    int fp_home(uint32_t vreg) const {
+        auto it = m_alloc.entries.find(vreg);
+        assert(it != m_alloc.entries.end() && it->second.is_spilled());
+        return spill_offset(it->second.spill_slot);
+    }
+
+    IRInstruction fp_load_home(int freg, uint32_t vreg, IRWidth w) const {
+        return IRInstruction::fload(static_cast<uint32_t>(freg), w,
+                                    IRValue::vreg(static_cast<uint32_t>(m_tri.fp_reg)), fp_home(vreg));
+    }
+
+    IRInstruction fp_store_home(uint32_t vreg, int freg, IRWidth w) const {
+        return IRInstruction::fstore(IRValue::vreg(static_cast<uint32_t>(m_tri.fp_reg)), fp_home(vreg),
+                                     IRValue::fvreg(static_cast<uint32_t>(freg), w));
+    }
+
+    /// An integer operand as a physical register, loading it into the scratch register when
+    /// it is spilled or an immediate.
+    IRValue int_operand_reg(const IRValue& v, std::vector<IRInstruction>& out) const {
+        const Loc l = locate(v);
+        const uint32_t scratch = static_cast<uint32_t>(m_tri.scratch_reg);
+        if (l.imm) {
+            out.push_back(IRInstruction::load_i64(scratch, l.imm_val));
+            return IRValue::vreg(scratch);
+        }
+        if (l.spilled) {
+            out.push_back(phys_load_slot(m_tri.scratch_reg, l.spill_off));
+            return IRValue::vreg(scratch);
+        }
+        return IRValue::vreg(static_cast<uint32_t>(l.preg));
+    }
+
+    /// Lower one FP-family instruction. Returns true when `insn` was FP and has been handled.
+    bool lower_fp(IRInstruction insn, std::vector<IRInstruction>& out) const {
+        if (!is_fp_insn(insn.op)) return false;
+        const int s0 = m_tri.fp_scratch0;
+        const int s1 = m_tri.fp_scratch1;
+        const uint32_t u0 = static_cast<uint32_t>(s0);
+        const uint32_t u1 = static_cast<uint32_t>(s1);
+        auto fpv = [](uint32_t reg, IRWidth w) { return IRValue::fvreg(reg, w); };
+        const uint32_t scratch = static_cast<uint32_t>(m_tri.scratch_reg);
+
+        // Integer destination of an FCMP / F2I: a register, or scratch plus a store.
+        auto finish_int_dst = [&](IRInstruction& op_insn, uint32_t orig) {
+            const Loc d = locate_vreg(orig);
+            if (d.spilled) {
+                op_insn.dst = scratch;
+                out.push_back(op_insn);
+                out.push_back(phys_store_slot(d.spill_off, m_tri.scratch_reg));
+            } else {
+                op_insn.dst = static_cast<uint32_t>(d.preg);
+                out.push_back(op_insn);
+            }
+        };
+
+        switch (insn.op) {
+            case IROpcode::FCONST: {
+                const uint32_t d = insn.dst;
+                const IRWidth w = insn.dst_width;
+                insn.dst = u0;
+                out.push_back(insn);
+                out.push_back(fp_store_home(d, s0, w));
+                return true;
+            }
+            case IROpcode::FCOPY: {
+                const IRWidth w = insn.operands[0].width;
+                out.push_back(fp_load_home(s0, insn.operands[0].vreg_id, w));
+                out.push_back(fp_store_home(insn.dst, s0, w));
+                return true;
+            }
+            case IROpcode::FNEG: {
+                const IRWidth w = insn.operands[0].width;
+                const uint32_t d = insn.dst;
+                out.push_back(fp_load_home(s0, insn.operands[0].vreg_id, w));
+                insn.dst = u0;
+                insn.operands = { fpv(u0, w) };
+                out.push_back(insn);
+                out.push_back(fp_store_home(d, s0, w));
+                return true;
+            }
+            case IROpcode::FADD: case IROpcode::FSUB: case IROpcode::FMUL: case IROpcode::FDIV: {
+                const IRWidth w = insn.operands[0].width;
+                const uint32_t d = insn.dst;
+                out.push_back(fp_load_home(s0, insn.operands[0].vreg_id, w));
+                out.push_back(fp_load_home(s1, insn.operands[1].vreg_id, w));
+                insn.dst = u0;
+                insn.operands = { fpv(u0, w), fpv(u1, w) };
+                out.push_back(insn);
+                out.push_back(fp_store_home(d, s0, w));
+                return true;
+            }
+            case IROpcode::FCMP_EQ: case IROpcode::FCMP_NE: case IROpcode::FCMP_LT:
+            case IROpcode::FCMP_LE: case IROpcode::FCMP_GT: case IROpcode::FCMP_GE: {
+                const IRWidth w = insn.operands[0].width;
+                const uint32_t d = insn.dst;
+                out.push_back(fp_load_home(s0, insn.operands[0].vreg_id, w));
+                out.push_back(fp_load_home(s1, insn.operands[1].vreg_id, w));
+                insn.operands = { fpv(u0, w), fpv(u1, w) };
+                finish_int_dst(insn, d);
+                return true;
+            }
+            case IROpcode::I2F: {
+                const uint32_t d = insn.dst;
+                const IRWidth w = insn.dst_width;
+                IRValue src = int_operand_reg(insn.operands[0], out);
+                insn.dst = u0;
+                insn.operands = { src };
+                out.push_back(insn);
+                out.push_back(fp_store_home(d, s0, w));
+                return true;
+            }
+            case IROpcode::F2I: {
+                const IRWidth w = insn.operands[0].width;
+                const uint32_t d = insn.dst;
+                out.push_back(fp_load_home(s0, insn.operands[0].vreg_id, w));
+                insn.operands = { fpv(u0, w) };
+                finish_int_dst(insn, d);
+                return true;
+            }
+            case IROpcode::F2F: {
+                const IRWidth from = insn.operands[0].width;
+                const IRWidth to = insn.dst_width;
+                const uint32_t d = insn.dst;
+                out.push_back(fp_load_home(s0, insn.operands[0].vreg_id, from));
+                insn.dst = u0;
+                insn.operands = { fpv(u0, from) };
+                out.push_back(insn);
+                out.push_back(fp_store_home(d, s0, to));
+                return true;
+            }
+            case IROpcode::FLOAD: {
+                const uint32_t d = insn.dst;
+                const IRWidth w = insn.dst_width;
+                IRValue base = int_operand_reg(insn.operands[0], out);
+                insn.dst = u0;
+                insn.operands = { base };
+                out.push_back(insn);
+                out.push_back(fp_store_home(d, s0, w));
+                return true;
+            }
+            case IROpcode::FSTORE: {
+                const IRWidth w = insn.operands[1].width;
+                out.push_back(fp_load_home(s0, insn.operands[1].vreg_id, w));
+                IRValue base = int_operand_reg(insn.operands[0], out);
+                insn.operands = { base, fpv(u0, w) };
+                out.push_back(insn);
+                return true;
+            }
+            default:
+                return false;
+        }
+    }
+
     static IRInstruction phys_copy(int dst, int src) {
         IRInstruction c;
         c.op = IROpcode::COPY;
@@ -189,6 +362,27 @@ private:
         for (auto& block : m_func.blocks) {
             std::vector<IRInstruction> new_insns;
             for (auto& insn : block.instructions) {
+                if (lower_fp(insn, new_insns)) continue;
+
+                // A float RET: the value goes into the FP result register.
+                if (insn.op == IROpcode::RET && !insn.operands.empty() &&
+                    insn.operands[0].is_vreg() && is_fp_width(insn.operands[0].width)) {
+                    const IRWidth w = insn.operands[0].width;
+                    new_insns.push_back(fp_load_home(m_tri.fp_ret_reg, insn.operands[0].vreg_id, w));
+                    insn.operands[0] = IRValue::fvreg(static_cast<uint32_t>(m_tri.fp_ret_reg), w);
+                    new_insns.push_back(insn);
+                    continue;
+                }
+
+                // A call returning a float: the result arrives in the FP result register and
+                // is stored to the vreg's home right after the call.
+                std::optional<std::pair<uint32_t, IRWidth>> fp_result;
+                if (is_call(insn.op) && insn.dst != IRInstruction::NONE_VREG &&
+                    is_fp_width(insn.dst_width)) {
+                    fp_result = std::make_pair(insn.dst, insn.dst_width);
+                    insn.dst = IRInstruction::NONE_VREG;
+                }
+
                 // Stack-passed CALL arguments are pushed here, one at a time,
                 // so a spilled argument is loaded and immediately consumed.
                 // Loading them all into one scratch register first would let
@@ -205,7 +399,7 @@ private:
                     const size_t n_reg = insn.reg_args >= 0
                         ? static_cast<size_t>(insn.reg_args)
                         : std::min(insn.operands.size(), n_arg_regs);
-                    assert(n_reg <= n_arg_regs && n_reg <= insn.operands.size());
+                    assert(n_reg <= insn.operands.size());  // floats may exceed the integer register count
                     const int stack_args = static_cast<int>(insn.operands.size() - n_reg);
                     if (stack_args > 0) {
                         // Padding (if any) is pushed FIRST so it sits above
@@ -277,15 +471,26 @@ private:
                 // their argument register (after the parallel register moves),
                 // never through the shared scratch register.
                 if (is_call(insn.op)) {
+                    std::vector<bool> fp_mask;
+                    for (const auto& op : insn.operands) fp_mask.push_back(is_fp_width(op.width));
+                    const std::vector<ArgRegAssign> assign = assign_arg_regs(m_tri, fp_mask);
                     for (size_t i = 0; i < insn.operands.size(); i++) {
                         auto& op = insn.operands[i];
                         if (!op.is_vreg()) continue;
                         auto it = m_alloc.entries.find(op.vreg_id);
                         if (it == m_alloc.entries.end()) continue;
-                        if (it->second.is_physical()) {
+                        if (is_fp_width(op.width)) {
+                            // A float argument is loaded from its home straight into its
+                            // argument register after the integer moves.
+                            const ArgRegAssign a = assign[i];
+                            insn.arg_loads.push_back({ a.fp ? (a.preg | FP_REG_FLAG | (op.width == IRWidth::F32 ? FP_SINGLE_FLAG : 0))
+                                                 : a.preg,
+                                                       spill_offset(it->second.spill_slot) });
+                            op = IRValue::fvreg(static_cast<uint32_t>(a.preg), op.width);
+                        } else if (it->second.is_physical()) {
                             op.vreg_id = static_cast<uint32_t>(it->second.preg);
                         } else if (it->second.is_spilled()) {
-                            int areg = m_tri.arg_regs[i];
+                            int areg = assign[i].preg;
                             insn.arg_loads.push_back({ areg, spill_offset(it->second.spill_slot) });
                             op = IRValue::vreg(static_cast<uint32_t>(areg));
                         }
@@ -391,6 +596,9 @@ private:
                 }
 
                 for (auto& move : result_moves) new_insns.push_back(move);
+                if (fp_result) {
+                    new_insns.push_back(fp_store_home(fp_result->first, m_tri.fp_ret_reg, fp_result->second));
+                }
             }
             block.instructions = new_insns;
         }
@@ -407,6 +615,7 @@ private:
 
         for (auto& block : m_func.blocks) {
             for (auto& insn : block.instructions) {
+                if (is_fp_insn(insn.op)) continue;   // FP registers are never callee-saved
                 // Destination register
                 if (insn.dst != IRInstruction::NONE_VREG) {
                     if (cs_set.count(static_cast<int>(insn.dst)))
@@ -414,7 +623,7 @@ private:
                 }
                 // Source operands
                 for (auto& op : insn.operands) {
-                    if (op.is_vreg()) {
+                    if (op.is_vreg() && !is_fp_width(op.width)) {
                         if (cs_set.count(static_cast<int>(op.vreg_id)))
                             used_callee_save.insert(static_cast<int>(op.vreg_id));
                     }
@@ -449,7 +658,7 @@ private:
                     // Move return value to return register before POPs
                     if (!insn.operands.empty()) {
                         auto& ret_op = insn.operands[0];
-                        if (ret_op.is_vreg() &&
+                        if (ret_op.is_vreg() && !is_fp_width(ret_op.width) &&
                             static_cast<int>(ret_op.vreg_id) != ret_reg) {
                             IRInstruction copy;
                             copy.op = IROpcode::COPY;
