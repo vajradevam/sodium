@@ -230,3 +230,13 @@ O5. Added `tests/unit/test_loop_liveness.cyan` (loops with calls and nested loop
 the -O0 suite and the -O1 suite on x86_64 and riscv64. `scripts/check.sh --full` green: 667 ->
 669 passed, 0 failed, 10 skipped at both levels; 234 -> 239 C++ cases / 4155 checks; sweep
 2034 -> 2040 invocations, 0 crashes; ASan/UBSan clean.
+
+## 2026-11-22 — O5a mem2reg IR pass
+Added `src/ir/mem2reg.hpp` implementing D-027: frame slots whose addresses never escape and whose
+every load is dominated by a store are promoted to a shared vreg. Stores become copies (with
+masking/zero-extension for narrow widths) and loads become copies or sign/zero extensions, so
+narrow-value semantics are preserved; the frame_addr instructions are removed. Slots used as
+pointers, accessed at a nonzero offset, or read before a dominating store are left in the frame.
+Added 9 C++ cases covering straight-line promotion, narrow widths, loop locals whose interval
+spans a call, address-taken locals, missing dominance, several frame addrs for one slot and
+non-frame memory. `scripts/check.sh` green; pass is not yet wired into the pipeline (O5b).
