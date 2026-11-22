@@ -37,6 +37,7 @@ struct Var {
     bool used = false;       // set when the variable is read
     bool is_param = false;   // parameters get a different warning message
     size_t elem_size = 8;    // array element size in bytes (arrays only)
+    std::vector<size_t> dim_sizes; // compile-time dimensions (multidim arrays)
 };
 
 struct Scope {
@@ -136,6 +137,8 @@ public:
     /// Compute the byte address of a (possibly chained) field access and
     /// return its declared type through `out_type`.
     uint32_t field_addr(const NodeExprFieldAccess& access, Type& out_type);
+    /// Compute the byte address of an (possibly chained) array index.
+    uint32_t index_addr(const NodeExprIndex& index, Type& out_type);
     void gen_stmt(const NodeStmt& stmt);
     void gen_func_def(const NodeFuncDef& func);
 

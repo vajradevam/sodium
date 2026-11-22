@@ -65,26 +65,23 @@ void Generator::gen_expr(const NodeExpr& expr)
         void operator()(const NodeExprIndex* expr_index)
         {
             const auto& name = expr_index->name.value.value();
-            // Evaluate index
+
+            bool is_local = false;
+            for (const auto& scope : gen->m_scopes) {
+                if (scope.vars.contains(name)) { is_local = true; break; }
+            }
+            if (is_local) {
+                Type elem_type;
+                uint32_t elem_addr = gen->index_addr(*expr_index, elem_type);
+                uint32_t val = load_typed_field(gen->m_ir, elem_addr, elem_type);
+                gen->push_vreg(val);
+                gen->m_tstack.back() = elem_type;
+                return;
+            }
+            // Evaluate index for globals
             gen->gen_expr(*expr_index->index);
             uint32_t idx = gen->pop_vreg();
 
-            // Try local scope first
-            for (auto it = gen->m_scopes.rbegin(); it != gen->m_scopes.rend(); ++it) {
-                if (it->vars.contains(name)) {
-                    gen->mark_var_used(name);
-                    const auto& var = it->vars.at(name);
-                    uint32_t base_addr = gen->m_ir.frame_addr(static_cast<int64_t>(var.stack_loc));
-                    uint32_t offset = gen->m_ir.mul(IRValue::vreg(idx),
-                                                   IRValue::imm_i64(static_cast<int64_t>(var.elem_size)));
-                    uint32_t elem_addr = gen->m_ir.sub(IRValue::vreg(base_addr), IRValue::vreg(offset));
-                    uint32_t val = load_typed_field(gen->m_ir, elem_addr, var.type);
-                    gen->push_vreg(val);
-                    gen->m_tstack.back() = var.type;
-                    return;
-                }
-            }
-            // Try global
             if (gen->m_global_var_info.contains(name)) {
                 uint32_t base_addr = gen->m_ir.lea_label(name);
                 uint32_t offset = gen->m_ir.mul(IRValue::vreg(idx), IRValue::imm_i64(8));
@@ -743,18 +740,12 @@ uint32_t Generator::field_addr(const NodeExprFieldAccess& access, Type& out_type
             }
             struct_name = inner_type.struct_name;
         } else if (auto* indexed = std::get_if<NodeExprIndex*>(&access.base->var)) {
-            const auto& name = (*indexed)->name.value.value();
-            auto var = lookup_var(name, (*indexed)->name.loc);
-            gen_expr(*(*indexed)->index);
-            uint32_t index = pop_vreg();
-            uint32_t offset = m_ir.mul(IRValue::vreg(index),
-                                      IRValue::imm_i64(static_cast<int64_t>(var.elem_size)));
-            uint32_t start = m_ir.frame_addr(static_cast<int64_t>(var.stack_loc));
-            base_addr = m_ir.sub(IRValue::vreg(start), IRValue::vreg(offset));
-            if (var.type.kind != Type::Struct) {
+            Type element_type;
+            base_addr = index_addr(**indexed, element_type);
+            if (element_type.kind != Type::Struct) {
                 fail(access.field_name.loc, "Field access requires an array of structs");
             }
-            struct_name = var.type.struct_name;
+            struct_name = element_type.struct_name;
         } else {
             fail(access.field_name.loc, "Unsupported field access base");
         }
@@ -794,3 +785,42 @@ uint32_t Generator::field_addr(const NodeExprFieldAccess& access, Type& out_type
     return m_ir.lea(IRValue::vreg(base_addr), -static_cast<int64_t>(offset_it->second));
 }
 
+
+uint32_t Generator::index_addr(const NodeExprIndex& index, Type& out_type) {
+    const auto& name = index.name.value.value();
+    Var var = lookup_var(name, index.name.loc);
+    if (var.array_size == 0) fail(index.name.loc, "Indexing a non-array variable: " + name);
+
+    std::vector<NodeExpr*> indices;
+    const NodeExprIndex* cur = &index;
+    while (cur) {
+        indices.push_back(cur->index);
+        if (!cur->base) break;
+        auto* inner = std::get_if<NodeExprIndex*>(&cur->base->var);
+        if (!inner) break;
+        cur = *inner;
+    }
+    std::reverse(indices.begin(), indices.end());
+
+    std::vector<size_t> dims = var.dim_sizes.empty()
+                                   ? std::vector<size_t>{var.array_size}
+                                   : var.dim_sizes;
+    std::vector<size_t> strides(dims.size(), var.elem_size);
+    for (size_t k = dims.size(); k-- > 1;) strides[k - 1] = strides[k] * dims[k];
+
+    uint32_t offset = 0;
+    bool have_offset = false;
+    const size_t used = std::min(indices.size(), dims.size());
+    for (size_t k = 0; k < used; k++) {
+        gen_expr(*indices[k]);
+        uint32_t v = pop_vreg();
+        uint32_t scaled = m_ir.mul(IRValue::vreg(v),
+                                   IRValue::imm_i64(static_cast<int64_t>(strides[k])));
+        offset = have_offset ? m_ir.add(IRValue::vreg(offset), IRValue::vreg(scaled)) : scaled;
+        have_offset = true;
+    }
+
+    uint32_t base = m_ir.frame_addr(static_cast<int64_t>(var.stack_loc));
+    out_type = var.type;
+    return have_offset ? m_ir.sub(IRValue::vreg(base), IRValue::vreg(offset)) : base;
+}

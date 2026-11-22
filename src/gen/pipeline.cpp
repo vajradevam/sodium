@@ -83,7 +83,7 @@ void Generator::gen_func_def(const NodeFuncDef& func)
             }
         }
         scope.vars[param_name] = Var { .stack_loc = offset, .type = param_type, .struct_type = "",
-                                        .decl_loc = func.params[i].loc, .is_param = true };
+                                        .decl_loc = func.params[i].loc, .is_param = true, .dim_sizes = {} };
         scope.var_count++;
 
         // Load parameter from ABI-defined location (argument register or stack)
@@ -179,7 +179,7 @@ void Generator::collect_globals(const std::vector<NodeStmt>& stmts)
             }
             m_globals[name] = true;
             if (arr_size > 0) {
-                m_global_var_info[name] = Var { .stack_loc = 0, .array_size = arr_size, .struct_type = "" };
+                m_global_var_info[name] = Var { .stack_loc = 0, .array_size = arr_size, .struct_type = "", .dim_sizes = {} };
                 m_bss_entries.push_back({name, arr_size});
             } else if ((*global)->expr) {
                 if (auto* int_lit = std::get_if<NodeExprIntLit*>(&(*global)->expr->var)) {

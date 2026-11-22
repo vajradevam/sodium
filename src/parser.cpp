@@ -578,6 +578,22 @@ std::optional<NodeExpr*> Parser::parse_primary_expr()
                 consume(); // ]
                 auto expr = m_allocator.alloc<NodeExpr>();
                 expr->var = expr_index;
+                // Multi-dimensional indexing: a[i][j]
+                while (peek().has_value() && peek().value().type == TokenType::open_square) {
+                    consume(); // [
+                    auto next_index = parse_expr();
+                    if (!next_index) error("Expected index expression");
+                    if (!peek().has_value() || peek().value().type != TokenType::close_square) {
+                        error("Expected ']'");
+                    }
+                    consume();
+                    auto chained = m_allocator.alloc<NodeExprIndex>();
+                    chained->base = expr;
+                    chained->name = expr_index->name;
+                    chained->index = *next_index;
+                    expr = m_allocator.alloc<NodeExpr>();
+                    expr->var = chained;
+                }
                 // Field access on an indexed element: a[0].x (and chains).
                 while (peek().has_value() && peek().value().type == TokenType::dot) {
                     consume();
@@ -1486,6 +1502,17 @@ std::optional<NodeStmt> Parser::parse_stmt() {
                             error("Expected ']' after array size");
                         }
                         consume(); // ]
+                        stmt_arr->dims.push_back(stmt_arr->size);
+                        while (peek().has_value() && peek().value().type == TokenType::open_square) {
+                            consume(); // [
+                            auto d = parse_expr();
+                            if (!d) error("Expected array dimension size");
+                            stmt_arr->dims.push_back(*d);
+                            if (!peek().has_value() || peek().value().type != TokenType::close_square) {
+                                error("Expected ']' after array dimension");
+                            }
+                            consume(); // ]
+                        }
                         if (!peek().has_value() || peek().value().type != TokenType::semi) {
                             error("Expected ';' after array declaration");
                         }
@@ -1682,6 +1709,7 @@ std::optional<NodeStmt> Parser::parse_stmt() {
                     auto arr = m_allocator.alloc<NodeStmtArrAssign>();
                     arr->name = (*indexed)->name;
                     arr->index = (*indexed)->index;
+                    arr->base = (*indexed)->base;
                     if (!peek().has_value() || peek().value().type != TokenType::eq) {
                         error("Expected '=' in array assignment");
                     }

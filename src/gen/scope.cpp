@@ -130,7 +130,7 @@ void Generator::declare_var(const std::string& name, Type type, SourceLoc loc) {
     size_t align = size < 8 ? size : 8;  // natural alignment, capped at 8
     uint32_t offset = static_cast<uint32_t>(align_up(m_next_frame_offset, align));
     m_next_frame_offset = offset + static_cast<uint32_t>(size);
-    scope.vars[name] = Var { .stack_loc = offset, .type = type, .struct_type = "", .decl_loc = loc };
+    scope.vars[name] = Var { .stack_loc = offset, .type = type, .struct_type = "", .decl_loc = loc, .dim_sizes = {} };
     scope.var_count++;
     m_stack_size += size;
 }

@@ -85,6 +85,7 @@ struct NodeExprStringLit { Token value; };
 struct NodeExprIndex {
     Token name;
     NodeExpr* index;
+    NodeExpr* base = nullptr; // non-null for chained a[i][j]
 };
 
 struct NodeExprFieldAccess {
@@ -188,15 +189,17 @@ struct NodeStmtReturn {
 
 struct NodeStmtArrDecl {
     Token name;
-    NodeExpr* size;
+    NodeExpr* size;                    // first dimension (kept for compatibility)
     SourceLoc loc {};
-    std::optional<Type> elem_type; // empty = i64 elements
+    std::optional<Type> elem_type;     // empty = i64 elements
+    std::vector<NodeExpr*> dims;       // all dimensions, outermost first
 };
 
 struct NodeStmtArrAssign {
     Token name;
     NodeExpr* index;
     NodeExpr* expr;
+    NodeExpr* base = nullptr; // inner index for a[i][j] = v
 };
 
 struct NodeStmtLet {

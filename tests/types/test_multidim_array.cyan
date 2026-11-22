@@ -1,0 +1,12 @@
+// EXPECT-EXIT: 0
+// EXPECT-STDOUT: 5
+// EXPECT-STDOUT: 6
+
+function main() {
+    var a: i32[2][3];
+    a[0][0] = 5;
+    a[1][2] = 6;
+    print(a[0][0]);
+    print(a[1][2]);
+    return(0);
+}

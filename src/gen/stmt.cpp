@@ -33,7 +33,7 @@ void Generator::gen_stmt(const NodeStmt& stmt)
                 gen->m_next_frame_offset += struct_bytes;
                 scope.vars[stmt_let->ident.value.value()] = Var { .stack_loc = slot, .array_size = struct_info.value().size,
                     .type = Type::make_struct(stmt_let->struct_type_name), .struct_type = stmt_let->struct_type_name,
-                    .decl_loc = stmt_let->ident.loc };
+                    .decl_loc = stmt_let->ident.loc, .dim_sizes = {} };
                 scope.var_count += struct_info.value().size;
                 // Zero-initialize the whole struct (including padding).
                 zero_bytes(slot, struct_bytes);
@@ -76,7 +76,7 @@ void Generator::gen_stmt(const NodeStmt& stmt)
                 uint32_t arr_bytes = static_cast<uint32_t>((*arr_lit)->elements.size() * 8);
                 uint32_t slot = gen->m_next_frame_offset;
                 gen->m_next_frame_offset += arr_bytes;
-                scope.vars[stmt_let->ident.value.value()] = Var { .stack_loc = slot, .array_size = (*arr_lit)->elements.size(), .type = var_type, .struct_type = "", .decl_loc = stmt_let->ident.loc };
+                scope.vars[stmt_let->ident.value.value()] = Var { .stack_loc = slot, .array_size = (*arr_lit)->elements.size(), .type = var_type, .struct_type = "", .decl_loc = stmt_let->ident.loc, .dim_sizes = {} };
                 scope.var_count += (*arr_lit)->elements.size();
                 // Evaluate array literal elements
                 gen->gen_expr(*stmt_let->expr);
@@ -336,11 +336,18 @@ void Generator::gen_stmt(const NodeStmt& stmt)
 
         void operator()(const NodeStmtArrDecl* stmt_arr) const
         {
-            auto const_size = gen->eval_const_expr(stmt_arr->size);
-            if (!const_size.has_value()) {
-                gen->fail(stmt_arr->loc, "Array size must be a compile-time constant expression");
+            std::vector<size_t> dims;
+            size_t size = 1;
+            for (const auto* dim_expr : stmt_arr->dims.empty()
+                                            ? std::vector<NodeExpr*>{stmt_arr->size}
+                                            : stmt_arr->dims) {
+                auto d = gen->eval_const_expr(dim_expr);
+                if (!d.has_value() || *d <= 0) {
+                    gen->fail(stmt_arr->loc, "Array size must be a positive compile-time constant");
+                }
+                dims.push_back(static_cast<size_t>(*d));
+                size *= dims.back();
             }
-            size_t size = static_cast<size_t>(const_size.value());
             Type elem_type = stmt_arr->elem_type.value_or(Type::make_int(IntType::i64));
             size_t elem_size = type_size(elem_type);
             if (elem_type.kind == Type::Struct) {
@@ -351,8 +358,10 @@ void Generator::gen_stmt(const NodeStmt& stmt)
             uint32_t slot = gen->m_next_frame_offset;
             uint32_t arr_bytes = static_cast<uint32_t>(size * elem_size);
             gen->m_next_frame_offset += arr_bytes;
-            scope.vars[stmt_arr->name.value.value()] = Var { .stack_loc = slot, .array_size = size,
-                .type = elem_type, .struct_type = "", .decl_loc = stmt_arr->loc, .elem_size = elem_size };
+            Var var { .stack_loc = slot, .array_size = size,
+                .type = elem_type, .struct_type = "", .decl_loc = stmt_arr->loc,
+                .elem_size = elem_size, .dim_sizes = dims };
+            scope.vars[stmt_arr->name.value.value()] = std::move(var);
             scope.var_count += size;
             // Zero-initialize array elements linearly
             zero_bytes(slot, arr_bytes);
@@ -361,6 +370,24 @@ void Generator::gen_stmt(const NodeStmt& stmt)
         void operator()(const NodeStmtArrAssign* stmt_arr_assign) const
         {
             const auto& name = stmt_arr_assign->name.value.value();
+            if (stmt_arr_assign->base) {
+                NodeExprIndex full;
+                full.name = stmt_arr_assign->name;
+                full.index = stmt_arr_assign->index;
+                full.base = stmt_arr_assign->base;
+                Type elem_type;
+                uint32_t addr = gen->index_addr(full, elem_type);
+                gen->gen_expr(*stmt_arr_assign->expr);
+                uint32_t v = gen->pop_vreg();
+                size_t sz = type_size(elem_type);
+                if (elem_type.kind == Type::Int && sz < 8) {
+                    if (sz <= 1)      v = gen->m_ir.and_(IRValue::vreg(v), IRValue::imm_i64(0xFF));
+                    else if (sz <= 2) v = gen->m_ir.and_(IRValue::vreg(v), IRValue::imm_i64(0xFFFF));
+                    else              v = gen->m_ir.zext(IRValue::vreg(v), IRWidth::I32);
+                }
+                typed_store(addr, v, sz);
+                return;
+            }
             gen->gen_expr(*stmt_arr_assign->index);
             gen->gen_expr(*stmt_arr_assign->expr);
             uint32_t val = gen->pop_vreg();
