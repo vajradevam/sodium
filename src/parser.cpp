@@ -572,6 +572,20 @@ std::optional<NodeExpr*> Parser::parse_primary_expr()
                 return expr;
             } else {
                 auto ident = consume();
+                // Pointer-to-struct field access: p->field
+                if (peek().has_value() && peek().value().type == TokenType::arrow) {
+                    consume();
+                    if (!peek().has_value() || peek().value().type != TokenType::ident) {
+                        error("Expected field name after '->'");
+                    }
+                    auto expr_field = m_allocator.alloc<NodeExprFieldAccess>();
+                    expr_field->obj_name = ident;
+                    expr_field->field_name = consume();
+                    expr_field->arrow = true;
+                    auto expr = m_allocator.alloc<NodeExpr>();
+                    expr->var = expr_field;
+                    return expr;
+                }
                 // Check for field access: ident.field
                 if (peek().has_value() && peek().value().type == TokenType::dot) {
                     consume(); // .
@@ -1765,6 +1779,21 @@ std::optional<NodeStmt> Parser::parse_stmt() {
                     sub_expr->var = sub;
                     stmt->expr = sub_expr;
                 }
+                return NodeStmt { .var = stmt };
+        } else if (
+            peek().has_value() && peek().value().type == TokenType::ident
+            && peek(1).has_value() && peek(1).value().type == TokenType::arrow
+            && peek(2).has_value() && peek(2).value().type == TokenType::ident
+            && peek(3).has_value() && is_assign_op(peek(3).value().type)) {
+                auto stmt = m_allocator.alloc<NodeStmtArrowAssign>();
+                stmt->ptr_name = consume();
+                consume(); // ->
+                stmt->field_name = consume();
+                stmt->op = token_to_assign_op(consume().type);
+                if (auto expr = parse_expr()) stmt->expr = expr.value();
+                else error("Invalid expression in pointer field assignment");
+                if (peek().has_value() && peek().value().type == TokenType::semi) consume();
+                else error("Expected ';' after pointer field assignment");
                 return NodeStmt { .var = stmt };
         } else if (
             peek().has_value() && peek().value().type == TokenType::ident

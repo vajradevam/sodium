@@ -245,6 +245,9 @@ void print_ast_stmt(const NodeStmt& stmt, int indent) {
         [indent](const NodeStmtContinue*) {
             std::cout << std::string(indent, ' ') << "Continue\n";
         },
+        [indent](const NodeStmtArrowAssign*) {
+            std::cout << std::string(indent, ' ') << "ArrowAssign\n";
+        },
         [indent](const NodeStmtDerefAssign* e) {
             static const char* op_names[] = {
                 "=", "+=", "-=", "*=", "/=", "%=", "&=", "|=", "^=", "<<=", ">>="

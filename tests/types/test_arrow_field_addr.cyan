@@ -1,0 +1,12 @@
+// EXPECT-EXIT: 0
+// EXPECT-STDOUT: 7
+
+struct Point { var x: i64; var y: i64; };
+
+function main() {
+    var s: Point;
+    s.y = 7;
+    var p = &s.y;
+    print(*p);
+    return(0);
+}

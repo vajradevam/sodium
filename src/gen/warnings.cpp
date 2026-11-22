@@ -46,6 +46,7 @@ SourceLoc stmt_loc(const NodeStmt& stmt) {
     if (auto* s = std::get_if<NodeStmtArrAssign*>(&stmt.var))   return (*s)->name.loc;
     if (auto* s = std::get_if<NodeStmtFieldAssign*>(&stmt.var)) return (*s)->obj_name.loc;
     if (auto* s = std::get_if<NodeStmtDerefAssign*>(&stmt.var)) return (*s)->star.loc;
+    if (auto* s = std::get_if<NodeStmtArrowAssign*>(&stmt.var)) return (*s)->ptr_name.loc;
     return {};
 }
 
@@ -135,6 +136,7 @@ struct PureValueScanner {
                    std::holds_alternative<NodeStmtFieldAssign*>(stmt.var) ||
                    std::holds_alternative<NodeStmtDerefAssign*>(stmt.var) ||
                    std::holds_alternative<NodeStmtArrAssign*>(stmt.var) ||
+                   std::holds_alternative<NodeStmtArrowAssign*>(stmt.var) ||
                    std::holds_alternative<NodeStmtExpr*>(stmt.var)) {
             impure = true;
         } else if (auto* b = std::get_if<NodeStmtBlock*>(&stmt.var)) {

@@ -90,6 +90,7 @@ struct NodeExprIndex {
 struct NodeExprFieldAccess {
     Token obj_name;
     Token field_name;
+    bool arrow = false; // true for p->field (obj_name is a struct pointer)
 };
 
 // Address-of expression: &var
@@ -260,6 +261,13 @@ struct NodeStmtFieldAssign {
     AssignOp op = AssignOp::assign;
 };
 
+struct NodeStmtArrowAssign {
+    Token ptr_name;
+    Token field_name;
+    NodeExpr* expr;
+    AssignOp op = AssignOp::assign;
+};
+
 // Assignment through pointer dereference: *ptr = expr, *ptr += expr
 struct NodeStmtDerefAssign {
     Token star;       // the * token
@@ -273,7 +281,7 @@ struct NodeStmt {
                  NodeStmtDoWhile*, NodeStmtSwitch*, NodeStmtGlobal*, NodeStmtConst*,
                  NodeStmtExpr*, NodeStmtAssign*, NodeStmtFor*, NodeStmtPrint*,
                  NodeStmtBlock*, NodeStmtReturn*, NodeStmtArrDecl*, NodeStmtArrAssign*,
-                 NodeStmtBreak*, NodeStmtContinue*, NodeStmtFieldAssign*, NodeStmtDerefAssign*> var;
+                 NodeStmtBreak*, NodeStmtContinue*, NodeStmtFieldAssign*, NodeStmtDerefAssign*, NodeStmtArrowAssign*> var;
 };
 
 struct NodeStmtGlobal {

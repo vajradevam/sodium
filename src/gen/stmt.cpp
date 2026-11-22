@@ -600,6 +600,78 @@ void Generator::gen_stmt(const NodeStmt& stmt)
             else                     return is_signed ? gen->m_ir.load_s8(IRValue::vreg(ptr), 0) : gen->m_ir.load_u8(IRValue::vreg(ptr), 0);
         }
 
+        void operator()(const NodeStmtArrowAssign* stmt_arrow) const
+        {
+            const auto& ptr_name = stmt_arrow->ptr_name.value.value();
+            const auto& field_name = stmt_arrow->field_name.value.value();
+            auto var = gen->lookup_var(ptr_name, stmt_arrow->ptr_name.loc);
+            if (var.type.kind != Type::Ptr || !var.type.pointee ||
+                var.type.pointee->kind != Type::Struct) {
+                gen->fail(stmt_arrow->ptr_name.loc, "Not a pointer to struct: " + ptr_name);
+            }
+            std::string struct_name = var.type.pointee->struct_name;
+            auto struct_info = gen->get_struct_info(struct_name);
+            if (!struct_info.has_value()) {
+                gen->fail(stmt_arrow->field_name.loc, "Unknown struct type: " + struct_name);
+            }
+            auto offset_it = struct_info.value().field_offsets.find(field_name);
+            if (offset_it == struct_info.value().field_offsets.end()) {
+                gen->fail(stmt_arrow->field_name.loc, "Unknown field '" + field_name + "' in struct '" + struct_name + "'");
+            }
+            size_t index = 0;
+            for (; index < struct_info.value().field_names.size(); index++) {
+                if (struct_info.value().field_names[index] == field_name) break;
+            }
+            Type field_type = index < struct_info.value().field_types.size()
+                                  ? struct_info.value().field_types[index]
+                                  : Type::make_int(IntType::i64);
+            size_t field_size = type_size(field_type);
+            bool field_signed = (field_type.kind == Type::Int &&
+                                 (field_type.int_type == IntType::i8 ||
+                                  field_type.int_type == IntType::i16 ||
+                                  field_type.int_type == IntType::i32));
+
+            gen->load_var_to_vstack(ptr_name);
+            uint32_t base_addr = gen->pop_vreg();
+            uint32_t field_addr = gen->m_ir.lea(IRValue::vreg(base_addr),
+                                                -static_cast<int64_t>(offset_it->second));
+
+            if (stmt_arrow->op == AssignOp::assign) {
+                gen->gen_expr(*stmt_arrow->expr);
+                uint32_t val = gen->pop_vreg();
+                if (field_type.kind == Type::Int && field_size < 8) {
+                    if (field_size <= 1)      val = gen->m_ir.and_(IRValue::vreg(val), IRValue::imm_i64(0xFF));
+                    else if (field_size <= 2) val = gen->m_ir.and_(IRValue::vreg(val), IRValue::imm_i64(0xFFFF));
+                    else                      val = gen->m_ir.zext(IRValue::vreg(val), IRWidth::I32);
+                }
+                typed_store(field_addr, val, field_size);
+            } else {
+                uint32_t old_val = typed_load_val(field_addr, field_size, field_signed);
+                gen->gen_expr(*stmt_arrow->expr);
+                uint32_t rhs = gen->pop_vreg();
+                uint32_t result = old_val;
+                switch (stmt_arrow->op) {
+                    case AssignOp::add_assign:     result = gen->m_ir.add(IRValue::vreg(old_val), IRValue::vreg(rhs)); break;
+                    case AssignOp::sub_assign:     result = gen->m_ir.sub(IRValue::vreg(old_val), IRValue::vreg(rhs)); break;
+                    case AssignOp::mul_assign:     result = gen->m_ir.mul(IRValue::vreg(old_val), IRValue::vreg(rhs)); break;
+                    case AssignOp::div_assign:     result = gen->m_ir.div(IRValue::vreg(old_val), IRValue::vreg(rhs)); break;
+                    case AssignOp::mod_assign:     result = gen->m_ir.mod(IRValue::vreg(old_val), IRValue::vreg(rhs)); break;
+                    case AssignOp::bitand_assign:  result = gen->m_ir.and_(IRValue::vreg(old_val), IRValue::vreg(rhs)); break;
+                    case AssignOp::bitor_assign:   result = gen->m_ir.or_(IRValue::vreg(old_val), IRValue::vreg(rhs)); break;
+                    case AssignOp::bitxor_assign:  result = gen->m_ir.xor_(IRValue::vreg(old_val), IRValue::vreg(rhs)); break;
+                    case AssignOp::shl_assign:     result = gen->m_ir.shl(IRValue::vreg(old_val), IRValue::vreg(rhs)); break;
+                    case AssignOp::shr_assign:     result = gen->m_ir.ashr(IRValue::vreg(old_val), IRValue::vreg(rhs)); break;
+                    default: break;
+                }
+                if (field_type.kind == Type::Int && field_size < 8) {
+                    if (field_size <= 1)      result = gen->m_ir.and_(IRValue::vreg(result), IRValue::imm_i64(0xFF));
+                    else if (field_size <= 2) result = gen->m_ir.and_(IRValue::vreg(result), IRValue::imm_i64(0xFFFF));
+                    else                      result = gen->m_ir.zext(IRValue::vreg(result), IRWidth::I32);
+                }
+                typed_store(field_addr, result, field_size);
+            }
+        }
+
         void operator()(const NodeStmtDerefAssign* stmt_deref) const
         {
             if (stmt_deref->op == AssignOp::assign) {

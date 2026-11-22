@@ -1,0 +1,19 @@
+// EXPECT-EXIT: 0
+// EXPECT-STDOUT: 3
+// EXPECT-STDOUT: 9
+
+struct Point { var x: i8; var y: i64; };
+
+function bump(p: Point*) {
+    p->x = 3;
+    p->y = 9;
+}
+
+function main() {
+    var s: Point;
+    var p = &s;
+    bump(p);
+    print(p->x);
+    print(p->y);
+    return(0);
+}
