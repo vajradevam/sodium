@@ -120,7 +120,7 @@ anyway, tick the box, and note "not reproducible" in PROGRESS.md.
 - [x] **L4b `cyanlib/io.cyan`:** read a whole file to a buffer, write a buffer, a line reader over a file buffer, `stderr` printing and exit-code helpers, built on the L4a builtins; tests for empty files, missing files, multiple lines and large buffers on both targets.
 - [x] **L5a Vec and Str:** growable i64 vector and byte-string builder in `cyanlib/containers.cyan`, with push/get/set/build/free and property tests using many random operations against a reference checksum, on both targets.
 - [x] **B4 Struct-pointer arithmetic ignores struct size (found during L5b):** `ptr + n` on `T*` used the 8-byte fallback from `type_size` for structs, so arrays of structs were addressed at 8-byte strides. Use `get_struct_info(name)->size` for add/sub/difference; regression test on both targets.
-- [ ] **L5b HashMap:** open-addressed string→i64 map in `cyanlib/containers.cyan` with put/get/remove/checksum, plus property tests comparing many random operations against a reference model, on both targets.
+- [x] **L5b HashMap:** open-addressed string→i64 map in `cyanlib/containers.cyan` with put/get/remove/checksum, plus property tests comparing many random operations against a reference model, on both targets.
 - [ ] **L6 `argv`/`envp`/`exit` handling polish;** `print` to fd; `assert(cond, "msg")` builtin.
 - [ ] **P4-END** full gate, tag.
 

@@ -145,3 +145,174 @@ function str_free(s: Str*) {
     s->cap = 0;
     return(0);
 }
+
+// ── HashMap: open-addressed string -> i64 map ────────────────────────────────
+
+// Slot state: 0 = empty, 1 = occupied, 2 = tombstone (deleted).
+struct Slot {
+    var key: u8*;
+    var value: i64;
+    var state: i64;
+};
+
+struct Map {
+    var slots: Slot*;
+    var cap: i64;
+    var count: i64;
+};
+
+function map_hash(s: u8*) -> i64 {
+    var h = 5381;
+    var i = 0;
+    while (*(s + i) != 0) {
+        h = h * 33 + *(s + i);
+        i = i + 1;
+    }
+    return(h & 0x7fffffff);
+}
+
+function map_init(m: Map*, cap: i64) {
+    var c = 8;
+    while (c < cap) { c = c * 2; }
+    m->slots = malloc(c * 24) as Slot*;
+    m->cap = c;
+    m->count = 0;
+    var i = 0;
+    while (i < c) {
+        var s = m->slots + i;
+        s->key = null;
+        s->value = 0;
+        s->state = 0;
+        i = i + 1;
+    }
+    return(0);
+}
+
+// Linear probe: an empty slot ends the probe but a remembered tombstone is
+// returned first so it can be reused.
+function map_find(m: Map*, key: u8*) -> Slot* {
+    var mask = m->cap - 1;
+    var i = map_hash(key) & mask;
+    var dead: Slot* = null;
+    var probes = 0;
+    while (probes < m->cap) {
+        var s = m->slots + i;
+        if (s->state == 0) {
+            if (dead != null) { return(dead); }
+            return(s);
+        }
+        if (s->state == 2) {
+            if (dead == null) { dead = s; }
+        } else {
+            if (strcmp(s->key, key) == 0) { return(s); }
+        }
+        i = (i + 1) & mask;
+        probes = probes + 1;
+    }
+    return(dead);
+}
+
+function map_grow(m: Map*) {
+    var old = m->slots;
+    var old_cap = m->cap;
+    m->cap = old_cap * 2;
+    m->slots = malloc(m->cap * 24) as Slot*;
+    var i = 0;
+    while (i < m->cap) {
+        var s = m->slots + i;
+        s->key = null;
+        s->value = 0;
+        s->state = 0;
+        i = i + 1;
+    }
+    i = 0;
+    while (i < old_cap) {
+        var s = old + i;
+        if (s->state == 1) {
+            var t = map_find(m, s->key);
+            t->key = s->key;
+            t->value = s->value;
+            t->state = 1;
+        }
+        i = i + 1;
+    }
+    free(old);
+    return(0);
+}
+
+// Insert or update. Keys are copied into the map. Returns 0, or -1 if the
+// table is unexpectedly full.
+function map_put(m: Map*, key: u8*, value: i64) -> i64 {
+    if ((m->count + 1) * 2 > m->cap) { map_grow(m); }
+    var s = map_find(m, key);
+    if (s == null) { return(-1); }
+    if (s->state != 1) {
+        var n = strlen(key);
+        var copy = malloc(n + 1);
+        memcpy(copy, key, n);
+        *(copy + n) = 0;
+        s->key = copy;
+        m->count = m->count + 1;  // both empty and tombstone slots are new entries
+        s->state = 1;
+    }
+    s->value = value;
+    return(0);
+}
+
+// Lookups return 0 when the key is absent; use map_contains to disambiguate.
+function map_contains(m: Map*, key: u8*) -> i64 {
+    var s = map_find(m, key);
+    if (s == null || s->state != 1) { return(0); }
+    if (strcmp(s->key, key) == 0) { return(1); }
+    return(0);
+}
+
+function map_get(m: Map*, key: u8*) -> i64 {
+    var s = map_find(m, key);
+    if (s == null || s->state != 1 || strcmp(s->key, key) != 0) { return(0); }
+    return(s->value);
+}
+
+// Returns 1 when a key was removed, 0 when it was absent.
+function map_remove(m: Map*, key: u8*) -> i64 {
+    var s = map_find(m, key);
+    if (s == null || s->state != 1 || strcmp(s->key, key) != 0) { return(0); }
+    free(s->key);
+    s->key = null;
+    s->value = 0;
+    s->state = 2;
+    m->count = m->count - 1;
+    return(1);
+}
+
+function map_count(m: Map*) -> i64 {
+    return(m->count);
+}
+
+// Order-independent checksum over the live entries, used by property tests.
+function map_checksum(m: Map*) -> i64 {
+    var sum = 0;
+    var i = 0;
+    while (i < m->cap) {
+        var s = m->slots + i;
+        if (s->state == 1) {
+            sum = sum + (map_hash(s->key) & 0xffff) + s->value;
+        }
+        i = i + 1;
+    }
+    return(sum);
+}
+
+function map_free(m: Map*) {
+    var i = 0;
+    while (i < m->cap) {
+        var s = m->slots + i;
+        if (s->state == 1) { free(s->key); }
+        i = i + 1;
+    }
+    free(m->slots);
+    m->slots = null;
+    m->cap = 0;
+    m->count = 0;
+    return(0);
+}

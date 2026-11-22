@@ -182,3 +182,12 @@ NUL-terminated buffer (caller frees it) or null. `io_next_line` truncates to `ca
 returns the position after the newline (or -1 at EOF). `eprint`/`eprintln` write to fd 2, and
 `io_perror(msg, code)` reports on stderr and returns `code` for `main` to return as the exit status.
 There is no user-facing `exit()` builtin: a program's exit code is its `main` return value.
+
+## D-019 Cyan container conventions (L5)
+`cyanlib/containers.cyan` exposes `Vec`, `Str` and `Map` by pointer: `*_init`, operations, then
+`*_free`. Capacity doubles on growth; buffers are malloc'd and the caller must free them (`Str`'s
+`str_build` finalises in place, so use `str_free` on the returned buffer). `Map` is an
+open-addressed string→i64 table with linear probing and tombstones so removals do not break
+lookups; keys are copied into the map. `map_get` returns 0 for a missing key — callers that care
+must use `map_contains`. `vec_checksum` and `map_checksum` are deterministic digests intended for
+property tests (`map_checksum` is order-independent so it survives table growth).
