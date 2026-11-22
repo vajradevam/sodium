@@ -65,7 +65,7 @@ Use `$TMPDIR`/`mktemp -d` for scratch output, never write binaries into the repo
   tests added. Example: `Parser: report multiple errors via synchronization (E1)`.
 - Each commit must build and pass the gate on its own (bisectable). Never commit binaries,
   `build*/`, or temp files. Never `--no-verify`, never force-push, never rewrite pushed history.
-- End commit messages with the attribution trailer the harness gives you.
+- Do NOT add `Co-Authored-By` or any other attribution trailer to commit messages (owner's explicit instruction).
 - Do not push unless the human asked; local commits and tags only.
 
 ## Testing rules
