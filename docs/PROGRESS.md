@@ -307,3 +307,13 @@ parameter stores (D-031 refinement). `scripts/check.sh --full` green: 673 -> 675
 failed / 10 skipped at both levels; 263 -> 274 C++ cases / 4265 checks; sweep 2052 -> 2058
 invocations / 0 crashes; benchmark 301693 -> 301688 callee-save assignments (fewer calls);
 ASan/UBSan clean.
+
+## 2026-11-23 — O8a Benchmarks and instruction counts
+Added five benchmark programs under `bench/` (recursive fib, sieve, 8x8 matmul, bubble sort,
+linear-probing hash) with deterministic checksum outputs. `scripts/bench.sh` compiles each at
+-O0 and -O1 on x86_64 and riscv64 and counts dynamically executed guest instructions using qemu
+`-one-insn-per-tb -d exec`, then compares with committed baselines in `bench/baselines.txt` with
+a 20% tolerance. -O1 reduces counts on every benchmark except the recursive fib (e.g. sort x86
+342597 -> 296620, hash riscv 65146 -> 42006). The script is now a `check.sh` step and also
+verifies each program's stdout. `scripts/check.sh` green: 675 passed / 0 failed / 10 skipped at
+both levels; 274 C++ cases / 4265 checks.

@@ -29,6 +29,10 @@ step "register allocator benchmark (both targets)"
 ./scripts/bench_regalloc.sh > build/last_bench.log 2>&1 || die "regalloc benchmark (see build/last_bench.log)"
 tail -1 build/last_bench.log
 
+step "benchmark instruction counts (both targets, -O0 and -O1)"
+./scripts/bench.sh > build/last_bench_instr.log 2>&1 || die "benchmark regressions (see build/last_bench_instr.log)"
+tail -4 build/last_bench_instr.log
+
 step "differential oracle (Cyan vs C, both targets)"
 ./scripts/oracle.sh > build/last_oracle.log 2>&1 || die "oracle (see build/last_oracle.log)"
 tail -2 build/last_oracle.log

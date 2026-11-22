@@ -1,0 +1,13 @@
+// Recursive Fibonacci — call/return heavy.
+// EXPECT-EXIT: 0
+// EXPECT-STDOUT: 6765
+
+function fib(n: i64) -> i64 {
+    if (n < 2) { return n; }
+    return fib(n - 1) + fib(n - 2);
+}
+
+function main() {
+    print("%d", fib(20));
+    return 0;
+}

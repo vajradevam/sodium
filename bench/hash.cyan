@@ -1,0 +1,35 @@
+// Integer hash table with linear probing — inserts and lookups.
+// EXPECT-EXIT: 0
+// EXPECT-STDOUT: 200
+
+function main() {
+    var keys[256];
+    var vals[256];
+    var used[256];
+    var i = 0;
+    while (i < 256) { used[i] = 0; i = i + 1; }
+
+    i = 0;
+    while (i < 200) {
+        var key = (i * 61) % 251;
+        var slot = key % 256;
+        while (used[slot] == 1) { slot = (slot + 1) % 256; }
+        used[slot] = 1;
+        keys[slot] = key;
+        vals[slot] = i;
+        i = i + 1;
+    }
+    var found = 0;
+    i = 0;
+    while (i < 200) {
+        var key = (i * 61) % 251;
+        var slot = key % 256;
+        while (used[slot] == 1 && keys[slot] != key) { slot = (slot + 1) % 256; }
+        if (used[slot] == 1 && keys[slot] == key && vals[slot] == i) {
+            found = found + 1;
+        }
+        i = i + 1;
+    }
+    print("%d", found);
+    return 0;
+}
