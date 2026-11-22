@@ -339,3 +339,16 @@ CALL when a void-returning callee's result vreg is actually used. The ABI intero
 `call SYM` lines to redirect Cyan stubs to C definitions, so it compiles the Cyan side at -O0
 explicitly; `check.sh` runs both the suite and the differential oracle at -O0 and -O1, so both
 levels remain covered on every commit.
+
+## D-033 Preprocessor macro and conditional semantics (X2)
+The preprocessor remains a line-oriented textual stage before tokenization. Object-like macros
+(`#define NAME replacement`) and function-like macros (`#define F(a,b) body`) are expanded on
+subsequent non-directive lines by whole-identifier substitution; occurrences inside string or
+character literals are left untouched. Function-like macros use argument substitution only —
+no stringification (`#`) or token pasting (`##`) in this phase. Conditional directives are
+`#ifdef`, `#ifndef`, `#else`, `#endif` and `#if` with a small constant-expression grammar
+(integer literals, `defined(NAME)`, `!`, `&&`, `||`, comparisons, `+ - * / %` and parentheses);
+a name not defined by any macro evaluates to 0 in `#if`. Inactive branches produce no output at
+all, so they cannot leak tokens or trigger include errors. Macro definitions are scoped to one
+preprocessor run and are visible across `#include` boundaries, which makes the standard
+`#ifndef GUARD / #define GUARD / ... / #endif` include-guard idiom work.
