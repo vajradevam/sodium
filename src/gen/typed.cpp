@@ -10,6 +10,7 @@
 namespace {
 
 std::string type_name(const Type& t) {
+    if (t.kind == Type::Struct) return t.struct_name;
     if (t.kind == Type::Ptr) {
         return t.pointee ? type_name(*t.pointee) + "*" : "?*";
     }

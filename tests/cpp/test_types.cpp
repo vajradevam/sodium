@@ -118,3 +118,15 @@ TEST(struct_layout_all_i8_has_no_internal_padding) {
     CHECK_EQ(info.size, size_t(3));
     CHECK_EQ(info.field_offsets.at("c"), size_t(2));
 }
+
+TEST(types_struct_identity_and_pointer) {
+    Type p = Type::make_struct("Point");
+    CHECK(p.kind == Type::Struct);
+    CHECK(p.struct_name == std::string("Point"));
+    CHECK(p == Type::make_struct("Point"));
+    CHECK(p != Type::make_struct("Other"));
+    Type pp = Type::make_ptr(&p);
+    CHECK(pp.kind == Type::Ptr);
+    CHECK(pp.pointee != nullptr);
+    if (pp.pointee) CHECK(*pp.pointee == p);
+}

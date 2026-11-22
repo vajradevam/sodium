@@ -22,6 +22,7 @@ static const char* int_type_name(IntType t) {
 }
 
 static std::string type_string(const Type& t) {
+    if (t.kind == Type::Struct) return t.struct_name;
     if (t.kind == Type::Ptr) {
         return t.pointee ? type_string(*t.pointee) + "*" : "?*";
     }

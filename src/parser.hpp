@@ -22,28 +22,31 @@ enum class IntType {
 // Pointer types carry the pointed-to type for scaling and load/store width.
 
 struct Type {
-    enum Kind : uint8_t { Int, Ptr };
+    enum Kind : uint8_t { Int, Ptr, Struct };
     Kind kind;
     IntType int_type;    // valid when kind == Int
     Type* pointee;       // valid when kind == Ptr (arena-allocated via parser allocator)
+    std::string struct_name; // valid when kind == Struct
 
-    static Type make_int(IntType t) { return {Int, t, nullptr}; }
+    static Type make_int(IntType t) { return {Int, t, nullptr, {}}; }
+    static Type make_struct(std::string name) { return {Struct, IntType::i64, nullptr, std::move(name)}; }
     static Type make_ptr(Type* t, ArenaAllocator& alloc) {
         Type* p = alloc.alloc<Type>();
         p->kind = Ptr;
         p->int_type = IntType::i64; // unused
         p->pointee = t;
-        return {Ptr, IntType::i64, p};
+        return {Ptr, IntType::i64, p, {}};
     }
     // For convenience: create a pointer type without an arena (static storage).
     // Used in the Generator where we have a fixed set of pointer types.
     static Type make_ptr(Type* t) {
-        return {Ptr, IntType::i64, t};
+        return {Ptr, IntType::i64, t, {}};
     }
 
     bool operator==(const Type& o) const {
         if (kind != o.kind) return false;
         if (kind == Int) return int_type == o.int_type;
+        if (kind == Struct) return struct_name == o.struct_name;
         // Ptr: compare pointee types recursively
         if (pointee == o.pointee) return true;
         if (!pointee || !o.pointee) return false;
@@ -55,6 +58,7 @@ struct Type {
 // Return the size in bytes of a value of the given type.
 inline size_t type_size(const Type& t) {
     if (t.kind == Type::Ptr) return 8;  // pointers are 8 bytes
+    if (t.kind == Type::Struct) return 8; // fallback; layouts come from StructInfo
     switch (t.int_type) {
         case IntType::i8:  case IntType::u8:  return 1;
         case IntType::i16: case IntType::u16: return 2;

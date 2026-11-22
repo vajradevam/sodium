@@ -1281,6 +1281,11 @@ std::optional<Type> Parser::parse_full_type() {
                && m_type_aliases.contains(*peek().value().value)) {
         Token alias_name = consume();
         type = m_type_aliases.at(alias_name.value.value());
+    } else if (peek().has_value() && peek().value().type == TokenType::ident
+               && peek().value().value.has_value()
+               && m_struct_types.contains(*peek().value().value)) {
+        Token struct_name = consume();
+        type = Type::make_struct(struct_name.value.value());
     } else {
         return {};
     }
@@ -1391,6 +1396,9 @@ std::optional<NodeStmt> Parser::parse_stmt() {
                 if (auto full = parse_full_type()) {
                     if (full->kind == Type::Ptr) {
                         stmt_let->full_type = full;
+                    } else if (full->kind == Type::Struct) {
+                        stmt_let->struct_type_name = full->struct_name;
+                        stmt_let->expr = nullptr;
                     } else {
                         stmt_let->type = full->int_type;
                     }
@@ -1418,14 +1426,23 @@ std::optional<NodeStmt> Parser::parse_stmt() {
                         consume();
                         return NodeStmt { .var = stmt_arr };
                     }
-                    if (!peek().has_value() || peek().value().type != TokenType::eq) {
-                        error("Expected '=' after type");
-                    }
-                    consume();
-                    if (auto expr = parse_expr()) {
-                        stmt_let->expr = expr.value();
+                    if (full->kind == Type::Struct) {
+                        // Struct declarations may omit the initializer.
+                        if (peek().has_value() && peek().value().type == TokenType::eq) {
+                            consume();
+                            if (auto expr = parse_expr()) stmt_let->expr = expr.value();
+                            else error("Invalid expression");
+                        }
                     } else {
-                        error("Invalid expression");
+                        if (!peek().has_value() || peek().value().type != TokenType::eq) {
+                            error("Expected '=' after type");
+                        }
+                        consume();
+                        if (auto expr = parse_expr()) {
+                            stmt_let->expr = expr.value();
+                        } else {
+                            error("Invalid expression");
+                        }
                     }
                 } else if (auto struct_name = parse_struct_type_name()) {
                     stmt_let->struct_type_name = struct_name.value();

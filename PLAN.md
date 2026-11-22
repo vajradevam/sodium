@@ -89,7 +89,7 @@ anyway, tick the box, and note "not reproducible" in PROGRESS.md.
 - [x] **Y5 Casts** `as`; explicit narrowing required where Y1 rules reject implicit.
 - [x] **Y6a `type` aliases (split from Y6).** Parse `type Name = T;` (int/pointer types) at top level, register in the parser's alias table so aliases work in annotations (`var x: Name`, params, returns), and make `sizeof(Name)` work; duplicate/unknown alias diagnostics; tests on both targets.
 - [x] **Y6b `enum` (split from Y6).** Parse `enum Color { Red, Green = 5, Blue };` with auto-incrementing i64 values, register names as compile-time constants (plain identifiers, duplicate = error); tests on both targets; tick Y6.
-- [ ] **Y7a Struct identity in types (split from Y7).** Extend Type with a struct kind/name; struct-typed vars and &s carry it so Ptr(struct) survives into parameters and returns; unit tests.
+- [x] **Y7a Struct identity in types (split from Y7).** Extend Type with a struct kind/name; struct-typed vars and &s carry it so Ptr(struct) survives into parameters and returns; unit tests.
 - [ ] **Y7b `p->field` access (split from Y7).** Parse and codegen C-like pointer-to-struct reads/writes per D-011, plus `&s.field`; tests on both targets.
 - [ ] **Y7c Nested structs and struct literals (split from Y7).** Field access chains (`a.b.c`), arrays of structs, and `{ .x = 1 }` literals; tests on both targets; tick Y7.
 - [ ] **Y8 Struct by value:** param, return, assignment (`a = b`), on both ABIs.

@@ -1,0 +1,18 @@
+// EXPECT-EXIT: 0
+// EXPECT-STDOUT: 1
+// EXPECT-STDOUT: 8
+
+struct Point { var x: i64; var y: i64; };
+
+function id(p: Point*) -> Point* {
+    return(p);
+}
+
+function main() {
+    var s: Point;
+    s.x = 3;
+    var q = id(&s);
+    print(q == &s);
+    print(sizeof(Point*));
+    return(0);
+}

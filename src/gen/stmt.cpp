@@ -31,7 +31,9 @@ void Generator::gen_stmt(const NodeStmt& stmt)
                 uint32_t struct_bytes = static_cast<uint32_t>(struct_info.value().size);
                 uint32_t slot = gen->m_next_frame_offset;
                 gen->m_next_frame_offset += struct_bytes;
-                scope.vars[stmt_let->ident.value.value()] = Var { .stack_loc = slot, .array_size = struct_info.value().size, .struct_type = stmt_let->struct_type_name, .decl_loc = stmt_let->ident.loc };
+                scope.vars[stmt_let->ident.value.value()] = Var { .stack_loc = slot, .array_size = struct_info.value().size,
+                    .type = Type::make_struct(stmt_let->struct_type_name), .struct_type = stmt_let->struct_type_name,
+                    .decl_loc = stmt_let->ident.loc };
                 scope.var_count += struct_info.value().size;
                 // Zero-initialize the whole struct (including padding).
                 zero_bytes(slot, struct_bytes);
