@@ -257,3 +257,15 @@ point in layout order, including whole blocks where the value is live-in/live-ou
 overestimate when live blocks are not contiguous, but never shortens a lifetime, so values held
 in vregs across loop back edges get callee-save registers (or spills) when a later CALL in the
 loop body would clobber them. A call that defines the value itself does not make it `spans_call`.
+
+## D-027 O5 uses shared vregs, not phi nodes or block arguments
+For mem2reg-style promotion, a scalar local is represented by **one persistent virtual register
+with several definitions** (the same idiom already used for ternary result vregs): every
+assignment copies into that vreg and every read copies out of it. Neither phi instructions nor
+block arguments are added to the IR. This keeps the verifier's rule — a use must be dominated by
+at least one definition — sufficient, and avoids teaching the emitter, rewriter and allocator a
+new edge-shuffle or parallel-copy mechanism. The cost is a longer live interval per promoted
+local, which is exactly what the O0 loop-aware liveness fix makes correct. Promotion is performed
+as an IR pass over frame slots whose addresses never escape; a slot is only promoted when every
+load is dominated by a store to that slot, so uninitialized reads keep their frame behaviour and
+no zero-initialization is invented.
