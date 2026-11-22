@@ -1,0 +1,18 @@
+// EXPECT-EXIT: 0
+// EXPECT-STDOUT: 14 0
+
+// X2b: function-like macros and #if constant expressions on both targets.
+
+#define DOUBLE(x) ((x) * 2)
+#define LIMIT 10
+
+function main() {
+    var a = DOUBLE(7);
+#if defined(LIMIT) && LIMIT == 10
+    var b = 0;
+#else
+    var b = 1;
+#endif
+    print("%d %d", a, b);
+    return 0;
+}

@@ -355,3 +355,13 @@ tokens or trigger includes; the macro table is shared across `#include` boundari
 temporary-file include-guard test) and `tests/unit/test_preprocessor_macros.cyan`, which runs at
 -O0 and -O1 on both targets. `scripts/check.sh` green: 675 -> 677 passed / 0 failed / 10 skipped
 at both levels; 275 -> 283 C++ cases / 4283 checks.
+
+## 2026-11-23 — X2b Function macros and #if
+Extended the preprocessor with function-like macros (`#define F(a,b) body`, argument substitution
+with balanced-parenthesis parsing and nested macro expansion) and a small recursive-descent
+`#if` evaluator supporting integer literals, `defined(NAME)`, `!`, `&&`, `||`, comparisons,
+`+ - * / %` and parentheses per D-033. Undefined identifiers evaluate to 0 and macro names in
+`#if` are expanded recursively. Added 6 C++ cases and `tests/unit/test_preprocessor_if.cyan`
+(function macro plus `#if defined(...) && ...`) at -O0 and -O1 on both targets.
+`scripts/check.sh --full` green: 677 -> 679 passed / 0 failed / 10 skipped at both levels;
+283 -> 289 C++ cases / 4296 checks; sweep 2058 -> 2070 invocations / 0 crashes; ASan/UBSan clean.

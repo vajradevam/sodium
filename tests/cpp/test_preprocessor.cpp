@@ -167,3 +167,46 @@ TEST(preprocessor_include_guard_prevents_double_definition) {
     }
     CHECK_EQ(count, size_t{1});
 }
+
+// --- X2b: function macros and #if constant expressions --------------------
+
+TEST(preprocessor_function_macro_substitutes_arguments) {
+    std::string out = pp_x2("#define ADD(a,b) ((a)+(b))\nvar x = ADD(2, 3);\n");
+    CHECK(contains(out, "var x = ((2)+(3));"));
+}
+
+TEST(preprocessor_function_macro_expands_nested_arguments) {
+    std::string out = pp_x2("#define N 4\n#define TWICE(x) ((x)+(x))\nvar y = TWICE(N);\n");
+    CHECK(contains(out, "var y = ((4)+(4));"));
+}
+
+TEST(preprocessor_function_macro_skips_string_literals) {
+    std::string out = pp_x2("#define F(x) x + 1\nvar s = \"F(9)\";\nvar y = F(9);\n");
+    CHECK(contains(out, "\"F(9)\""));
+    CHECK(contains(out, "var y = 9 + 1;"));
+}
+
+TEST(preprocessor_if_constant_zero_or_one) {
+    std::string out = pp_x2("#if 1\nvar a = 1;\n#else\nvar b = 2;\n#endif\n");
+    CHECK(contains(out, "var a = 1;"));
+    CHECK(!contains(out, "var b = 2;"));
+    out = pp_x2("#if 0\nvar a = 1;\n#else\nvar b = 2;\n#endif\n");
+    CHECK(!contains(out, "var a = 1;"));
+    CHECK(contains(out, "var b = 2;"));
+}
+
+TEST(preprocessor_if_understands_defined_and_macros) {
+    std::string out = pp_x2(
+        "#define N 5\n#if defined(N) && N > 3\nvar ok = 1;\n#else\nvar ok = 0;\n#endif\n");
+    CHECK(contains(out, "var ok = 1;"));
+    out = pp_x2("#if UNKNOWN\nvar bad = 1;\n#else\nvar good = 1;\n#endif\n");
+    CHECK(!contains(out, "var bad"));
+    CHECK(contains(out, "var good = 1;"));
+}
+
+TEST(preprocessor_if_arithmetic_and_comparison) {
+    std::string out = pp_x2("#if 2 + 3 * 4 == 14\nvar a = 1;\n#endif\n");
+    CHECK(contains(out, "var a = 1;"));
+    out = pp_x2("#if (7 - 2) != 5\nvar b = 1;\n#else\nvar b = 2;\n#endif\n");
+    CHECK(contains(out, "var b = 2;"));
+}
