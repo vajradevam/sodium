@@ -138,7 +138,8 @@ anyway, tick the box, and note "not reproducible" in PROGRESS.md.
   each interval over every block where the vreg is live. Done when: a hand-built IR/`.cyan` repro that keeps a value in
   a vreg across a loop containing calls and register pressure fails before and passes after on both targets; C++
   unit tests cover straight-line, if/else, nested loops, and loop-carried values.
-- [ ] **O5 mem2reg-style promotion** of non-address-taken scalar locals to vregs (decide phi vs. block-args and record in DECISIONS.md).
+- [ ] **O5a mem2reg IR pass (D-027):** find frame slots whose addresses never escape and promote loads/stores to a shared vreg when every load is dominated by a store; C++ unit tests for straight-line, loops, branches, narrow types, address-taken locals and dominance rejection.
+- [ ] **O5b mem2reg integration:** run the pass under `-O1`, verify after it, add Cyan tests on both targets at `-O0`/`-O1`, and confirm no regressions in the full suite.
 - [ ] **O6 Register allocator quality:** live-range splitting or better spill heuristics; callee-saved use; measure spills on a benchmark set.
 - [ ] **O7 Peephole per backend;** inlining of small leaf functions.
 - [ ] **O8 Benchmarks** (`bench/`: fib, sieve, matmul, sort, hash) with a script printing instruction counts (qemu `-d` or `perf stat`) — track no regressions; `-O1` becomes default only if the whole suite plus oracle pass under it.
