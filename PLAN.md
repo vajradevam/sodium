@@ -123,7 +123,7 @@ anyway, tick the box, and note "not reproducible" in PROGRESS.md.
 - [x] **L5b HashMap:** open-addressed string→i64 map in `cyanlib/containers.cyan` with put/get/remove/checksum, plus property tests comparing many random operations against a reference model, on both targets.
 - [x] **L6a `exit`/`envp` polish:** add an `exit(n)` builtin (call from an expression, no return type) and an `envp(i)` builtin backed by a `__sodium_envp` global captured in `_start` on both targets; add `ENV:` test-harness support and tests for early exit and environment lookup.
 - [x] **L6b fd printing and assert:** add fd-targeted printing (`fprint(fd, s)`) and `assert(cond, msg)` to `cyanlib/io.cyan` using `exit(n)`; add `EXPECT-STDERR` harness support and tests for successful asserts and a failing assert's message/exit code.
-- [ ] **P4-END** full gate, tag.
+- [x] **P4-END** full gate, tag.
 
 ## Phase 5 — IR & optimization (D-006; all behind `-O1` first)
 - [ ] **O1 IR verifier** (`--verify-ir`, run automatically in debug builds): defs dominate uses, operand types, block terminators, no dangling labels. Run it over the whole suite.
