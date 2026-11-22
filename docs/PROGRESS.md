@@ -330,3 +330,18 @@ and the ABI harness's `call SYM` rewriting no longer worked with inlined stubs (
 at -O0 explicitly). `scripts/check.sh --full` green: 675 passed / 0 failed / 10 skipped at both
 levels; 274 -> 275 C++ cases / 4267 checks; oracle 58/58 at both levels; sweep 2058 invocations /
 0 crashes; ABI 8/8; ASan/UBSan clean.
+
+## 2026-11-23 — P5-END phase 5 state of the project
+Re-verified against the code and gate logs before tagging Phase 5. The IR pipeline is
+`verify → fold → mem2reg → CSE → cleanup → verify` per function, with leaf inlining run over the
+deferred function pool before those passes (`src/gen/pipeline.cpp`). Liveness is CFG dataflow with
+`spans_call`/`crosses_div`; linear scan uses next-use eviction and reports stats via
+`--dump-regalloc`. The per-target assembly peephole runs after code generation. `-O1` is the
+default (`src/main.cpp`), with `-O0` still explicit and covered on every gate run. Benchmarks live
+in `bench/` with committed dynamic instruction-count baselines.
+
+Final `scripts/check.sh --full`: 675 passed / 0 failed / 10 skipped at both -O0 and -O1; 275 C++
+cases / 4267 checks; sweep 2058 invocations / 0 crashes; oracle 58/58 at both levels; ABI 8/8;
+regalloc benchmark 248 functions / 2 spills / 301688 callee-save assignments; ASan/UBSan clean.
+The 10 skips are the 8 ABI interop cases (run by their own script) and 2 include helpers. `bench/`
+shows -O1 instruction-count reductions on four of five programs (recursive fib is unchanged).

@@ -145,9 +145,9 @@ anyway, tick the box, and note "not reproducible" in PROGRESS.md.
 - [x] **O7a Peephole per backend (D-030):** post-emission assembly pass with target-specific safe rules (self-move / no-op removal, adjacent dead-move elimination), C++ tests on emitted snippets, an assembly effect check and Cyan tests on both targets.
 - [x] **O7b1 Deferred function emission:** collect generated IR functions in a pool under `-O1` (no behavior change at `-O0` or `-O1`), with unit/integration coverage that the emitted program is identical.
 - [x] **O7b2 IR leaf inliner (D-031):** splice single-block leaf callees into callers before the `-O1` passes; tests for IR effect, semantics, recursion/address-taken/size rejection and both targets.
-- [x] **O8a Benchmarks:** add `bench/` programs (fib, sieve, matmul, sort, hash) and a script printing dynamic guest instruction counts via qemu `-one-insn-per-tb -d in_asm` on both targets, with committed baselines and regression detection.
+- [x] **O8a Benchmarks:** add `bench/` programs (fib, sieve, matmul, sort, hash) and a script printing dynamic guest instruction counts via qemu `-one-insn-per-tb -d exec` on both targets, with committed baselines and regression detection.
 - [x] **O8b Default optimization level (D-032):** verified suite (675/675) and oracle (58/58) under `-O1`; made `-O1` the default while keeping explicit `-O0` coverage in the gate.
-- [ ] **P5-END** full gate under `-O0` and `-O1`, tag.
+- [x] **P5-END** full gate under `-O0` and `-O1`, tag.
 
 ## Phase 6 — Language extras
 - [ ] **X1 Floats** (`f32`,`f64`) incl. ABI on both targets, literals, conversions, print. (Decide scope in DECISIONS.md first; skip → BLOCKED if it needs >1 phase.)
