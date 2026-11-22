@@ -238,6 +238,9 @@ std::vector<Token> Tokenizer::tokenize() {
                 tokens.push_back({ .type = TokenType::_for, .loc = tok_loc });
             }
 
+            else if (buf == "asm") {
+                tokens.push_back({ .type = TokenType::_asm, .loc = tok_loc });
+            }
             else if (buf == "print") {
                 tokens.push_back({ .type = TokenType::_print, .loc = tok_loc });
             }

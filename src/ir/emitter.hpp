@@ -65,6 +65,11 @@ public:
             case IROpcode::NOP:
                 break;
 
+            case IROpcode::ASM:
+                // Verbatim assembly; clobbers are accounted for by liveness.
+                m_backend.emit_insn(insn.asm_text, "");
+                break;
+
             case IROpcode::LOAD_I64:
                 m_backend.load_imm(preg_name(insn.dst), insn.imm_arg);
                 break;

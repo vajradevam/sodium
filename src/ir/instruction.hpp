@@ -44,98 +44,102 @@ struct IRInstruction {
     /// pushed on the stack in order. -1 means "as many as there are argument registers".
     int reg_args = -1;
 
+    /// For ASM: the verbatim instruction line and clobbered physical registers.
+    std::string asm_text;
+    std::vector<int> asm_clobbers;
+
     /// Sentinel for "no destination register".
     static constexpr uint32_t NONE_VREG = UINT32_MAX;
 
     // ---- convenience constructors ----
 
     static IRInstruction nop() {
-        return { IROpcode::NOP, NONE_VREG, IRWidth::I64, {}, "", "", "", 0, {}, NONE_VREG };
+        return { IROpcode::NOP, NONE_VREG, IRWidth::I64, {}, "", "", "", 0, {}, NONE_VREG, -1, {}, {} };
     }
 
     static IRInstruction load_i64(uint32_t dst, int64_t val) {
-        return { IROpcode::LOAD_I64, dst, IRWidth::I64, {}, "", "", "", val, {}, NONE_VREG };
+        return { IROpcode::LOAD_I64, dst, IRWidth::I64, {}, "", "", "", val, {}, NONE_VREG, -1, {}, {} };
     }
 
     static IRInstruction load_i32(uint32_t dst, int32_t val) {
-        return { IROpcode::LOAD_I32, dst, IRWidth::I32, {}, "", "", "", val, {}, NONE_VREG };
+        return { IROpcode::LOAD_I32, dst, IRWidth::I32, {}, "", "", "", val, {}, NONE_VREG, -1, {}, {} };
     }
 
     static IRInstruction copy(uint32_t dst, IRValue src) {
-        return { IROpcode::COPY, dst, IRWidth::I64, {src}, "", "", "", 0, {}, NONE_VREG };
+        return { IROpcode::COPY, dst, IRWidth::I64, {src}, "", "", "", 0, {}, NONE_VREG, -1, {}, {} };
     }
 
     static IRInstruction frame_addr(uint32_t dst, int64_t slot) {
-        return { IROpcode::FRAME_ADDR, dst, IRWidth::I64, {}, "", "", "", slot, {}, NONE_VREG };
+        return { IROpcode::FRAME_ADDR, dst, IRWidth::I64, {}, "", "", "", slot, {}, NONE_VREG, -1, {}, {} };
     }
 
     static IRInstruction unary(IROpcode op, uint32_t dst, IRValue src) {
-        return { op, dst, IRWidth::I64, {src}, "", "", "", 0, {}, NONE_VREG };
+        return { op, dst, IRWidth::I64, {src}, "", "", "", 0, {}, NONE_VREG, -1, {}, {} };
     }
 
     static IRInstruction binary(IROpcode op, uint32_t dst, IRValue a, IRValue b) {
-        return { op, dst, IRWidth::I64, {a, b}, "", "", "", 0, {}, NONE_VREG };
+        return { op, dst, IRWidth::I64, {a, b}, "", "", "", 0, {}, NONE_VREG, -1, {}, {} };
     }
 
     static IRInstruction cmp(IROpcode op, uint32_t dst, IRValue a, IRValue b) {
-        return { op, dst, IRWidth::I64, {a, b}, "", "", "", 0, {}, NONE_VREG };
+        return { op, dst, IRWidth::I64, {a, b}, "", "", "", 0, {}, NONE_VREG, -1, {}, {} };
     }
 
     static IRInstruction load(uint32_t dst, IRValue base, int64_t offset) {
-        return { IROpcode::LOAD, dst, IRWidth::I64, {base}, "", "", "", offset, {}, NONE_VREG };
+        return { IROpcode::LOAD, dst, IRWidth::I64, {base}, "", "", "", offset, {}, NONE_VREG, -1, {}, {} };
     }
 
     static IRInstruction load_s8(uint32_t dst, IRValue base, int64_t offset) {
-        return { IROpcode::LOAD_S8, dst, IRWidth::I64, {base}, "", "", "", offset, {}, NONE_VREG };
+        return { IROpcode::LOAD_S8, dst, IRWidth::I64, {base}, "", "", "", offset, {}, NONE_VREG, -1, {}, {} };
     }
     static IRInstruction load_u8(uint32_t dst, IRValue base, int64_t offset) {
-        return { IROpcode::LOAD_U8, dst, IRWidth::I64, {base}, "", "", "", offset, {}, NONE_VREG };
+        return { IROpcode::LOAD_U8, dst, IRWidth::I64, {base}, "", "", "", offset, {}, NONE_VREG, -1, {}, {} };
     }
     static IRInstruction load_s16(uint32_t dst, IRValue base, int64_t offset) {
-        return { IROpcode::LOAD_S16, dst, IRWidth::I64, {base}, "", "", "", offset, {}, NONE_VREG };
+        return { IROpcode::LOAD_S16, dst, IRWidth::I64, {base}, "", "", "", offset, {}, NONE_VREG, -1, {}, {} };
     }
     static IRInstruction load_u16(uint32_t dst, IRValue base, int64_t offset) {
-        return { IROpcode::LOAD_U16, dst, IRWidth::I64, {base}, "", "", "", offset, {}, NONE_VREG };
+        return { IROpcode::LOAD_U16, dst, IRWidth::I64, {base}, "", "", "", offset, {}, NONE_VREG, -1, {}, {} };
     }
     static IRInstruction load_s32(uint32_t dst, IRValue base, int64_t offset) {
-        return { IROpcode::LOAD_S32, dst, IRWidth::I64, {base}, "", "", "", offset, {}, NONE_VREG };
+        return { IROpcode::LOAD_S32, dst, IRWidth::I64, {base}, "", "", "", offset, {}, NONE_VREG, -1, {}, {} };
     }
     static IRInstruction load_u32(uint32_t dst, IRValue base, int64_t offset) {
-        return { IROpcode::LOAD_U32, dst, IRWidth::I64, {base}, "", "", "", offset, {}, NONE_VREG };
+        return { IROpcode::LOAD_U32, dst, IRWidth::I64, {base}, "", "", "", offset, {}, NONE_VREG, -1, {}, {} };
     }
 
     static IRInstruction store(IRValue base, int64_t offset, IRValue src) {
-        return { IROpcode::STORE, NONE_VREG, IRWidth::I64, {base, src}, "", "", "", offset, {}, NONE_VREG };
+        return { IROpcode::STORE, NONE_VREG, IRWidth::I64, {base, src}, "", "", "", offset, {}, NONE_VREG, -1, {}, {} };
     }
     static IRInstruction store_8(IRValue base, int64_t offset, IRValue src) {
-        return { IROpcode::STORE_8, NONE_VREG, IRWidth::I64, {base, src}, "", "", "", offset, {}, NONE_VREG };
+        return { IROpcode::STORE_8, NONE_VREG, IRWidth::I64, {base, src}, "", "", "", offset, {}, NONE_VREG, -1, {}, {} };
     }
     static IRInstruction store_16(IRValue base, int64_t offset, IRValue src) {
-        return { IROpcode::STORE_16, NONE_VREG, IRWidth::I64, {base, src}, "", "", "", offset, {}, NONE_VREG };
+        return { IROpcode::STORE_16, NONE_VREG, IRWidth::I64, {base, src}, "", "", "", offset, {}, NONE_VREG, -1, {}, {} };
     }
     static IRInstruction store_32(IRValue base, int64_t offset, IRValue src) {
-        return { IROpcode::STORE_32, NONE_VREG, IRWidth::I64, {base, src}, "", "", "", offset, {}, NONE_VREG };
+        return { IROpcode::STORE_32, NONE_VREG, IRWidth::I64, {base, src}, "", "", "", offset, {}, NONE_VREG, -1, {}, {} };
     }
 
     static IRInstruction lea(uint32_t dst, IRValue base, int64_t offset) {
-        return { IROpcode::LEA, dst, IRWidth::I64, {base}, "", "", "", offset, {}, NONE_VREG };
+        return { IROpcode::LEA, dst, IRWidth::I64, {base}, "", "", "", offset, {}, NONE_VREG, -1, {}, {} };
     }
 
     static IRInstruction lea_label(uint32_t dst, const std::string& label) {
-        return { IROpcode::LEA_LABEL, dst, IRWidth::I64, {}, label, "", "", 0, {}, NONE_VREG };
+        return { IROpcode::LEA_LABEL, dst, IRWidth::I64, {}, label, "", "", 0, {}, NONE_VREG, -1, {}, {} };
     }
 
     static IRInstruction jmp(const std::string& target) {
-        return { IROpcode::JMP, NONE_VREG, IRWidth::I64, {}, "", target, "", 0, {}, NONE_VREG };
+        return { IROpcode::JMP, NONE_VREG, IRWidth::I64, {}, "", target, "", 0, {}, NONE_VREG, -1, {}, {} };
     }
 
     static IRInstruction br(IRValue cond, const std::string& t, const std::string& f) {
-        return { IROpcode::BR, NONE_VREG, IRWidth::I64, {cond}, "", t, f, 0, {}, NONE_VREG };
+        return { IROpcode::BR, NONE_VREG, IRWidth::I64, {cond}, "", t, f, 0, {}, NONE_VREG, -1, {}, {} };
     }
 
     static IRInstruction call(uint32_t dst, const std::string& func,
                                const std::vector<IRValue>& args) {
-        return { IROpcode::CALL, dst, IRWidth::I64, args, func, "", "", 0, {}, NONE_VREG };
+        return { IROpcode::CALL, dst, IRWidth::I64, args, func, "", "", 0, {}, NONE_VREG, -1, {}, {} };
     }
 
     /// Call through `target`; the target is stored as the last operand (D-014).
@@ -143,7 +147,7 @@ struct IRInstruction {
                                        const std::vector<IRValue>& args) {
         std::vector<IRValue> ops = args;
         ops.push_back(target);
-        return { IROpcode::CALL_INDIRECT, dst, IRWidth::I64, ops, "", "", "", 0, {}, NONE_VREG };
+        return { IROpcode::CALL_INDIRECT, dst, IRWidth::I64, ops, "", "", "", 0, {}, NONE_VREG, -1, {}, {} };
     }
 
     /// Number of argument operands of a CALL / CALL_INDIRECT (excludes an indirect target).
@@ -152,43 +156,50 @@ struct IRInstruction {
     }
 
     static IRInstruction load_param(uint32_t dst, int64_t param_index) {
-        return { IROpcode::LOAD_PARAM, dst, IRWidth::I64, {}, "", "", "", param_index, {}, NONE_VREG };
+        return { IROpcode::LOAD_PARAM, dst, IRWidth::I64, {}, "", "", "", param_index, {}, NONE_VREG, -1, {}, {} };
     }
 
     static IRInstruction store_param(int64_t ordinal, int64_t shift_bits, int64_t fp_offset,
                                       IRWidth width) {
         return { IROpcode::STORE_PARAM, NONE_VREG, width,
                  {IRValue::imm_i64(ordinal), IRValue::imm_i64(shift_bits)},
-                 "", "", "", fp_offset, {}, NONE_VREG };
+                 "", "", "", fp_offset, {}, NONE_VREG, -1, {}, {} };
     }
 
     static IRInstruction ret(IRValue val) {
-        return { IROpcode::RET, NONE_VREG, IRWidth::I64, {val}, "", "", "", 0, {}, NONE_VREG };
+        return { IROpcode::RET, NONE_VREG, IRWidth::I64, {val}, "", "", "", 0, {}, NONE_VREG, -1, {}, {} };
     }
 
     /// Return a two-word value in the first and second return registers.
     static IRInstruction ret2(IRValue lo, IRValue hi) {
-        return { IROpcode::RET2, NONE_VREG, IRWidth::I64, {lo, hi}, "", "", "", 0, {}, NONE_VREG };
+        return { IROpcode::RET2, NONE_VREG, IRWidth::I64, {lo, hi}, "", "", "", 0, {}, NONE_VREG, -1, {}, {} };
     }
 
     static IRInstruction ret_void() {
-        return { IROpcode::RET_VOID, NONE_VREG, IRWidth::I64, {}, "", "", "", 0, {}, NONE_VREG };
+        return { IROpcode::RET_VOID, NONE_VREG, IRWidth::I64, {}, "", "", "", 0, {}, NONE_VREG, -1, {}, {} };
     }
 
     static IRInstruction zext(uint32_t dst, IRValue src, IRWidth from) {
-        return { IROpcode::ZEXT, dst, IRWidth::I64, {src}, "", "", "", static_cast<int64_t>(from), {}, NONE_VREG };
+        return { IROpcode::ZEXT, dst, IRWidth::I64, {src}, "", "", "", static_cast<int64_t>(from), {}, NONE_VREG, -1, {}, {} };
     }
 
     static IRInstruction sext(uint32_t dst, IRValue src, IRWidth from) {
-        return { IROpcode::SEXT, dst, IRWidth::I64, {src}, "", "", "", static_cast<int64_t>(from), {}, NONE_VREG };
+        return { IROpcode::SEXT, dst, IRWidth::I64, {src}, "", "", "", static_cast<int64_t>(from), {}, NONE_VREG, -1, {}, {} };
     }
 
     static IRInstruction trunc(uint32_t dst, IRValue src, IRWidth to) {
-        return { IROpcode::TRUNC, dst, to, {src}, "", "", "", 0, {}, NONE_VREG };
+        return { IROpcode::TRUNC, dst, to, {src}, "", "", "", 0, {}, NONE_VREG, -1, {}, {} };
     }
 
     static IRInstruction syscall() {
-        return { IROpcode::SYSCALL, NONE_VREG, IRWidth::I64, {}, "", "", "", 0, {}, NONE_VREG };
+        return { IROpcode::SYSCALL, NONE_VREG, IRWidth::I64, {}, "", "", "", 0, {}, NONE_VREG, -1, {}, {} };
+    }
+
+    static IRInstruction asm_insn(const std::string& text, std::vector<int> clobbers) {
+        IRInstruction insn{ IROpcode::ASM, NONE_VREG, IRWidth::I64, {}, "", "", "", 0, {}, NONE_VREG, -1, {}, {} };
+        insn.asm_text = text;
+        insn.asm_clobbers = std::move(clobbers);
+        return insn;
     }
 
     /// Format for IR dump.

@@ -1,0 +1,9 @@
+// TARGETS: x86_64
+// EXPECT-ERROR: Expected ',' after asm instruction
+
+// X5a: the clobber list is mandatory.
+
+function main() {
+    asm("x86_64", "nop");
+    return 0;
+}

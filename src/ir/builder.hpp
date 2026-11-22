@@ -79,6 +79,10 @@ public:
         return emit(IRInstruction::nop());
     }
 
+    uint32_t asm_insn(const std::string& text, std::vector<int> clobbers) {
+        return emit(IRInstruction::asm_insn(text, std::move(clobbers)));
+    }
+
     uint32_t load_i64(int64_t val) {
         auto dst = new_vreg();
         emit(IRInstruction::load_i64(dst, val));

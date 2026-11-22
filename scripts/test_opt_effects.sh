@@ -125,4 +125,17 @@ if cmp -s "$WORK/default.s" "$WORK/o0.s"; then
     exit 1
 fi
 
+# X5a: an inline asm statement must survive into the emitted assembly, and
+# only the statement matching the target is emitted.
+"$COMPILER" -O1 -S -o "$WORK/asm-x86.s" tests/checks/test_inline_asm.cyan 2>/dev/null
+"$COMPILER" -O1 --target riscv64 -S -o "$WORK/asm-rv.s" tests/checks/test_inline_asm.cyan 2>/dev/null
+grep -qE '^[[:space:]]*nop[[:space:]]*$' "$WORK/asm-x86.s" || {
+    echo "effect: x86_64 inline asm was not emitted"
+    exit 1
+}
+grep -qE '^[[:space:]]*nop[[:space:]]*$' "$WORK/asm-rv.s" || {
+    echo "effect: riscv64 inline asm was not emitted"
+    exit 1
+}
+
 echo "Optimization effects: OK"

@@ -519,6 +519,8 @@ void infer_stmt_types(
             gen->infer_expr_type(*arrow->expr, scope);
         }
 
+        void operator()(const NodeStmtAsm*) {}
+
         void operator()(const NodeStmtDerefAssign* deref_assign) {
             // *ptr = expr — infer rhs type
             gen->infer_expr_type(*deref_assign->expr, scope);

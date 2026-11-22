@@ -176,7 +176,8 @@ inline CSEStats cse_function(IRFunction& f) {
             // across one would extend a live range through those clobbers,
             // which the allocator does not model as a call.
             if (is_call(insn.op) || insn.op == IROpcode::SYSCALL ||
-                insn.op == IROpcode::DIV || insn.op == IROpcode::MOD) {
+                insn.op == IROpcode::DIV || insn.op == IROpcode::MOD ||
+                insn.op == IROpcode::ASM) {
                 available.clear();
                 uses.clear();
                 result_key.clear();

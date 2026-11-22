@@ -1,0 +1,9 @@
+// TARGETS: x86_64
+// EXPECT-ERROR: asm clobber must be a caller-saved register
+
+// X5a: a callee-save clobber is rejected (no save/restore in this phase).
+
+function main() {
+    asm("x86_64", "nop", ["rbx"]);
+    return 0;
+}

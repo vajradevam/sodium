@@ -1,0 +1,9 @@
+// TARGETS: x86_64
+// EXPECT-ERROR: Unknown asm clobber register
+
+// X5a: an unknown clobber register is a compile error.
+
+function main() {
+    asm("x86_64", "nop", ["madeup"]);
+    return 0;
+}

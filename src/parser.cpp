@@ -42,7 +42,7 @@ void Parser::synchronize() {
             t == TokenType::_const || t == TokenType::let ||
             t == TokenType::_if || t == TokenType::_while ||
             t == TokenType::_for || t == TokenType::_return ||
-            t == TokenType::_print || t == TokenType::_switch ||
+            t == TokenType::_print || t == TokenType::_asm || t == TokenType::_switch ||
             t == TokenType::_do || t == TokenType::_break ||
             t == TokenType::_continue) {
             return;
@@ -1104,6 +1104,60 @@ std::vector<FormatSpec> Parser::parse_format_string(const std::string& fmt)
     return specs;
 }
 
+std::optional<NodeStmt> Parser::parse_asm_stmt()
+{
+    Token keyword = consume();  // asm
+    if (!peek().has_value() || peek().value().type != TokenType::open_paren) {
+        error("Expected '(' after asm");
+    }
+    consume();  // (
+
+    auto take_string = [&](const char* what) -> std::string {
+        if (!peek().has_value() || peek().value().type != TokenType::string_lit) {
+            error(std::string("Expected string literal for ") + what + " in asm");
+        }
+        const Token tok = consume();
+        return tok.value.value_or("");
+    };
+
+    auto stmt_asm = m_allocator.alloc<NodeStmtAsm>();
+    stmt_asm->keyword = keyword;
+    stmt_asm->target = take_string("target");
+    if (!peek().has_value() || peek().value().type != TokenType::comma) {
+        error("Expected ',' after asm target");
+    }
+    consume();
+    stmt_asm->text = take_string("instruction");
+    if (!peek().has_value() || peek().value().type != TokenType::comma) {
+        error("Expected ',' after asm instruction");
+    }
+    consume();
+    if (!peek().has_value() || peek().value().type != TokenType::open_square) {
+        error("Expected a clobber list ['reg', ...] in asm");
+    }
+    consume();  // [
+    if (peek().has_value() && peek().value().type != TokenType::close_square) {
+        for (;;) {
+            stmt_asm->clobbers.push_back(take_string("clobber name"));
+            if (!peek().has_value() || peek().value().type != TokenType::comma) break;
+            consume();
+        }
+    }
+    if (!peek().has_value() || peek().value().type != TokenType::close_square) {
+        error("Expected ']' after asm clobber list");
+    }
+    consume();  // ]
+    if (!peek().has_value() || peek().value().type != TokenType::close_paren) {
+        error("Expected ')' after asm arguments");
+    }
+    consume();  // )
+    if (!peek().has_value() || peek().value().type != TokenType::semi) {
+        error("Expected ';' after asm statement");
+    }
+    consume();  // ;
+    return NodeStmt { .var = stmt_asm };
+}
+
 std::optional<NodeStmt> Parser::parse_print_stmt()
 {
     consume(); // print
@@ -1800,6 +1854,8 @@ std::optional<NodeStmt> Parser::parse_stmt() {
             return parse_return_stmt();
         } else if (peek().has_value() && peek().value().type == TokenType::_print) {
             return parse_print_stmt();
+        } else if (peek().has_value() && peek().value().type == TokenType::_asm) {
+            return parse_asm_stmt();
         } else if (
             peek().has_value() && peek().value().type == TokenType::ident
             && peek(1).has_value() && peek(1).value().type == TokenType::open_square) {

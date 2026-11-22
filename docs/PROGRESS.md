@@ -396,3 +396,14 @@ takes it in `rdi` — qemu traced a SIGSEGV at 0x8 until that was fixed. Added t
 unchanged, on both targets at -O0 and -O1. `scripts/check.sh --full` green: 691 -> 695 passed /
 0 failed / 10 skipped at both levels; 289 C++ cases / 4296 checks; sweep 2106 -> 2118 invocations
 / 0 crashes; ASan/UBSan clean.
+
+## 2026-11-23 — X5a Inline asm syntax and IR plumbing
+Added the `asm("arch", "instruction", ["clobbers"])` statement (D-036): new keyword, AST node,
+parser with target/instruction/clobber diagnostics, a verbatim `IROpcode::ASM` with clobber
+metadata, and emission through `Backend::emit_insn` on both targets. Clobber names are validated
+against `TargetRegisterInfo` and reserved/callee-save registers are compile errors. ASM is a CSE
+barrier, blocks leaf inlining, and conservatively constrains live values to callee-save registers
+until X5b. Added tests/checks cases (both-target nop, unknown clobber, callee-save clobber,
+missing clobber list), 4 C++ IR/emitter/liveness cases and an assembly effect check.
+`scripts/check.sh --full` green: 695 -> 700 passed / 0 failed / 10 skipped at both levels;
+289 -> 293 C++ cases / 4302 checks; sweep 2118 -> 2142 invocations / 0 crashes; ASan/UBSan clean.

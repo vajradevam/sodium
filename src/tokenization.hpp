@@ -42,6 +42,7 @@ enum class TokenType {
     gte,
     _for,
     _print,
+    _asm,
     _function,
     _return,
     comma,

@@ -823,6 +823,29 @@ void Generator::gen_stmt(const NodeStmt& stmt)
                 typed_store(ptr, result, elem_size);
             }
         }
+        void operator()(const NodeStmtAsm* stmt_asm) const {
+            // A statement for another target is a no-op (D-036).
+            if (stmt_asm->target != gen->m_backend_ptr->target_name()) return;
+            if (stmt_asm->text.empty() ||
+                stmt_asm->text.find('\n') != std::string::npos) {
+                gen->fail(stmt_asm->keyword.loc,
+                          "asm instruction must be a single non-empty line");
+            }
+            std::vector<int> clobbers;
+            for (const auto& name : stmt_asm->clobbers) {
+                const int preg = gen->m_tri_ptr->by_name(name);
+                if (preg < 0) {
+                    gen->fail(stmt_asm->keyword.loc, "Unknown asm clobber register: " + name);
+                }
+                const auto& reg = gen->m_tri_ptr->regs[static_cast<size_t>(preg)];
+                if (reg.callee_save || reg.reserved || !reg.allocatable) {
+                    gen->fail(stmt_asm->keyword.loc,
+                              "asm clobber must be a caller-saved register: " + name);
+                }
+                clobbers.push_back(preg);
+            }
+            gen->m_ir.asm_insn(stmt_asm->text, std::move(clobbers));
+        }
     };
 
     StmtVisitor visitor { .gen = this };

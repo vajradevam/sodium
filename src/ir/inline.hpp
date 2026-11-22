@@ -77,6 +77,7 @@ inline InlineStats inline_leaves(std::vector<InlineItem>& items) {
                 case IROpcode::CALL:
                 case IROpcode::CALL_INDIRECT:
                 case IROpcode::SYSCALL:
+                case IROpcode::ASM:
                 case IROpcode::JMP:
                 case IROpcode::BR:
                 case IROpcode::RET2:

@@ -106,6 +106,7 @@ inline bool produces_result(IROpcode op) {
 inline size_t operand_count_for(IROpcode op) {
     switch (op) {
         case IROpcode::NOP:
+        case IROpcode::ASM:
         case IROpcode::LOAD_I64:
         case IROpcode::LOAD_I32:
         case IROpcode::LOAD_I8:

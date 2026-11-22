@@ -311,12 +311,21 @@ struct NodeStmtDerefAssign {
     AssignOp op = AssignOp::assign;
 };
 
+// Inline assembly statement (D-036): target tag, one instruction line and a
+// list of clobbered physical register names.
+struct NodeStmtAsm {
+    Token keyword;
+    std::string target;
+    std::string text;
+    std::vector<std::string> clobbers;
+};
+
 struct NodeStmt {
     std::variant<NodeStmtExit*, NodeStmtLet*, NodeStmtIf*, NodeStmtWhile*,
                  NodeStmtDoWhile*, NodeStmtSwitch*, NodeStmtGlobal*, NodeStmtConst*,
                  NodeStmtExpr*, NodeStmtAssign*, NodeStmtFor*, NodeStmtPrint*,
                  NodeStmtBlock*, NodeStmtReturn*, NodeStmtArrDecl*, NodeStmtArrAssign*,
-                 NodeStmtBreak*, NodeStmtContinue*, NodeStmtFieldAssign*, NodeStmtDerefAssign*, NodeStmtArrowAssign*> var;
+                 NodeStmtBreak*, NodeStmtContinue*, NodeStmtFieldAssign*, NodeStmtDerefAssign*, NodeStmtArrowAssign*, NodeStmtAsm*> var;
 };
 
 struct NodeStmtGlobal {
@@ -445,6 +454,7 @@ public:
 
     std::optional<NodeStmt> parse_stmt();
     std::optional<NodeStmt> parse_print_stmt();
+    std::optional<NodeStmt> parse_asm_stmt();
     std::optional<NodeStmt> parse_return_stmt();
     std::optional<NodeStmt> parse_while_stmt();
     std::optional<NodeStmt> parse_do_while_stmt();

@@ -1,0 +1,12 @@
+// EXPECT-EXIT: 0
+// EXPECT-STDOUT: 42
+
+// X5a: inline asm statements for both targets; only the matching target's
+// statement is emitted. Both use `nop`, which is valid on either ISA.
+
+function main() {
+    asm("x86_64", "nop", []);
+    asm("riscv64", "nop", []);
+    print("%d", 42);
+    return 0;
+}

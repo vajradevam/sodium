@@ -66,6 +66,7 @@ const char* ir_opcode_name(IROpcode op) {
         case IROpcode::PUSH:        return "push";
         case IROpcode::PUSH_FRAME:  return "push_frame";
         case IROpcode::POP:         return "pop";
+        case IROpcode::ASM:         return "asm";
     }
     return "???";
 }
@@ -121,6 +122,11 @@ std::string IRInstruction::to_string() const {
 
         case IROpcode::FRAME_ADDR:
             ss << " slot" << imm_arg;
+            break;
+
+        case IROpcode::ASM:
+            ss << " \"" << asm_text << "\"";
+            for (int preg : asm_clobbers) ss << " clobber=" << preg;
             break;
 
         case IROpcode::LOAD:
@@ -237,6 +243,7 @@ size_t IRInstruction::operand_count() const {
         case IROpcode::LOAD_U32_IMM:
         case IROpcode::LOAD_U8_IMM:
         case IROpcode::NOP:
+        case IROpcode::ASM:
         case IROpcode::RET_VOID:
         case IROpcode::SYSCALL:
         case IROpcode::FRAME_ADDR:

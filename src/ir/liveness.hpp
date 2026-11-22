@@ -162,6 +162,9 @@ inline LiveRanges compute_live_ranges(const IRFunction& func) {
     for (size_t bi = 0; bi < block_count; ++bi) {
         for (const auto& insn : func.blocks[bi].instructions) {
             if (is_call(insn.op)) call_positions.insert(idx);
+            // X5a: treat ASM as a conservative clobber barrier — values live
+            // across it use callee-save registers until X5b tracks exact regs.
+            if (insn.op == IROpcode::ASM) call_positions.insert(idx);
             if (insn.op == IROpcode::DIV || insn.op == IROpcode::MOD) div_positions.insert(idx);
             if (insn.dst != IRInstruction::NONE_VREG) extend(insn.dst, idx);
             if (insn.dst2 != IRInstruction::NONE_VREG) extend(insn.dst2, idx);

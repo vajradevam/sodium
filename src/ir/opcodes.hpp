@@ -119,6 +119,10 @@ enum class IROpcode : uint8_t {
     PUSH_FRAME,  // push the 8-byte value at [fp + imm_arg]
     /// Pop register from stack (callee-save epilogue).
     POP,
+
+    /// Opaque inline assembly (D-036): one verbatim instruction line plus a
+    /// list of clobbered physical register numbers.
+    ASM,
 };
 
 /// True for the opcodes that transfer control to another function (clobbering caller-saved registers).
