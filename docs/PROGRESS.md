@@ -450,3 +450,7 @@ ASan/UBSan; 298 C++ cases / 4314 checks; sweep 2154 invocations / 0 crashes; ora
 levels; ABI 8/8; benchmark instruction counts within baseline; regalloc benchmark 248 functions /
 2 spills / 301688 callee-save assignments; debug line tables verified with -g on both targets.
 The 10 skips are the 8 ABI interop cases (run by their own script) and 2 include helpers.
+
+## 2026-11-23 — X1 floats unblocked, split (D-038)
+Owner chose the full C-compatible FP ABI. Created branch `phase-7/floats`, recorded D-038, split X1
+into F1a..F5b in PLAN.md and resolved the BLOCKED entry. No code or test changes (tests unchanged).

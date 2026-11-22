@@ -150,7 +150,16 @@ anyway, tick the box, and note "not reproducible" in PROGRESS.md.
 - [x] **P5-END** full gate under `-O0` and `-O1`, tag.
 
 ## Phase 6 — Language extras
-- [ ] **X1 Floats** (`f32`,`f64`) incl. ABI on both targets, literals, conversions, print. (Decide scope in DECISIONS.md first; skip → BLOCKED if it needs >1 phase.)
+- [ ] **X1 Floats (D-038, branch `phase-7/floats`)** — split into the sub-tasks below; tick X1 when F5b is done.
+  - [ ] **F1a Front end:** tokenizer float literals (`1.5`, `2e-3`, `1.5f`) and malformed-literal errors; `f32`/`f64` types, casts, implicit/explicit conversion rules, no-`%`/no-truthiness errors; unit + compile-error tests.
+  - [ ] **F1b Semantic typing in gen:** expression type propagation for float arithmetic/comparisons/promotions; reject codegen with a clear "not yet lowered" diagnostic until F2.
+  - [ ] **F2a IR register classes:** `RegClass` on vregs, float width on `IRValue`, FP opcodes, builder helpers, dump, verifier class checks; C++ unit tests.
+  - [ ] **F2b Regalloc for FP:** FP register file in `target_regs.hpp` for both targets, class-aware liveness/linear scan/rewriter/spills (FP caller-saved), unit tests.
+  - [ ] **F3a x86_64 SSE emission and SysV FP ABI:** arithmetic, compares, conversions, constants, arg/return passing, calls to C; run tests and `tests/abi` interop with gcc.
+  - [ ] **F3b riscv64 D/F emission and LP64D FP ABI:** same on riscv64 under qemu with gcc interop.
+  - [ ] **F4 Runtime print/format:** freestanding float formatter in `sodium-rt`, `print`/`fmt` integration, edge cases (0, -0, inf, nan, large, small).
+  - [ ] **F5a Structs with floats** by value on both ABIs (extends D-012) and arrays of floats.
+  - [ ] **F5b Optimizer and oracle:** mem2reg/CSE/inline/peephole safety for FP, differential oracle programs with floats vs C, `--full` gate, merge `phase-7/floats`.
 - [x] **X2a Object macros and conditionals:** `#define NAME ...`, `#ifdef`/`#ifndef`/`#else`/`#endif`, string-literal-safe expansion, include guards and negative tests (D-033).
 - [x] **X2b Function macros and `#if`:** `#define F(a,b) body` with argument substitution and the `#if` constant-expression grammar from D-033, with tests on both targets.
 - [x] **X3 Module hygiene (D-034):** kept textual `#include`; documented `#pragma once`/include-guard usage and cyanlib prefix conventions in `docs/MODULES.md`.
