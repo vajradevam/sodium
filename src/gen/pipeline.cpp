@@ -65,16 +65,22 @@ void Generator::gen_func_def(const NodeFuncDef& func)
     m_current_func_name = func.name.value.value();
     m_func_epilogue_label = ".L" + func.name.value.value() + "_epilogue";
 
+    // `ordinal` counts argument words: a struct parameter of N bytes occupies
+    // ceil(N/8) consecutive ordinals (D-012). A struct result larger than 16 bytes is
+    // returned through a hidden pointer that arrives as argument word 0.
+    size_t ordinal = 0;
+    m_ret_ptr_slot.reset();
     if (func.return_type && func.return_type->kind == Type::Struct) {
         auto ret_info = get_struct_info(func.return_type->struct_name);
         if (!ret_info.has_value()) fail(func.name.loc, "Unknown struct type: " + func.return_type->struct_name);
-        check_struct_return(*ret_info, func.return_type->struct_name, func.name.loc);
+        if (ret_info->size > 16) {
+            uint32_t slot = alloc_object(8);
+            m_ir.store_param(static_cast<int64_t>(ordinal++), 0, -static_cast<int64_t>(slot + 8), IRWidth::I64);
+            m_ret_ptr_slot = slot;
+        }
     }
 
     // Process parameters: allocate frame slots and load from their ABI locations.
-    // `ordinal` counts argument words: a struct parameter of N bytes occupies
-    // ceil(N/8) consecutive ordinals (D-012).
-    size_t ordinal = 0;
     for (size_t i = 0; i < func.params.size(); i++) {
         std::string param_name = func.params[i].value.value();
         auto& scope = m_scopes.back();
@@ -98,6 +104,16 @@ void Generator::gen_func_def(const NodeFuncDef& func)
             auto info = get_struct_info(param_type.struct_name);
             if (!info.has_value()) fail(func.params[i].loc, "Unknown struct type: " + param_type.struct_name);
             check_struct_by_value(*info, param_type.struct_name, ordinal, func.params[i].loc);
+            if (info->size > 16) {
+                // Passed by reference: the slot holds a pointer to the caller's copy.
+                uint32_t slot = alloc_object(8);
+                scope.vars[param_name] = Var { .stack_loc = slot, .array_size = info->size,
+                    .type = param_type, .struct_type = param_type.struct_name,
+                    .decl_loc = func.params[i].loc, .is_param = true, .by_ref = true, .dim_sizes = {} };
+                scope.var_count++;
+                m_ir.store_param(static_cast<int64_t>(ordinal++), 0, -static_cast<int64_t>(slot + 8), IRWidth::I64);
+                continue;
+            }
             uint32_t slot = alloc_object(info->size);
             scope.vars[param_name] = Var { .stack_loc = slot, .array_size = info->size,
                 .type = param_type, .struct_type = param_type.struct_name,
@@ -152,6 +168,7 @@ void Generator::gen_func_def(const NodeFuncDef& func)
     m_ir.new_block(m_func_epilogue_label);
     m_ir.ret_void();
     m_in_function = false;
+    m_ret_ptr_slot.reset();
     m_current_return_type.reset();
     m_current_func_name.clear();
     m_func_epilogue_label.clear();

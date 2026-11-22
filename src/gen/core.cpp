@@ -104,6 +104,7 @@ std::optional<StructInfo> Generator::get_struct_info(const std::string& name) co
 // ==========================================================================
 
 size_t Generator::frame_bytes(const Var& var) const {
+    if (var.by_ref) return 8;
     if (!var.struct_type.empty()) return align_frame(var.array_size, 8);
     if (var.array_size > 0) return align_frame(var.array_size * var.elem_size, 8);
     return type_size(var.type);
@@ -115,7 +116,30 @@ uint32_t Generator::object_addr(size_t slot, size_t bytes) {
 }
 
 uint32_t Generator::var_addr(const Var& var) {
-    return object_addr(var.stack_loc, frame_bytes(var));
+    uint32_t slot = object_addr(var.stack_loc, frame_bytes(var));
+    // By-reference aggregates keep a pointer to their bytes in the slot.
+    return var.by_ref ? m_ir.load(IRValue::vreg(slot), 0) : slot;
+}
+
+void Generator::copy_memory(uint32_t dst_ptr, uint32_t src_ptr, size_t bytes, size_t align) {
+    size_t pos = 0;
+    auto step = [&](size_t width) {
+        const int64_t at = static_cast<int64_t>(pos);
+        uint32_t v = width == 8 ? m_ir.load(IRValue::vreg(src_ptr), at)
+                   : width == 4 ? m_ir.load_u32(IRValue::vreg(src_ptr), at)
+                   : width == 2 ? m_ir.load_u16(IRValue::vreg(src_ptr), at)
+                                : m_ir.load_u8(IRValue::vreg(src_ptr), at);
+        if (width == 8)      m_ir.store(IRValue::vreg(dst_ptr), at, IRValue::vreg(v));
+        else if (width == 4) m_ir.store_32(IRValue::vreg(dst_ptr), at, IRValue::vreg(v));
+        else if (width == 2) m_ir.store_16(IRValue::vreg(dst_ptr), at, IRValue::vreg(v));
+        else                 m_ir.store_8(IRValue::vreg(dst_ptr), at, IRValue::vreg(v));
+        pos += width;
+    };
+    // Widest naturally-aligned chunks first; never wider than the data's alignment.
+    for (size_t width : {size_t{8}, size_t{4}, size_t{2}, size_t{1}}) {
+        if (width > align) continue;
+        while (bytes - pos >= width) step(width);
+    }
 }
 
 uint32_t Generator::alloc_object(size_t bytes) {

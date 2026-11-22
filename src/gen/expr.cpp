@@ -487,6 +487,21 @@ void Generator::gen_expr(const NodeExpr& expr)
             // Struct arguments are passed as 8-byte words in consecutive argument
             // positions (D-012); everything else is one word.
             const NodeFuncDef* callee = gen->find_func(fname);
+
+            // A struct result larger than 16 bytes comes back through a buffer whose
+            // address is passed as the hidden first argument.
+            std::optional<StructInfo> ret_info;
+            std::optional<uint32_t> hidden_result;
+            if (callee && callee->return_type && callee->return_type->kind == Type::Struct) {
+                const std::string& rname = callee->return_type->struct_name;
+                ret_info = gen->get_struct_info(rname);
+                if (!ret_info.has_value()) gen->fail(expr_call->name.loc, "Unknown struct type: " + rname);
+                if (ret_info->size > 16) {
+                    uint32_t slot = gen->alloc_object(ret_info->size);
+                    hidden_result = gen->object_addr(slot, Generator::align_frame(ret_info->size, 8));
+                    args.push_back(IRValue::vreg(*hidden_result));
+                }
+            }
             for (size_t i = 0; i < n_args; i++) {
                 if (arg_types[i].kind != Type::Struct) {
                     args.push_back(IRValue::vreg(arg_vregs[i]));
@@ -502,17 +517,22 @@ void Generator::gen_expr(const NodeExpr& expr)
                 auto info = gen->get_struct_info(sname);
                 if (!info.has_value()) gen->fail(expr_call->name.loc, "Unknown struct type: " + sname);
                 gen->check_struct_by_value(*info, sname, args.size(), expr_call->name.loc);
+                if (info->size > 16) {
+                    // By reference to a caller-made copy.
+                    uint32_t slot = gen->alloc_object(info->size);
+                    uint32_t copy = gen->object_addr(slot, Generator::align_frame(info->size, 8));
+                    gen->copy_memory(copy, arg_vregs[i], info->size, info->align);
+                    args.push_back(IRValue::vreg(copy));
+                    continue;
+                }
                 for (size_t w = 0; w < Generator::struct_words(info->size); w++) {
                     args.push_back(IRValue::vreg(gen->load_struct_word(arg_vregs[i], *info, w)));
                 }
             }
 
-            if (callee && callee->return_type && callee->return_type->kind == Type::Struct) {
-                const std::string& sname = callee->return_type->struct_name;
-                auto info = gen->get_struct_info(sname);
-                if (!info.has_value()) gen->fail(expr_call->name.loc, "Unknown struct type: " + sname);
-                gen->check_struct_return(*info, sname, expr_call->name.loc);
-                gen->gen_struct_call(fname, args, sname, *info);
+            if (ret_info) {
+                gen->gen_struct_call(fname, args, callee->return_type->struct_name, *ret_info,
+                                     hidden_result);
                 return;
             }
 

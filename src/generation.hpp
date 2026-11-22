@@ -36,6 +36,7 @@ struct Var {
     SourceLoc decl_loc{};    // for unused-variable/parameter warnings
     bool used = false;       // set when the variable is read
     bool is_param = false;   // parameters get a different warning message
+    bool by_ref = false;     // aggregate lives behind a pointer stored in its 8-byte frame slot
     size_t elem_size = 8;    // array element size in bytes (arrays only)
     std::vector<size_t> dim_sizes; // compile-time dimensions (multidim arrays)
 };
@@ -165,13 +166,17 @@ public:
     uint32_t load_struct_word(uint32_t base, const StructInfo& info, size_t word);
     /// Write word `word` of the struct at address `base` from a vreg (only real bytes are written).
     void store_struct_word(uint32_t base, const StructInfo& info, size_t word, uint32_t value);
-    /// Reject struct return types that are not supported yet.
-    void check_struct_return(const StructInfo& info, const std::string& name, SourceLoc loc) const;
+    /// Copy exactly `bytes` bytes between two addresses (ascending), using accesses no wider
+    /// than `align`, the alignment of both pointers.
+    void copy_memory(uint32_t dst_ptr, uint32_t src_ptr, size_t bytes, size_t align = 8);
     /// `return <struct value at addr>`: one word in the return register, two in the pair.
     void gen_struct_return(uint32_t addr, const StructInfo& info);
-    /// Emit a call whose result is a struct and push the temporary holding it as a struct value.
+    /// Emit a call whose result is a struct and push the temporary holding it as a struct
+    /// value. `hidden_result` is the buffer passed as the first argument for results that
+    /// do not fit in registers (the callee fills it).
     void gen_struct_call(const std::string& fname, const std::vector<IRValue>& args,
-                         const std::string& struct_name, const StructInfo& info);
+                         const std::string& struct_name, const StructInfo& info,
+                         std::optional<uint32_t> hidden_result = std::nullopt);
     /// Function entry: store incoming argument word `ordinal` into word `word` of a
     /// struct parameter's frame slot (only real bytes are written).
     void store_param_word(const Var& var, const StructInfo& info, size_t word, size_t ordinal);
@@ -303,6 +308,9 @@ private:
     std::vector<Type> m_tstack;     ///< Type stack, parallel to m_vstack
     uint32_t m_frame_slots = 0;     ///< Number of frame slots allocated in current function
     uint32_t m_next_frame_offset = 0; ///< Next free byte offset in the stack frame
+    /// Frame slot holding the hidden result pointer while compiling a function that
+    /// returns a struct larger than 16 bytes.
+    std::optional<size_t> m_ret_ptr_slot;
 
     // Type pool: persistent storage for Type::pointee pointers
     std::list<Type> m_type_pool;

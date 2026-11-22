@@ -1,6 +1,7 @@
 #include "../generation.hpp"
 
 #include <algorithm>
+#include <cassert>
 
 // ==========================================================================
 // Struct-by-value ABI helpers (D-012, Y8b)
@@ -24,11 +25,15 @@ size_t chunk_size(size_t remaining, size_t align) {
 
 void Generator::check_struct_by_value(const StructInfo& info, const std::string& name,
                                       size_t first_word, SourceLoc loc) const {
-    if (info.size > 16) {
-        fail(loc, "struct '" + name + "' (" + std::to_string(info.size)
-                      + " bytes) cannot be passed by value yet");
-    }
     const TargetRegisterInfo& tri = *m_tri_ptr;
+    if (info.size > 16) {
+        // Passed as one pointer word to a caller-made copy where the ABI says so.
+        if (!tri.large_struct_by_ref && !tri.arg_regs.empty()) {
+            fail(loc, "struct '" + name + "' (" + std::to_string(info.size)
+                          + " bytes) cannot be passed by value yet");
+        }
+        return;
+    }
     const size_t regs = tri.arg_regs.size();
     const size_t words = struct_words(info.size);
     if (regs != 0 && !tri.split_struct_args && first_word < regs && first_word + words > regs) {
@@ -98,15 +103,16 @@ void Generator::store_struct_word(uint32_t base, const StructInfo& info, size_t 
     }
 }
 
-void Generator::check_struct_return(const StructInfo& info, const std::string& name,
-                                    SourceLoc loc) const {
-    if (info.size > 16) {
-        fail(loc, "struct '" + name + "' (" + std::to_string(info.size)
-                      + " bytes) cannot be returned by value yet");
-    }
-}
-
 void Generator::gen_struct_return(uint32_t addr, const StructInfo& info) {
+    if (info.size > 16) {
+        // Copy into the caller's buffer and return its address (hidden first argument).
+        assert(m_ret_ptr_slot.has_value());
+        uint32_t holder = object_addr(*m_ret_ptr_slot, 8);
+        uint32_t dest = m_ir.load(IRValue::vreg(holder), 0);
+        copy_memory(dest, addr, info.size, info.align);
+        m_ir.ret(IRValue::vreg(dest));
+        return;
+    }
     const size_t words = struct_words(info.size);
     if (words == 0) {
         m_ir.ret_void();
@@ -120,7 +126,15 @@ void Generator::gen_struct_return(uint32_t addr, const StructInfo& info) {
 }
 
 void Generator::gen_struct_call(const std::string& fname, const std::vector<IRValue>& args,
-                                const std::string& struct_name, const StructInfo& info) {
+                                const std::string& struct_name, const StructInfo& info,
+                                std::optional<uint32_t> hidden_result) {
+    if (hidden_result) {
+        // `args` already starts with the hidden result pointer; the callee fills it.
+        m_ir.call(fname, args);
+        push_vreg(*hidden_result);
+        m_tstack.back() = Type::make_struct(struct_name);
+        return;
+    }
     const size_t words = struct_words(info.size);
     uint32_t first = 0;
     uint32_t second = 0;

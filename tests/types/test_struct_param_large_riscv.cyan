@@ -1,0 +1,44 @@
+// RISC-V LP64 passes structs larger than 16 bytes by reference to a caller-made
+// copy: the callee may modify its parameter without affecting the caller
+// (D-012, Y8b3).
+// TARGETS: riscv64
+// EXPECT-EXIT: 0
+// EXPECT-STDOUT: 6
+// EXPECT-STDOUT: 999
+// EXPECT-STDOUT: 1
+// EXPECT-STDOUT: 33
+// EXPECT-STDOUT: 105
+
+struct Big { var a: i64; var b: i64; var c: i64; };
+struct Five { var a: i32; var b: i32; var c: i32; var d: i32; var e: i32; };
+
+function total(b: Big) -> i64 { return b.a + b.b + b.c; }
+
+function clobber(b: Big) -> i64 {
+    b.a = 999;
+    return b.a;
+}
+
+function relay(b: Big, extra: i64) -> i64 { return total(b) * extra; }
+
+function five_sum(f: Five, k: i64) -> i64 {
+    return (f.a + f.b + f.c + f.d + f.e) * k;
+}
+
+function make() -> Big {
+    var r: Big = { .a = 4, .b = 5, .c = 6 };
+    return r;
+}
+
+function main() {
+    var b: Big = { .a = 1, .b = 2, .c = 3 };
+    print(total(b));
+    print(clobber(b));
+    print(b.a);
+
+    // Mixed with scalars and a struct result passed straight in.
+    print(relay(b, 3) + total(make()));
+    var f: Five = { .a = 1, .b = 2, .c = 3, .d = 4, .e = 5 };
+    print(five_sum(f, 7));
+    return(0);
+}

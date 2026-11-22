@@ -73,7 +73,7 @@ void Generator::gen_stmt(const NodeStmt& stmt)
                         }
                         uint32_t src = gen->pop_vreg();
                         copy_bytes(gen->var_addr(scope.vars.at(stmt_let->ident.value.value())), src,
-                                   struct_info.value().size);
+                                   struct_info.value().size, struct_info.value().align);
                     }
                 }
                 return;
@@ -180,7 +180,7 @@ void Generator::gen_stmt(const NodeStmt& stmt)
                         if (!info.has_value()) {
                             gen->fail(stmt_assign->ident.loc, "Unknown struct type: " + var.struct_type);
                         }
-                        copy_bytes(gen->var_addr(var), src, static_cast<size_t>(info->size));
+                        copy_bytes(gen->var_addr(var), src, static_cast<size_t>(info->size), info->align);
                         return;
                     }
                     if (var.array_size > 0 && stmt_assign->op == AssignOp::assign) {
@@ -450,7 +450,6 @@ void Generator::gen_stmt(const NodeStmt& stmt)
                         }
                         auto info = gen->get_struct_info(returned.struct_name);
                         if (!info.has_value()) gen->fail(stmt_ret->loc, "Unknown struct type: " + returned.struct_name);
-                        gen->check_struct_return(*info, returned.struct_name, stmt_ret->loc);
                         uint32_t addr = gen->pop_vreg();
                         gen->gen_struct_return(addr, *info);
                         return;
@@ -661,25 +660,8 @@ void Generator::gen_stmt(const NodeStmt& stmt)
         }
 
         /// Copy exactly `bytes` bytes from `src_ptr` to `dst_ptr` (ascending addresses).
-        void copy_bytes(uint32_t dst_ptr, uint32_t src_ptr, size_t bytes) const {
-            size_t pos = 0;
-            auto step = [&](size_t width) {
-                uint32_t s = gen->m_ir.lea(IRValue::vreg(src_ptr), static_cast<int64_t>(pos));
-                uint32_t d = gen->m_ir.lea(IRValue::vreg(dst_ptr), static_cast<int64_t>(pos));
-                uint32_t v = width == 8 ? gen->m_ir.load(IRValue::vreg(s), 0)
-                           : width == 4 ? gen->m_ir.load_u32(IRValue::vreg(s), 0)
-                           : width == 2 ? gen->m_ir.load_u16(IRValue::vreg(s), 0)
-                                        : gen->m_ir.load_u8(IRValue::vreg(s), 0);
-                if (width == 8)      gen->m_ir.store(IRValue::vreg(d), 0, IRValue::vreg(v));
-                else if (width == 4) gen->m_ir.store_32(IRValue::vreg(d), 0, IRValue::vreg(v));
-                else if (width == 2) gen->m_ir.store_16(IRValue::vreg(d), 0, IRValue::vreg(v));
-                else                 gen->m_ir.store_8(IRValue::vreg(d), 0, IRValue::vreg(v));
-                pos += width;
-            };
-            while (bytes - pos >= 8) step(8);
-            if (bytes - pos >= 4) step(4);
-            if (bytes - pos >= 2) step(2);
-            if (bytes - pos >= 1) step(1);
+        void copy_bytes(uint32_t dst_ptr, uint32_t src_ptr, size_t bytes, size_t align) const {
+            gen->copy_memory(dst_ptr, src_ptr, bytes, align);
         }
 
         uint32_t typed_load_val(uint32_t ptr, size_t elem_size, bool is_signed) const {

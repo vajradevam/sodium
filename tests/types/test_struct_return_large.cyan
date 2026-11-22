@@ -1,0 +1,60 @@
+// Structs larger than 16 bytes are returned through a hidden first-argument
+// pointer (rdi / a0) that the callee also returns (D-012, Y8b3).
+// EXPECT-EXIT: 0
+// EXPECT-STDOUT: 1
+// EXPECT-STDOUT: 2
+// EXPECT-STDOUT: 3
+// EXPECT-STDOUT: 10
+// EXPECT-STDOUT: 20
+// EXPECT-STDOUT: 30
+// EXPECT-STDOUT: 40
+// EXPECT-STDOUT: 50
+// EXPECT-STDOUT: 6
+// EXPECT-STDOUT: 15
+// EXPECT-STDOUT: 77
+// EXPECT-STDOUT: 66
+
+struct Big { var a: i64; var b: i64; var c: i64; };
+struct Five { var a: i32; var b: i32; var c: i32; var d: i32; var e: i32; };
+
+function make_big(a: i64, b: i64, c: i64) -> Big {
+    var r: Big = { .a = a, .b = b, .c = c };
+    return r;
+}
+
+function make_five(a: i32, b: i32, c: i32, d: i32, e: i32) -> Five {
+    var r: Five = { .a = a, .b = b, .c = c, .d = d, .e = e };
+    return r;
+}
+
+// The hidden pointer shifts the visible arguments by one register.
+function scaled(n: i64, k: i64) -> Big {
+    return make_big(n * k, n * k + 1, n * k + 2);
+}
+
+// Returns a struct produced by another call.
+function forward() -> Big { return make_big(7, 8, 9); }
+
+function main() {
+    var b: Big = make_big(1, 2, 3);
+    print(b.a);
+    print(b.b);
+    print(b.c);
+
+    var f: Five = make_five(10, 20, 30, 40, 50);
+    print(f.a);
+    print(f.b);
+    print(f.c);
+    print(f.d);
+    print(f.e);
+
+    var s: Big = scaled(2, 3);
+    print(s.a);
+    print(s.b + s.c);
+
+    var assigned: Big = make_big(0, 0, 0);
+    assigned = forward();
+    print(assigned.a * 11);
+    print(assigned.b * 11 - 22);
+    return(0);
+}

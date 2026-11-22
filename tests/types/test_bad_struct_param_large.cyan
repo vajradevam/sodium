@@ -1,3 +1,4 @@
+// TARGETS: x86_64
 // EXPECT-ERROR: struct 'Big' (24 bytes) cannot be passed by value yet
 
 struct Big { var a: i64; var b: i64; var c: i64; };

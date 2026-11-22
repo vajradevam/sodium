@@ -28,6 +28,9 @@ struct TargetRegisterInfo {
     /// A multi-word struct argument may straddle the last argument register and the stack
     /// (RISC-V LP64). System V AMD64 passes such a struct entirely on the stack instead.
     bool split_struct_args = false;
+    /// Structs larger than 16 bytes are passed as a pointer to a caller-made copy (RISC-V LP64);
+    /// System V AMD64 copies them onto the stack instead.
+    bool large_struct_by_ref = false;
     int fp_bias = 0;             ///< added to raw fp-relative spill offsets (riscv64: s0 sits 16 bytes above the
                                  ///< x86 rbp-equivalent because ra/s0 are saved below it)
 
@@ -181,6 +184,7 @@ struct TargetRegisterInfo {
         info.ret_reg2 = 11;  // a1
         info.fp_reg = 8;     // s0
         info.split_struct_args = true;
+        info.large_struct_by_ref = true;
         info.fp_bias = -16;  // locals use addr_fp() (offset - 16); spill slots must match
         info.scratch_reg = 5;  // t0
 
