@@ -455,6 +455,37 @@ std::optional<NodeExpr*> Parser::parse_primary_expr()
             return expr;
         }
 
+        if (peek().has_value() && peek().value().type == TokenType::open_brace) {
+            consume(); // {
+            auto lit = m_allocator.alloc<NodeExprStructLit>();
+            while (peek().has_value() && peek().value().type != TokenType::close_brace) {
+                if (peek().value().type != TokenType::dot) {
+                    error("Expected '.' in struct literal");
+                }
+                consume();
+                if (!peek().has_value() || peek().value().type != TokenType::ident) {
+                    error("Expected field name in struct literal");
+                }
+                Token field_name = consume();
+                if (!peek().has_value() || peek().value().type != TokenType::eq) {
+                    error("Expected '=' after struct literal field name");
+                }
+                consume();
+                auto value = parse_expr();
+                if (!value) error("Invalid expression in struct literal");
+                lit->fields.push_back({field_name, *value});
+                if (peek().has_value() && peek().value().type == TokenType::comma) consume();
+                else break;
+            }
+            if (!peek().has_value() || peek().value().type != TokenType::close_brace) {
+                error("Expected '}' after struct literal");
+            }
+            consume();
+            auto expr = m_allocator.alloc<NodeExpr>();
+            expr->var = lit;
+            return expr;
+        }
+
         if (peek().has_value() &&
             (peek().value().type == TokenType::_true ||
              peek().value().type == TokenType::_false ||

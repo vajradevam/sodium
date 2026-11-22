@@ -37,6 +37,37 @@ void Generator::gen_stmt(const NodeStmt& stmt)
                 scope.var_count += struct_info.value().size;
                 // Zero-initialize the whole struct (including padding).
                 zero_bytes(slot, struct_bytes);
+                if (stmt_let->expr) {
+                    if (auto* lit = std::get_if<NodeExprStructLit*>(&stmt_let->expr->var)) {
+                        for (const auto& field : (*lit)->fields) {
+                            const auto& name = field.name.value.value();
+                            auto offset_it = struct_info.value().field_offsets.find(name);
+                            if (offset_it == struct_info.value().field_offsets.end()) {
+                                gen->fail(field.name.loc, "Unknown field '" + name + "' in struct literal");
+                            }
+                            size_t index = 0;
+                            for (; index < struct_info.value().field_names.size(); index++) {
+                                if (struct_info.value().field_names[index] == name) break;
+                            }
+                            Type ftype = index < struct_info.value().field_types.size()
+                                             ? struct_info.value().field_types[index]
+                                             : Type::make_int(IntType::i64);
+                            size_t fsize = type_size(ftype);
+                            gen->gen_expr(*field.value);
+                            uint32_t val = gen->pop_vreg();
+                            if (ftype.kind == Type::Int && fsize < 8) {
+                                if (fsize <= 1)      val = gen->m_ir.and_(IRValue::vreg(val), IRValue::imm_i64(0xFF));
+                                else if (fsize <= 2) val = gen->m_ir.and_(IRValue::vreg(val), IRValue::imm_i64(0xFFFF));
+                                else                  val = gen->m_ir.zext(IRValue::vreg(val), IRWidth::I32);
+                            }
+                            uint32_t addr = gen->m_ir.frame_addr(
+                                static_cast<int64_t>(slot + offset_it->second));
+                            typed_store(addr, val, fsize);
+                        }
+                    } else {
+                        gen->fail(stmt_let->ident.loc, "Struct initializer must be a struct literal");
+                    }
+                }
                 return;
             }
 

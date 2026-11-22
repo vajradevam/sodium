@@ -149,6 +149,10 @@ Type Generator::infer_expr_type(
             result = cast->target;
         }
 
+        void operator()(const NodeExprStructLit*) {
+            result = Type::make_int(IntType::i64);
+        }
+
         void operator()(const BinExpr* bin) {
             struct BinTypeInferrer {
                 Generator* gen;
@@ -769,6 +773,8 @@ void Generator::collect_call_types()
         void operator()(const NodeExprSizeof* sz) {
             result = gen->sizeof_value(*sz);
         }
+
+        void operator()(const NodeExprStructLit*) {}
 
         void operator()(const NodeExprCast* cast) {
             auto inner = gen->eval_const_expr(cast->expr);

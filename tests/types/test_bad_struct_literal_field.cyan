@@ -1,0 +1,9 @@
+// EXPECT-ERROR: Unknown field 'nope' in struct literal
+
+struct Point { var x: i64; };
+
+function main() {
+    var s: Point = { .nope = 1 };
+    print(s.x);
+    return(0);
+}

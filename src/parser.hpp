@@ -158,6 +158,15 @@ struct NodeExprSizeof {
     SourceLoc loc{};
 };
 
+struct StructLitField {
+    Token name;
+    NodeExpr* value;
+};
+
+struct NodeExprStructLit {
+    std::vector<StructLitField> fields;
+};
+
 struct NodeExprCast {
     NodeExpr* expr;
     Type target;
@@ -165,7 +174,7 @@ struct NodeExprCast {
 };
 
 struct NodeExpr {
-    std::variant<NodeExprIntLit*, NodeExprIdent*, BinExpr*, NodeExprCall*, NodeExprStringLit*, NodeExprIndex*, NodeExprBitNot*, NodeExprLogNot*, NodeExprTernary*, NodeExprRead*, NodeExprArrLit*, NodeExprFieldAccess*, NodeExprAddrOf*, NodeExprDeref*, NodeExprSizeof*, NodeExprCast*> var;
+    std::variant<NodeExprIntLit*, NodeExprIdent*, BinExpr*, NodeExprCall*, NodeExprStringLit*, NodeExprIndex*, NodeExprBitNot*, NodeExprLogNot*, NodeExprTernary*, NodeExprRead*, NodeExprArrLit*, NodeExprFieldAccess*, NodeExprAddrOf*, NodeExprDeref*, NodeExprSizeof*, NodeExprCast*, NodeExprStructLit*> var;
 };
 
 // ── Statement AST nodes ────────────────────────────────────────────────────

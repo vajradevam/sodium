@@ -324,6 +324,11 @@ void Generator::gen_expr(const NodeExpr& expr)
             }
         }
 
+        void operator()(const NodeExprStructLit*) const
+        {
+            gen->fail({}, "struct literal is only valid as a struct initializer");
+        }
+
         void operator()(const NodeExprCast* cast) const
         {
             gen->gen_expr(*cast->expr);

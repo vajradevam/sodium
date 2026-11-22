@@ -93,7 +93,7 @@ anyway, tick the box, and note "not reproducible" in PROGRESS.md.
 - [x] **Y7b `p->field` access (split from Y7).** Parse and codegen C-like pointer-to-struct reads/writes per D-011, plus `&s.field`; tests on both targets.
 - [x] **Y7c Nested struct field access (split from Y7).** Support `a.b.c` read chains by allowing a field-access base expression and resolving each field's struct type; tests on both targets.
 - [x] **Y7d1 Arrays of structs (split from Y7).** `var a: Point[2]` with real struct element size, `a[0].x` reads/writes via a field-access base that is an index expression; tests on both targets.
-- [ ] **Y7d2 Struct literals (split from Y7).** `{ .x = 1 }` initializer expressions for typed struct locals; tests on both targets; tick Y7 once done.
+- [x] **Y7d2 Struct literals (split from Y7).** `{ .x = 1 }` initializer expressions for typed struct locals; tests on both targets; tick Y7 once done.
 - [ ] **Y8 Struct by value:** param, return, assignment (`a = b`), on both ABIs.
 - [ ] **Y9 Multi-dimensional arrays; `const` correctness; remove call-site inference** (or keep strictly as fallback emitting a warning). Migrate `cyanlib` and tests to typed signatures.
 - [ ] **Y10 Function pointers** and indirect calls on both targets.
