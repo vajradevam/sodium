@@ -1,0 +1,19 @@
+// EXPECT-EXIT: 0
+// EXPECT-STDOUT: 1
+// EXPECT-STDOUT: 4
+// EXPECT-STDOUT: 5
+
+type Small = i8;
+type Word = i32;
+
+function f(a: Small) -> Small {
+    return(a);
+}
+
+function main() {
+    var x: Small = 5;
+    print(sizeof(Small));
+    print(sizeof(Word));
+    print(f(x));
+    return(0);
+}

@@ -323,10 +323,16 @@ struct NodeBlock {
     std::vector<NodeStmt> stmts;
 };
 
+struct NodeTypeAlias {
+    Token name;
+    Type type;
+};
+
 struct NodeProg {
     std::vector<NodeStmt> stmts;
     std::vector<NodeFuncDef*> funcs;
     std::vector<NodeStructDef*> structs;
+    std::vector<NodeTypeAlias*> aliases;
 };
 
 // ── Struct type info (populated during parsing for type lookup) ────────────
@@ -388,6 +394,7 @@ public:
     NodeBlock*              parse_block();
     NodeFuncDef*            parse_func_def();
     NodeStructDef*          parse_struct_def();
+    NodeTypeAlias*          parse_type_alias();
     std::optional<IntType>  parse_type();
     /// Parse an integer type with any number of trailing '*' pointer levels.
     std::optional<Type>     parse_full_type();
@@ -419,4 +426,6 @@ private:
     // Struct type registry: struct name -> field info
     // Populated during parsing so type annotations can be resolved.
     std::unordered_map<std::string, StructTypeInfo> m_struct_types;
+    // Type aliases are resolved during parsing, so annotations carry real Types.
+    std::unordered_map<std::string, Type> m_type_aliases;
 };

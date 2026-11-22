@@ -1,0 +1,8 @@
+// EXPECT-ERROR: duplicate type alias 'A'
+
+type A = i32;
+type A = i8;
+
+function main() {
+    return(0);
+}

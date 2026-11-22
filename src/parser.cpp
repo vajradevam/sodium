@@ -511,17 +511,11 @@ std::optional<NodeExpr*> Parser::parse_primary_expr()
             consume(); // (
             auto sz = m_allocator.alloc<NodeExprSizeof>();
             sz->loc = loc;
-            auto int_type = parse_type();
-            if (int_type.has_value()) {
-                Type base = Type::make_int(*int_type);
-                while (peek().has_value() && peek().value().type == TokenType::star) {
-                    consume();
-                    Type* pointee = m_allocator.alloc<Type>();
-                    *pointee = base;
-                    base = Type::make_ptr(pointee);
-                }
-                sz->type = base;
+            auto parsed_type = parse_full_type();
+            if (parsed_type.has_value()) {
+                sz->type = *parsed_type;
             } else if (peek().has_value() && peek().value().type == TokenType::ident
+                       && peek().value().value.has_value()
                        && m_struct_types.contains(*peek().value().value)) {
                 sz->struct_name = consume().value.value();
             } else if (auto operand = parse_expr()) {
@@ -1279,8 +1273,17 @@ NodeFuncDef* Parser::parse_func_def()
 
 std::optional<Type> Parser::parse_full_type() {
     auto base = parse_type();
-    if (!base) return {};
-    Type type = Type::make_int(*base);
+    Type type;
+    if (base) {
+        type = Type::make_int(*base);
+    } else if (peek().has_value() && peek().value().type == TokenType::ident
+               && peek().value().value.has_value()
+               && m_type_aliases.contains(*peek().value().value)) {
+        Token alias_name = consume();
+        type = m_type_aliases.at(alias_name.value.value());
+    } else {
+        return {};
+    }
     while (peek().has_value() && peek().value().type == TokenType::star) {
         consume();
         Type* pointee = m_allocator.alloc<Type>();
@@ -1862,6 +1865,8 @@ std::optional<NodeProg> Parser::parse_prog() {
         try {
             if (peek().value().type == TokenType::_function) {
                 prog.funcs.push_back(parse_func_def());
+            } else if (peek().value().type == TokenType::_type) {
+                prog.aliases.push_back(parse_type_alias());
             } else if (peek().value().type == TokenType::_struct) {
                 auto struct_def = parse_struct_def();
                 StructTypeInfo info;
@@ -1901,6 +1906,32 @@ std::optional<NodeProg> Parser::parse_prog() {
         if (m_diag.has_errors()) exit(EXIT_FAILURE);
     }
     return prog;
+}
+
+NodeTypeAlias* Parser::parse_type_alias() {
+    consume(); // type
+    if (!peek().has_value() || peek().value().type != TokenType::ident) {
+        error("Expected alias name after 'type'");
+    }
+    Token name = consume();
+    if (!peek().has_value() || peek().value().type != TokenType::eq) {
+        error("Expected '=' after alias name");
+    }
+    consume();
+    auto type = parse_full_type();
+    if (!type.has_value()) error("Expected type after '=' in type alias");
+    if (!peek().has_value() || peek().value().type != TokenType::semi) {
+        error("Expected ';' after type alias");
+    }
+    consume();
+    if (m_type_aliases.contains(name.value.value())) {
+        fail_at(name.loc, "duplicate type alias '" + name.value.value() + "'");
+    }
+    m_type_aliases[name.value.value()] = *type;
+    auto alias = m_allocator.alloc<NodeTypeAlias>();
+    alias->name = name;
+    alias->type = *type;
+    return alias;
 }
 
 NodeStructDef* Parser::parse_struct_def() {
