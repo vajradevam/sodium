@@ -239,6 +239,27 @@ public:
         return dst;
     }
 
+    /// Call through a function pointer (D-014); same argument rules as `call`.
+    uint32_t call_indirect(IRValue target, const std::vector<IRValue>& args, int reg_args = -1) {
+        auto dst = new_vreg();
+        auto insn = IRInstruction::call_indirect(dst, target, args);
+        insn.reg_args = reg_args;
+        emit(insn);
+        return dst;
+    }
+
+    /// Indirect call returning a two-word value.
+    uint32_t call2_indirect(IRValue target, const std::vector<IRValue>& args, uint32_t& second,
+                            int reg_args = -1) {
+        auto dst = new_vreg();
+        second = new_vreg();
+        auto insn = IRInstruction::call_indirect(dst, target, args);
+        insn.dst2 = second;
+        insn.reg_args = reg_args;
+        emit(insn);
+        return dst;
+    }
+
     uint32_t load_param(int64_t param_index) {
         auto dst = new_vreg();
         emit(IRInstruction::load_param(dst, param_index));

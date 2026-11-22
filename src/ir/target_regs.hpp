@@ -24,6 +24,9 @@ struct TargetRegisterInfo {
     int ret_reg = 0;             ///< return value register (typically rax)
     int ret_reg2 = 0;            ///< second return register for two-word results (rdx / a1)
     int scratch_reg = 0;         ///< scratch register for spills
+    /// Register that holds the target of a CALL_INDIRECT (D-014): caller-saved and never an
+    /// argument register, so argument setup cannot overwrite it.
+    int call_target_reg = 0;
     int fp_reg = 0;              ///< frame pointer register
     /// A multi-word struct argument may straddle the last argument register and the stack
     /// (RISC-V LP64). System V AMD64 passes such a struct entirely on the stack instead.
@@ -122,6 +125,7 @@ struct TargetRegisterInfo {
         info.scratch_reg = 0;  // rax (also used for return, so be careful)
         // Use r11 as dedicated scratch for spills (caller-save, not an arg)
         info.scratch_reg = 11;  // r11
+        info.call_target_reg = 0;  // rax
 
         return info;
     }
@@ -187,6 +191,7 @@ struct TargetRegisterInfo {
         info.large_struct_by_ref = true;
         info.fp_bias = -16;  // locals use addr_fp() (offset - 16); spill slots must match
         info.scratch_reg = 5;  // t0
+        info.call_target_reg = 31;  // t6
 
         return info;
     }

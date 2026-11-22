@@ -304,12 +304,14 @@ public:
                 break;
             }
 
-            case IROpcode::CALL: {
+            case IROpcode::CALL:
+            case IROpcode::CALL_INDIRECT: {
                 // The rewriter has already emitted stack-argument pushes
                 // (including any alignment padding) immediately before this
                 // instruction and recorded their byte count in imm_arg.
                 // Only register arguments remain in operands.
-                size_t nargs = insn.operands.size();
+                const bool indirect = insn.op == IROpcode::CALL_INDIRECT;
+                size_t nargs = insn.call_arg_count();
                 size_t n_arg_regs = m_tri.arg_regs.size();
 
                 // Set up register arguments as a parallel move: a source may
@@ -325,6 +327,12 @@ public:
                     std::string src = operand_name(insn, static_cast<size_t>(i));
                     if (insn.operands[static_cast<size_t>(i)].is_imm()) imms.push_back({dst, src});
                     else if (dst != src) pending.push_back({dst, src});
+                }
+                if (indirect) {
+                    // The target is one more destination of the parallel move.
+                    const std::string dst = m_tri.name_of(m_tri.call_target_reg);
+                    const std::string src = operand_name(insn, nargs);
+                    if (dst != src) pending.push_back({dst, src});
                 }
                 const std::string tmp = m_tri.name_of(m_tri.scratch_reg);
                 while (!pending.empty()) {
@@ -353,7 +361,8 @@ public:
                     m_backend.load(m_tri.name_of(al.first),
                                    m_backend.addr_reg_offset(m_tri.name_of(m_tri.fp_reg), al.second));
 
-                m_backend.call(insn.call_target);
+                if (indirect) m_backend.call_reg(m_tri.name_of(m_tri.call_target_reg));
+                else m_backend.call(insn.call_target);
 
                 if (insn.imm_arg != 0) {
                     m_backend.adjust_stack(static_cast<int64_t>(insn.imm_arg));

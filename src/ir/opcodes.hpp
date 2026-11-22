@@ -92,6 +92,10 @@ enum class IROpcode : uint8_t {
     /// The backend moves args to argument registers and handles overflow.
     CALL,        // %dst = call "func"(arg0, arg1, ...)
 
+    /// Call through a function pointer (D-014). The target is the LAST operand, so argument
+    /// i is operand i exactly as for CALL; reg_args, dst2 and stack arguments work the same.
+    CALL_INDIRECT, // %dst = call_indirect %target(arg0, arg1, ...)
+
     /// Load the i-th function parameter from its ABI-defined location
     /// (argument register or stack slot) into a vreg.
     LOAD_PARAM,  // %dst = load_param(param_index)
@@ -116,6 +120,9 @@ enum class IROpcode : uint8_t {
     /// Pop register from stack (callee-save epilogue).
     POP,
 };
+
+/// True for the opcodes that transfer control to another function (clobbering caller-saved registers).
+inline bool is_call(IROpcode op) { return op == IROpcode::CALL || op == IROpcode::CALL_INDIRECT; }
 
 /// Convert opcode to human-readable string (for IR dumps).
 const char* ir_opcode_name(IROpcode op);

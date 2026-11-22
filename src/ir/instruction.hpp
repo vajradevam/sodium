@@ -138,6 +138,19 @@ struct IRInstruction {
         return { IROpcode::CALL, dst, IRWidth::I64, args, func, "", "", 0, {}, NONE_VREG };
     }
 
+    /// Call through `target`; the target is stored as the last operand (D-014).
+    static IRInstruction call_indirect(uint32_t dst, IRValue target,
+                                       const std::vector<IRValue>& args) {
+        std::vector<IRValue> ops = args;
+        ops.push_back(target);
+        return { IROpcode::CALL_INDIRECT, dst, IRWidth::I64, ops, "", "", "", 0, {}, NONE_VREG };
+    }
+
+    /// Number of argument operands of a CALL / CALL_INDIRECT (excludes an indirect target).
+    size_t call_arg_count() const {
+        return op == IROpcode::CALL_INDIRECT ? operands.size() - 1 : operands.size();
+    }
+
     static IRInstruction load_param(uint32_t dst, int64_t param_index) {
         return { IROpcode::LOAD_PARAM, dst, IRWidth::I64, {}, "", "", "", param_index, {}, NONE_VREG };
     }

@@ -81,6 +81,7 @@ public:
 
     // Control
     void call(const std::string& target) override;
+    void call_reg(const std::string& reg) override;
     void syscall() override;
 
     // Generic instruction emission

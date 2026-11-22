@@ -384,6 +384,10 @@ void X8664Backend::call(const std::string& target) {
     emit_insn("call", target);
 }
 
+void X8664Backend::call_reg(const std::string& reg) {
+    emit_insn("call", reg);
+}
+
 void X8664Backend::syscall() {
     emit_insn("syscall");
 }

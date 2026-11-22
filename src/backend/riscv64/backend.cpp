@@ -502,6 +502,10 @@ void RISCV64Backend::call(const std::string& target) {
     emit_insn("call", target);
 }
 
+void RISCV64Backend::call_reg(const std::string& reg) {
+    emit_insn("jalr", "ra, 0(" + reg + ")");
+}
+
 void RISCV64Backend::syscall() {
     // RISC-V: ecall
     emit_insn("ecall", "");

@@ -174,6 +174,9 @@ public:
     /// Call a function or runtime helper.
     virtual void call(const std::string& target) = 0;
 
+    /// Call the function whose address is in `reg` (indirect call).
+    virtual void call_reg(const std::string& reg) = 0;
+
     /// Emit a software interrupt / syscall instruction.
     virtual void syscall() = 0;
 

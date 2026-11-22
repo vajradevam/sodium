@@ -56,6 +56,7 @@ const char* ir_opcode_name(IROpcode op) {
         case IROpcode::JMP:         return "jmp";
         case IROpcode::BR:          return "br";
         case IROpcode::CALL:        return "call";
+        case IROpcode::CALL_INDIRECT: return "call_indirect";
         case IROpcode::LOAD_PARAM:  return "load_param";
         case IROpcode::STORE_PARAM: return "store_param";
         case IROpcode::RET:         return "ret";
@@ -194,6 +195,13 @@ std::string IRInstruction::to_string() const {
             ss << ")";
             break;
 
+        case IROpcode::CALL_INDIRECT: {
+            ss << " " << operands.back().to_string() << "(";
+            append_operands(ss, std::vector<IRValue>(operands.begin(), operands.end() - 1));
+            ss << ")";
+            break;
+        }
+
         case IROpcode::RET:
             if (!operands.empty()) ss << " " << operands[0].to_string();
             break;
@@ -282,6 +290,7 @@ size_t IRInstruction::operand_count() const {
         case IROpcode::RET2:
             return 2;
         case IROpcode::CALL:
+        case IROpcode::CALL_INDIRECT:
             return operands.size();
     }
     return operands.size();

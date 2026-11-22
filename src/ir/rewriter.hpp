@@ -1,5 +1,7 @@
 #pragma once
 
+#include <optional>
+
 #include "linear_scan.hpp"
 #include "function.hpp"
 #include "instruction.hpp"
@@ -191,7 +193,14 @@ private:
                 // so a spilled argument is loaded and immediately consumed.
                 // Loading them all into one scratch register first would let
                 // later loads overwrite earlier argument values.
-                if (insn.op == IROpcode::CALL) {
+                // The target of an indirect call travels as the last operand; it is set
+                // aside here and put back after the argument operands are rewritten.
+                std::optional<IRValue> call_target;
+                if (is_call(insn.op)) {
+                    if (insn.op == IROpcode::CALL_INDIRECT) {
+                        call_target = insn.operands.back();
+                        insn.operands.pop_back();
+                    }
                     const size_t n_arg_regs = m_tri.arg_regs.size();
                     const size_t n_reg = insn.reg_args >= 0
                         ? static_cast<size_t>(insn.reg_args)
@@ -243,7 +252,7 @@ private:
 
                 // A two-word call result is captured by explicit moves after the call.
                 std::vector<IRInstruction> result_moves;
-                if (insn.op == IROpcode::CALL && insn.dst2 != IRInstruction::NONE_VREG) {
+                if (is_call(insn.op) && insn.dst2 != IRInstruction::NONE_VREG) {
                     result_moves = capture_call_results(insn.dst, insn.dst2);
                     insn.dst = IRInstruction::NONE_VREG;
                     insn.dst2 = IRInstruction::NONE_VREG;
@@ -267,7 +276,7 @@ private:
                 // number; spilled ones are loaded by the emitter straight into
                 // their argument register (after the parallel register moves),
                 // never through the shared scratch register.
-                if (insn.op == IROpcode::CALL) {
+                if (is_call(insn.op)) {
                     for (size_t i = 0; i < insn.operands.size(); i++) {
                         auto& op = insn.operands[i];
                         if (!op.is_vreg()) continue;
@@ -281,12 +290,30 @@ private:
                             op = IRValue::vreg(static_cast<uint32_t>(areg));
                         }
                     }
+                    if (call_target) {
+                        // The target joins the argument parallel move as one more
+                        // destination (call_target_reg); a spilled one is loaded after it.
+                        IRValue t = *call_target;
+                        if (t.is_vreg()) {
+                            auto it = m_alloc.entries.find(t.vreg_id);
+                            if (it != m_alloc.entries.end()) {
+                                if (it->second.is_physical()) {
+                                    t = IRValue::vreg(static_cast<uint32_t>(it->second.preg));
+                                } else if (it->second.is_spilled()) {
+                                    insn.arg_loads.push_back({ m_tri.call_target_reg,
+                                                               spill_offset(it->second.spill_slot) });
+                                    t = IRValue::vreg(static_cast<uint32_t>(m_tri.call_target_reg));
+                                }
+                            }
+                        }
+                        insn.operands.push_back(t);
+                    }
                 }
 
                 // --- Emit loads for spilled source operands ---
                 int spilled_src_count = 0;
                 for (auto& op : insn.operands) {
-                    if (insn.op == IROpcode::CALL) break;
+                    if (is_call(insn.op)) break;
                     if (!op.is_vreg()) continue;
                     auto it = m_alloc.entries.find(op.vreg_id);
                     if (it == m_alloc.entries.end()) continue;

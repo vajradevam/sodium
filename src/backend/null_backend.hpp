@@ -86,6 +86,7 @@ public:
     }
 
     void call(const std::string& target) override { (void)target; }
+    void call_reg(const std::string& reg) override { (void)reg; }
     void syscall() override {}
 
     void label(const std::string& name) override { (void)name; }
