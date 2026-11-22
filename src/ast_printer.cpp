@@ -23,6 +23,7 @@ static const char* int_type_name(IntType t) {
 
 static std::string type_string(const Type& t) {
     if (t.kind == Type::Struct) return t.struct_name;
+    if (t.kind == Type::Float) return t.float_type == FloatType::f32 ? "f32" : "f64";
     if (t.kind == Type::Ptr) {
         return t.pointee ? type_string(*t.pointee) + "*" : "?*";
     }
@@ -33,6 +34,9 @@ void print_ast_expr(const NodeExpr& expr, int indent) {
     std::visit(Overloaded{
         [indent](const NodeExprIntLit* e) {
             std::cout << std::string(indent, ' ') << "IntLit(" << e->int_lit.value.value() << ")\n";
+        },
+        [indent](const NodeExprFloatLit* e) {
+            std::cout << std::string(indent, ' ') << "FloatLit(" << e->float_lit.value.value() << ")\n";
         },
         [indent](const NodeExprIdent* e) {
             std::cout << std::string(indent, ' ') << "Ident(" << e->ident.value.value() << ")\n";

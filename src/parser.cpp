@@ -529,6 +529,14 @@ std::optional<NodeExpr*> Parser::parse_unit_expr()
             return expr;
         }
 
+        if (peek().has_value() && peek().value().type == TokenType::float_lit) {
+            auto expr_float_lit = m_allocator.alloc<NodeExprFloatLit>();
+            expr_float_lit->float_lit = consume();
+            auto expr = m_allocator.alloc<NodeExpr>();
+            expr->var = expr_float_lit;
+            return expr;
+        }
+
         if (peek().has_value() && peek().value().type == TokenType::int_lit) {
             auto expr_int_lit = m_allocator.alloc<NodeExprIntLit>();
             expr_int_lit->int_lit = consume();
@@ -1510,7 +1518,10 @@ Type Parser::parse_fn_type() {
 std::optional<Type> Parser::parse_full_type() {
     auto base = parse_type();
     Type type;
-    if (base) {
+    if (peek().has_value() && (peek().value().type == TokenType::_f32 ||
+                               peek().value().type == TokenType::_f64)) {
+        type = Type::make_float(consume().type == TokenType::_f32 ? FloatType::f32 : FloatType::f64);
+    } else if (base) {
         type = Type::make_int(*base);
     } else if (peek().has_value() && peek().value().type == TokenType::ident
                && peek().value().value.has_value()
@@ -1634,7 +1645,7 @@ std::optional<NodeStmt> Parser::parse_stmt() {
                 stmt_let->ident = consume();
                 consume(); // :
                 if (auto full = parse_full_type()) {
-                    if (full->kind == Type::Ptr) {
+                    if (full->kind == Type::Ptr || full->kind == Type::Float) {
                         stmt_let->full_type = full;
                     } else if (full->kind == Type::Struct) {
                         stmt_let->struct_type_name = full->struct_name;

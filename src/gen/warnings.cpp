@@ -11,6 +11,7 @@ namespace {
 
 SourceLoc expr_loc(const NodeExpr& expr) {
     if (auto* e = std::get_if<NodeExprIntLit*>(&expr.var))      return (*e)->int_lit.loc;
+    if (auto* e = std::get_if<NodeExprFloatLit*>(&expr.var))    return (*e)->float_lit.loc;
     if (auto* e = std::get_if<NodeExprIdent*>(&expr.var))       return (*e)->ident.loc;
     if (auto* e = std::get_if<NodeExprCall*>(&expr.var))        return (*e)->name.loc;
     if (auto* e = std::get_if<NodeExprStringLit*>(&expr.var))   return (*e)->value.loc;

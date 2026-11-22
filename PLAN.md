@@ -151,7 +151,7 @@ anyway, tick the box, and note "not reproducible" in PROGRESS.md.
 
 ## Phase 6 — Language extras
 - [ ] **X1 Floats (D-038, branch `phase-7/floats`)** — split into the sub-tasks below; tick X1 when F5b is done.
-  - [ ] **F1a Front end:** tokenizer float literals (`1.5`, `2e-3`, `1.5f`) and malformed-literal errors; `f32`/`f64` types, casts, implicit/explicit conversion rules, no-`%`/no-truthiness errors; unit + compile-error tests.
+  - [x] **F1a Front end:** tokenizer float literals (`1.5`, `2e-3`, `1.5f`) and malformed-literal errors; `f32`/`f64` types, casts, implicit/explicit conversion rules, no-`%`/no-truthiness errors; unit + compile-error tests.
   - [ ] **F1b Semantic typing in gen:** expression type propagation for float arithmetic/comparisons/promotions; reject codegen with a clear "not yet lowered" diagnostic until F2.
   - [ ] **F2a IR register classes:** `RegClass` on vregs, float width on `IRValue`, FP opcodes, builder helpers, dump, verifier class checks; C++ unit tests.
   - [ ] **F2b Regalloc for FP:** FP register file in `target_regs.hpp` for both targets, class-aware liveness/linear scan/rewriter/spills (FP caller-saved), unit tests.

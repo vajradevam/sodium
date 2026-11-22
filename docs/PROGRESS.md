@@ -454,3 +454,11 @@ The 10 skips are the 8 ABI interop cases (run by their own script) and 2 include
 ## 2026-11-23 — X1 floats unblocked, split (D-038)
 Owner chose the full C-compatible FP ABI. Created branch `phase-7/floats`, recorded D-038, split X1
 into F1a..F5b in PLAN.md and resolved the BLOCKED entry. No code or test changes (tests unchanged).
+
+## 2026-11-23 — F1a float front end (branch phase-7/floats)
+Tokenizer: `float_lit` (`1.5`, `2e-3`, `1.5f`), `f32`/`f64` keywords, errors for a bare `1f` and an
+empty exponent. Parser: `Type::Float`, `NodeExprFloatLit`, float types in params/returns/lets/casts/
+struct fields; AST printer and type inference know floats. Generator rejects any float use with
+"floating-point code generation is not implemented yet (D-038, F2)" so no float is silently treated as
+an integer (tests/types/test_float_*_not_lowered.cyan are scaffolding that F3 replaces with run tests).
+Tests: +5 Cyan types tests (x2 targets), +5 C++ unit cases.

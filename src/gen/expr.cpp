@@ -62,6 +62,11 @@ void Generator::gen_expr(const NodeExpr& expr)
     struct ExprVisitor {
         Generator* gen;
 
+        void operator()(const NodeExprFloatLit* lit)
+        {
+            gen->fail(lit->float_lit.loc, "floating-point code generation is not implemented yet (D-038, F2)");
+        }
+
         void operator()(const NodeExprIntLit* expr_int_lit)
         {
             int64_t val;
@@ -104,6 +109,7 @@ void Generator::gen_expr(const NodeExpr& expr)
             if (is_local) {
                 Type elem_type;
                 uint32_t elem_addr = gen->index_addr(*expr_index, elem_type);
+                gen->reject_float(elem_type, expr_index->name.loc);
                 // A struct element is a struct value: represented by its address.
                 uint32_t val = elem_type.kind == Type::Struct
                                    ? elem_addr
@@ -258,6 +264,7 @@ void Generator::gen_expr(const NodeExpr& expr)
         {
             Type field_type;
             uint32_t field_addr = gen->field_addr(*field_access, field_type);
+            gen->reject_float(field_type, field_access->obj_name.loc);
             // A nested struct field is a struct value: represented by its address.
             uint32_t val = field_type.kind == Type::Struct
                                ? field_addr
@@ -386,6 +393,8 @@ void Generator::gen_expr(const NodeExpr& expr)
             Type from = gen->peek_type();
             uint32_t v = gen->pop_vreg();
             Type to = cast->target;
+            gen->reject_float(to, cast->loc);
+            gen->reject_float(from, cast->loc);
             if (from.kind == Type::Int && to.kind == Type::Int) {
                 size_t src_sz = type_size(from), dst_sz = type_size(to);
                 if (dst_sz < src_sz) {

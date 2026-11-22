@@ -1,0 +1,4 @@
+// Floats parse but are not lowered yet (D-038, F2): parameter type.
+// EXPECT-ERROR: floating-point code generation is not implemented yet
+function g(a: f64) { return(0); }
+function main() { return(0); }

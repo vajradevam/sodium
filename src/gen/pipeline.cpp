@@ -107,6 +107,9 @@ void Generator::gen_func_def(const NodeFuncDef& func)
 
     enter_scope();
     m_in_function = true;
+    for (const auto& pt : func.param_types)
+        if (pt) reject_float(*pt, func.name.loc);
+    if (func.return_type) reject_float(*func.return_type, func.name.loc);
     m_current_return_type = func.return_type;
     m_current_func_name = func.name.value.value();
     m_func_epilogue_label = ".L" + func.name.value.value() + "_epilogue";
@@ -371,6 +374,8 @@ std::string Generator::gen_prog_impl()
     std::unordered_map<std::string, size_t> struct_sizes;
     std::unordered_map<std::string, size_t> struct_aligns;
     for (const auto* sd : m_prog.structs) {
+        for (const auto& ft : sd->field_types)
+            if (ft) reject_float(*ft, sd->name.loc);
         StructInfo info = StructInfo::compute_layout(sd->fields, sd->field_types, struct_sizes, struct_aligns);
         struct_sizes[sd->name.value.value()] = info.size;
         struct_aligns[sd->name.value.value()] = info.align;

@@ -291,6 +291,12 @@ std::vector<Token> Tokenizer::tokenize() {
             else if (buf == "i64") {
                 tokens.push_back({ .type = TokenType::_i64, .loc = tok_loc });
             }
+            else if (buf == "f32") {
+                tokens.push_back({ .type = TokenType::_f32, .loc = tok_loc });
+            }
+            else if (buf == "f64") {
+                tokens.push_back({ .type = TokenType::_f64, .loc = tok_loc });
+            }
             else if (buf == "u8") {
                 tokens.push_back({ .type = TokenType::_u8, .loc = tok_loc });
             }
@@ -431,6 +437,48 @@ std::vector<Token> Tokenizer::tokenize() {
                 // Decimal: consume remaining digits
                 while (peek().has_value() && std::isdigit(peek().value())) {
                     buf.push_back(consume());
+                }
+                // Float literal (D-038): digits '.' digits, an exponent, and/or an 'f' suffix.
+                auto is_digit_at = [&](int off) {
+                    return peek(off).has_value() &&
+                           std::isdigit(static_cast<unsigned char>(peek(off).value()));
+                };
+                bool is_float = false;
+                if (peek().has_value() && peek().value() == '.' && is_digit_at(1)) {
+                    is_float = true;
+                    buf.push_back(consume());
+                    while (is_digit_at(0)) buf.push_back(consume());
+                }
+                if (peek().has_value() && (peek().value() == 'e' || peek().value() == 'E')) {
+                    const bool signed_exp = peek(1).has_value() &&
+                                            (peek(1).value() == '+' || peek(1).value() == '-');
+                    if (is_digit_at(signed_exp ? 2 : 1)) {
+                        is_float = true;
+                        buf.push_back(consume());
+                        if (signed_exp) buf.push_back(consume());
+                        while (is_digit_at(0)) buf.push_back(consume());
+                    } else {
+                        m_diag.error(current_loc(), "Expected digits in the exponent of a float literal");
+                        if (g_lsp_mode) throw LSPAbort();
+                        std::cerr << DiagnosticEngine::render(m_diag.diagnostics().back());
+                        exit(EXIT_FAILURE);
+                    }
+                }
+                if (peek().has_value() && peek().value() == 'f' &&
+                    !(peek(1).has_value() && (std::isalnum(static_cast<unsigned char>(peek(1).value())) || peek(1).value() == '_'))) {
+                    if (!is_float) {
+                        m_diag.error(current_loc(), "The 'f' suffix needs a fraction or exponent (write '"
+                                     + buf + ".0f')");
+                        if (g_lsp_mode) throw LSPAbort();
+                        std::cerr << DiagnosticEngine::render(m_diag.diagnostics().back());
+                        exit(EXIT_FAILURE);
+                    }
+                    buf.push_back(consume());
+                }
+                if (is_float) {
+                    tokens.push_back({ .type = TokenType::float_lit, .value = buf, .loc = tok_loc });
+                    buf.clear();
+                    continue;
                 }
             }
             tokens.push_back({ .type = TokenType::int_lit, .value = buf, .loc = tok_loc });

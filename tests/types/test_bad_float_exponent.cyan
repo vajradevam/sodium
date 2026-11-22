@@ -1,0 +1,3 @@
+// A float exponent needs digits.
+// EXPECT-ERROR: Expected digits in the exponent of a float literal
+function main() { var x = 1e; return(0); }

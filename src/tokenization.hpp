@@ -16,6 +16,7 @@
 enum class TokenType {
     exit, 
     int_lit,
+    float_lit,   // value keeps the source text, including an optional trailing 'f'
     string_lit,
     semi,
     open_paren,
@@ -87,6 +88,8 @@ enum class TokenType {
     _u16,
     _u32,
     _u64,
+    _f32,
+    _f64,
     _struct,
     dot,
     arrow,   // ->, used by typed function return types

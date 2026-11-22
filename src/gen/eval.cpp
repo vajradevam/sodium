@@ -45,6 +45,11 @@ Type Generator::infer_expr_type(
             result = Type::make_int(IntType::i64);
         }
 
+        void operator()(const NodeExprFloatLit* lit) {
+            const std::string& text = lit->float_lit.value.value();
+            result = Type::make_float(text.back() == 'f' ? FloatType::f32 : FloatType::f64);
+        }
+
         void operator()(const NodeExprStringLit*) {
             Type* pointee = gen->alloc_type(Type::make_int(IntType::u8));
             result = Type::make_ptr(pointee);
@@ -628,6 +633,10 @@ void Generator::collect_call_types()
     struct ConstEvalVisitor {
         const Generator* gen;
         std::optional<int64_t> result;
+
+        void operator()(const NodeExprFloatLit*) {
+            result = std::nullopt;   // floats are never integer constants
+        }
 
         void operator()(const NodeExprIntLit* lit) {
             try {

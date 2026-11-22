@@ -9,6 +9,7 @@
 
 std::string type_name(const Type& t) {
     if (t.kind == Type::Struct) return t.struct_name;
+    if (t.kind == Type::Float) return t.float_type == FloatType::f32 ? "f32" : "f64";
     if (t.kind == Type::Func) {
         std::string s = "fn(";
         for (uint32_t i = 0; i < t.fn_nparams; i++) {
@@ -78,6 +79,11 @@ bool safe_widening(IntType from, IntType to) {
 }
 
 } // namespace
+
+void Generator::reject_float(const Type& t, const SourceLoc& loc) const {
+    if (t.kind == Type::Float)
+        fail(loc, "floating-point code generation is not implemented yet (D-038, F2)");
+}
 
 const NodeFuncDef* Generator::find_func(const std::string& name) const {
     for (const auto* func : m_prog.funcs) {

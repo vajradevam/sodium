@@ -183,6 +183,10 @@ public:
     void set_warn_config(WarnConfig cfg) { m_diag.set_warn_config(cfg); }
     void set_color(bool v) { m_diag.set_color(v); }
 
+    /// Floats parse and type-check but have no lowering until F2 (D-038): fail clearly instead of
+    /// silently treating the value as an integer.
+    void reject_float(const Type& t, const SourceLoc& loc) const;
+
     /// Record an error in the engine and report it through the CLI/LSP path.
     [[noreturn]] void fail(const SourceLoc& loc, const std::string& msg) const;
 
