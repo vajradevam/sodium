@@ -11,7 +11,9 @@ trap 'rm -rf "$WORK"' EXIT
 
 count=0
 crashes=0
-for path in $(find tests -type f -name '*.cyan' | sort); do
+# tests/xfail/ holds known compiler bugs (including crashes) and is tracked by
+# scripts/xfail.sh instead; it is intentionally outside the gate.
+for path in $(find tests -type f -name '*.cyan' -not -path 'tests/xfail/*' | sort); do
     for target in x86_64 riscv64; do
         tflag=()
         [ "$target" = "riscv64" ] && tflag=(--target riscv64)

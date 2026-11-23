@@ -1,0 +1,7 @@
+// T-2: '\x' must be followed by at least one hexadecimal digit.
+// EXPECT-ERROR: Invalid hex escape '\x' with no hex digits in string literal
+
+function main() {
+    var s = "bad\x escape";
+    return(0);
+}

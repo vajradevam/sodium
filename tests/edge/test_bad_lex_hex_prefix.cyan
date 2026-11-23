@@ -1,0 +1,7 @@
+// T-2: '0x' must be followed by at least one hexadecimal digit.
+// EXPECT-ERROR: Expected hexadecimal digit after '0x'
+
+function main() {
+    var x = 0x;
+    return(0);
+}

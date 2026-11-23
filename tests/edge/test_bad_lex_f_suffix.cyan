@@ -1,0 +1,7 @@
+// T-2: the f32 suffix requires a fraction or an exponent.
+// EXPECT-ERROR: The 'f' suffix needs a fraction or exponent
+
+function main() {
+    var x = 1f;
+    return(0);
+}

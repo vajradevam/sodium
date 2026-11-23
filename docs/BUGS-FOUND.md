@@ -34,3 +34,80 @@ edge case, **low** = cosmetic/diagnostic quality.
   `sizeof(S)` for `struct S { var a: i8; var b: i32; }` (8, which happens to match C).
   The bug is specific to struct types/variables whose true size differs from these values.
 * **xfail test path:** `tests/xfail/bf001_sizeof_struct.cyan`
+
+## BF-002 — Hex integer literal wider than 64 bits wraps to a small value
+
+* **Severity:** critical (silently compiles wrong code)
+* **Targets affected:** x86_64 and riscv64 (the tokenizer is shared)
+* **Found on compiler commit:** `a1ec4d935f01b58a4a22d259101b7f2b2f7a78af`
+* **Minimal reproducer:** `tests/xfail/bf002_hex_literal_overflow.cyan`
+  ```
+  function main() {
+      print(0x10000000000000000);
+      return(0);
+  }
+  ```
+* **Expected:** a compile error containing `out of range for 64-bit signed integer`, the same
+  diagnostic the equivalent decimal literal produces.
+* **Actual:** compiles successfully and prints `0`. The hex accumulator in the tokenizer is a
+  `uint64_t` multiplied by 16 per digit with no overflow check; 17 digits wrap to zero, then the
+  wrapped value is converted to the decimal string `"0"`. Longer hex strings can wrap to any
+  value, so the bug is not limited to powers of two.
+* **Notes:** decimal literals of the same magnitude are correctly rejected (`test_bad_literal_overflow`).
+* **xfail test path:** `tests/xfail/bf002_hex_literal_overflow.cyan`
+
+## BF-003 — Unterminated block comment is silently accepted
+
+* **Severity:** medium (malformed source is accepted; code after the comment can disappear)
+* **Targets affected:** x86_64 and riscv64
+* **Found on compiler commit:** `a1ec4d935f01b58a4a22d259101b7f2b2f7a78af`
+* **Minimal reproducer:** `tests/xfail/bf003_unterminated_block_comment.cyan`
+  ```
+  function main() {
+      return(0);
+  }
+
+  /* this block comment is never closed
+  ```
+* **Expected:** a compile error naming the unterminated comment (the xfail test matches the
+  case-insensitive substring `nterminated block comment`).
+* **Actual:** the program compiles and exits 0. When the unclosed comment swallows a needed `}`,
+  a later `Expected '}'` error at `0:0` appears instead, with no useful source location.
+* **Notes:** unterminated *string* literals are correctly diagnosed. The tokenizer's `/*` branch
+  consumes to EOF without checking that `*/` was seen.
+* **xfail test path:** `tests/xfail/bf003_unterminated_block_comment.cyan`
+
+## BF-004 — `#include` cycle crashes the compiler
+
+* **Severity:** critical (compiler stack overflow / SIGSEGV)
+* **Targets affected:** x86_64 and riscv64 (preprocessor is target-independent)
+* **Found on compiler commit:** `a1ec4d935f01b58a4a22d259101b7f2b2f7a78af`
+* **Minimal reproducer:** `tests/xfail/bf004_include_cycle.cyan` with
+  `tests/xfail/bf004_a.inc` (`#include "bf004_b.inc"`) and `tests/xfail/bf004_b.inc`
+  (`#include "bf004_a.inc"`), no `#pragma once`.
+  ```
+  #include "bf004_a.inc"
+  function main() { return(0); }
+  ```
+* **Expected:** a compile error naming the include cycle.
+* **Actual:** the compiler recurses through the two files until the stack overflows; exit status
+  139 (SIGSEGV) under a 10 s timeout. Files that use `#pragma once` or include guards are fine
+  because the `visited` set is populated for those only.
+* **xfail test path:** `tests/xfail/bf004_include_cycle.cyan`
+
+## BF-005 — Empty included file reported as "could not read file"
+
+* **Severity:** low (spurious compile error, misleading wording)
+* **Targets affected:** x86_64 and riscv64
+* **Found on compiler commit:** `a1ec4d935f01b58a4a22d259101b7f2b2f7a78af`
+* **Minimal reproducer:** `tests/xfail/bf005_empty_include.cyan` with the zero-byte
+  `tests/xfail/bf005_empty.inc`.
+  ```
+  #include "bf005_empty.inc"
+  function main() { print(7); return(0); }
+  ```
+* **Expected:** compiles and prints `7`.
+* **Actual:** `error: could not read file: tests/xfail/bf005_empty.inc`. `read_file` returns an
+  empty string both for a missing file and for a legitimately empty file, and the caller treats
+  either as failure.
+* **xfail test path:** `tests/xfail/bf005_empty_include.cyan`

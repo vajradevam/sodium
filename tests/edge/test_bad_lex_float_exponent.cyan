@@ -1,0 +1,7 @@
+// T-2: a float exponent must contain digits.
+// EXPECT-ERROR: Expected digits in the exponent of a float literal
+
+function main() {
+    var x = 1e;
+    return(0);
+}

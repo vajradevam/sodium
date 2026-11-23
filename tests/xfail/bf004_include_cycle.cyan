@@ -1,0 +1,9 @@
+// BF-004: an #include cycle without #pragma once / include guards must be
+// diagnosed, not recursed into forever until the compiler stack overflows.
+// EXPECT-ERROR: include cycle
+
+#include "bf004_a.inc"
+
+function main() {
+    return(0);
+}

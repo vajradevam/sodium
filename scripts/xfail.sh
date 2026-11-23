@@ -50,8 +50,8 @@ for path in $(find tests/xfail -type f -name '*.cyan' | sort); do
         tflag=(); [ "$target" = "riscv64" ] && tflag=(--target riscv64)
         cflags=(); [ -n "$COMPILE_FLAGS" ] && read -r -a cflags <<< "$COMPILE_FLAGS"
 
-        "$COMPILER" "${cflags[@]}" "${tflag[@]}" -I tests/include \
-            -o "$base.bin" "$path" > "$base.compile.log" 2>&1
+        ( timeout 10 "$COMPILER" "${cflags[@]}" "${tflag[@]}" -I tests/xfail -I tests/include \
+            -o "$base.bin" "$path" > "$base.compile.log" 2>&1 ) 2>/dev/null
         cc=$?
         reason=""
         if [ -n "$EXPECT_ERROR" ]; then
@@ -65,7 +65,7 @@ for path in $(find tests/xfail -type f -name '*.cyan' | sort); do
         else
             runner=("$base.bin")
             [ "$target" = "riscv64" ] && runner=(qemu-riscv64 "$base.bin")
-            "${runner[@]}" < /dev/null > "$base.stdout" 2> "$base.stderr"
+            timeout 10 "${runner[@]}" < /dev/null > "$base.stdout" 2> "$base.stderr"
             actual_exit=$?
             want_exit="$EXPECT_EXIT"; [ -z "$want_exit" ] && want_exit=0
             if [ "$actual_exit" -ne "$want_exit" ]; then

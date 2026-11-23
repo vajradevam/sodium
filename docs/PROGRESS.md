@@ -597,3 +597,15 @@ and recorded it as BF-001 in `docs/BUGS-FOUND.md` with the minimal reproducer at
 reports 2 still-failing cases; `scripts/run_tests.sh` now excludes `tests/xfail/` so the gate's
 test count is unchanged. Tests before → after: 776 / 794 run-equivalents → 776 / 794 (xfail tests
 are outside the gate). No compiler code changed.
+
+## 2026-11-23 — T-2 lexer/preprocessor edge tests; BF-002..BF-005 found
+Added 12 passing test sources (`tests/edge/`, 24 cases on both targets) for i64/hex literal limits,
+all string escapes (byte-exact via memcmp), five malformed-literal diagnostics, recursive macros,
+empty input, an eight-deep include chain and a 4000-character literal. All pass on x86_64 and
+riscv64. Found four new bugs by hand, reduced each to a minimal reproducer, and filed them in
+`docs/BUGS-FOUND.md`: BF-002 hex overflow wraps to 0 (critical, silent wrong code), BF-003
+unterminated block comment silently accepted (medium), BF-004 include cycle stack-overflows the
+compiler (critical), BF-005 empty include reported as unreadable (low). Their xfail tests are in
+`tests/xfail/`; `scripts/xfail.sh` reports 10 still-failing cases (BF-001..BF-005 × 2 targets).
+`sweep.sh` excludes `tests/xfail/` so the known crash cannot break the gate. Tests before → after:
+776 / 794 run-equivalents → 800 / 818. No compiler code changed.

@@ -213,7 +213,7 @@ Merge into `main` with `--no-ff` only after `check.sh --full` passes at T-8. Do 
 - [x] **T-1 Coverage inventory.** Map language features and diagnostics against existing tests; list
   the untested combinations in `docs/PHASE-T-COVERAGE.md`. Done when the gaps drive the test cases of
   T-2..T-6 and no test weakness is used to hide a bug.
-- [ ] **T-2 Lexer/preprocessor edges.** Number limits (i64/u64 boundaries, overflow), malformed
+- [x] **T-2 Lexer/preprocessor edges.** Number limits (i64/u64 boundaries, overflow), malformed
   literals, string escapes, unterminated strings/comments, `#include` cycles, macro recursion, empty
   and very large input. Positive/negative tests on both targets; diagnostics assert a substring.
 - [ ] **T-3 Parser/diagnostics edges.** Deep nesting, precedence/associativity, error recovery with no

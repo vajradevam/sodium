@@ -1,0 +1,7 @@
+// T-2: an unrecognised escape sequence is a compile error.
+// EXPECT-ERROR: Unknown escape sequence: \q
+
+function main() {
+    var s = "bad\q escape";
+    return(0);
+}

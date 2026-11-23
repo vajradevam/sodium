@@ -1,0 +1,43 @@
+// T-2: every documented string escape must produce the exact byte. The byte
+// sequence is compared with a u8 array through memcmp so that NUL and control
+// characters do not depend on the terminal or the test runner's line handling.
+// EXPECT-EXIT: 0
+// EXPECT-STDOUT: 1
+// EXPECT-STDOUT: 25
+// EXPECT-STDOUT: 1
+
+#include "string.cyan"
+
+function main() {
+    var s: u8* = "A\nB\tC\rD\\E\"F\aG\bH\fI\vJ\x41K\x7L\xffM";
+    var expected: u8[25];
+    expected[0] = 65;
+    expected[1] = 10;
+    expected[2] = 66;
+    expected[3] = 9;
+    expected[4] = 67;
+    expected[5] = 13;
+    expected[6] = 68;
+    expected[7] = 92;
+    expected[8] = 69;
+    expected[9] = 34;
+    expected[10] = 70;
+    expected[11] = 7;
+    expected[12] = 71;
+    expected[13] = 8;
+    expected[14] = 72;
+    expected[15] = 12;
+    expected[16] = 73;
+    expected[17] = 11;
+    expected[18] = 74;
+    expected[19] = 65;
+    expected[20] = 75;
+    expected[21] = 7;
+    expected[22] = 76;
+    expected[23] = 255;
+    expected[24] = 77;
+    print(memcmp(s, expected, 25) == 0);
+    print(strlen(s));
+    print(strlen("A\x00B"));
+    return(0);
+}

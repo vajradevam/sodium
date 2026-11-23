@@ -1,0 +1,11 @@
+// T-2: an eight-deep #include chain resolves relative paths and keeps the
+// declarations of the deepest file visible at the top level.
+// EXPECT-EXIT: 0
+// EXPECT-STDOUT: 42
+
+#include "edge_include_1.inc"
+
+function main() {
+    print(deep_value());
+    return(0);
+}

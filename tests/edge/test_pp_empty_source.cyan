@@ -1,0 +1,4 @@
+// T-2: an empty translation unit (here: comments only) must be diagnosed.
+// EXPECT-ERROR: No main function found
+
+// no declarations at all
