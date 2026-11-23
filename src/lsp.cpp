@@ -55,6 +55,10 @@ void LSPServer::run() {
             handle_rename(*id, *params);
         } else if (method == "textDocument/references") {
             handle_references(*id, *params);
+        } else if (method == "textDocument/signatureHelp") {
+            handle_signature_help(*id, *params);
+        } else if (method == "textDocument/semanticTokens/full") {
+            handle_semantic_tokens(*id, *params);
         } else if (method == "$cancelRequest") {
             // ignore
         } else {
@@ -139,6 +143,24 @@ void LSPServer::handle_initialize(const JsonValue& id, const JsonValue& /*params
     capabilities["documentSymbolProvider"] = true;
     capabilities["referencesProvider"] = true;
     capabilities["renameProvider"] = true;
+    JsonValue::ArrayType triggers;
+    triggers.push_back("(");
+    triggers.push_back(",");
+    JsonValue::ObjectType signature_help;
+    signature_help["triggerCharacters"] = JsonValue(std::move(triggers));
+    capabilities["signatureHelpProvider"] = JsonValue(std::move(signature_help));
+    JsonValue::ArrayType token_types;
+    for (const char* name : {"keyword", "variable", "parameter", "type",
+                             "number", "string", "function"}) {
+        token_types.push_back(name);
+    }
+    JsonValue::ObjectType legend;
+    legend["tokenTypes"] = JsonValue(std::move(token_types));
+    legend["tokenModifiers"] = JsonValue(JsonValue::ArrayType{});
+    JsonValue::ObjectType semantic_tokens;
+    semantic_tokens["legend"] = JsonValue(std::move(legend));
+    semantic_tokens["full"] = true;
+    capabilities["semanticTokensProvider"] = JsonValue(std::move(semantic_tokens));
 
     result["capabilities"] = std::move(capabilities);
     JsonValue::ObjectType server_info;
@@ -699,6 +721,14 @@ void LSPServer::handle_document_symbol(const JsonValue& id, const JsonValue& par
 
 namespace {
 
+std::string trim_string(const std::string& s) {
+    size_t first = 0;
+    while (first < s.size() && (s[first] == ' ' || s[first] == '\t')) ++first;
+    size_t last = s.size();
+    while (last > first && (s[last - 1] == ' ' || s[last - 1] == '\t')) --last;
+    return s.substr(first, last - first);
+}
+
 JsonValue token_range(const Token& tok) {
     const size_t line = tok.loc.line > 0 ? static_cast<size_t>(tok.loc.line - 1) : 0;
     const size_t col = tok.loc.col > 0 ? static_cast<size_t>(tok.loc.col - 1) : 0;
@@ -806,6 +836,196 @@ void LSPServer::handle_references(const JsonValue& id, const JsonValue& params) 
         locations.push_back(std::move(location));
     }
     send_response(id, JsonValue(std::move(locations)));
+}
+
+// ── Signature help / semantic tokens ───────────────────────────────
+
+namespace {
+
+bool token_before(const Token& tok, size_t pos_line, size_t pos_col) {
+    if (tok.loc.line == 0) return false;
+    const size_t line = static_cast<size_t>(tok.loc.line - 1);
+    const size_t col = static_cast<size_t>(tok.loc.col - 1);
+    return line < pos_line || (line == pos_line && col <= pos_col);
+}
+
+// Semantic token type indices (must match the legend in handle_initialize).
+enum SemToken : int {
+    SEM_KEYWORD = 0, SEM_VARIABLE = 1, SEM_PARAMETER = 2,
+    SEM_TYPE = 3, SEM_NUMBER = 4, SEM_STRING = 5, SEM_FUNCTION = 6,
+};
+
+int semantic_type(const Token& tok, const SymbolTable& symbols) {
+    switch (tok.type) {
+        case TokenType::_return: case TokenType::let: case TokenType::_if:
+        case TokenType::_else: case TokenType::_while: case TokenType::_for:
+        case TokenType::_print: case TokenType::_asm: case TokenType::_function:
+        case TokenType::_break: case TokenType::_continue: case TokenType::_do:
+        case TokenType::_switch: case TokenType::_case: case TokenType::_const:
+        case TokenType::_default: case TokenType::_global: case TokenType::_static:
+        case TokenType::_struct: case TokenType::_true: case TokenType::_false:
+        case TokenType::_null: case TokenType::_as: case TokenType::_type:
+        case TokenType::exit:
+            return SEM_KEYWORD;
+        case TokenType::_i8: case TokenType::_i16: case TokenType::_i32: case TokenType::_i64:
+        case TokenType::_u8: case TokenType::_u16: case TokenType::_u32: case TokenType::_u64:
+        case TokenType::_f32: case TokenType::_f64: case TokenType::_bool: case TokenType::_char:
+            return SEM_TYPE;
+        case TokenType::int_lit: case TokenType::float_lit:
+            return SEM_NUMBER;
+        case TokenType::string_lit:
+            return SEM_STRING;
+        case TokenType::ident: {
+            if (!tok.value.has_value()) return -1;
+            const DeclInfo* decl = find_decl(symbols, tok.value.value());
+            if (!decl) return -1;
+            if (decl->symbol_kind == 12) return SEM_FUNCTION;
+            if (decl->symbol_kind == 23) return SEM_PARAMETER;
+            return SEM_VARIABLE;
+        }
+        default:
+            return -1;
+    }
+}
+
+} // namespace
+
+void LSPServer::handle_signature_help(const JsonValue& id, const JsonValue& params) {
+    const JsonValue* td = params.get("textDocument");
+    const JsonValue* pos_val = params.get("position");
+    if (!td || !pos_val) { send_error(id, -32602, "Missing signature help parameters"); return; }
+    const JsonValue* uri = td->get("uri");
+    const JsonValue* line_val = pos_val->get("line");
+    const JsonValue* char_val = pos_val->get("character");
+    if (!uri || !line_val || !char_val) { send_error(id, -32602, "Invalid position"); return; }
+
+    Position pos{static_cast<size_t>(line_val->as_int()),
+                 static_cast<size_t>(char_val->as_int())};
+    std::string uri_str = uri->as_string();
+    auto it = m_documents.find(uri_str);
+    if (it == m_documents.end()) { send_error(id, -32602, "Document not open"); return; }
+
+    std::vector<Token> toks = tokenize(it->second);
+    // Find the innermost '(' before the cursor.
+    int open_index = -1;
+    int depth = 0;
+    for (int i = static_cast<int>(toks.size()) - 1; i >= 0; --i) {
+        if (!token_before(toks[i], pos.line, pos.col)) continue;
+        if (toks[i].type == TokenType::close_paren) { ++depth; continue; }
+        if (toks[i].type == TokenType::open_paren) {
+            if (depth == 0) { open_index = i; break; }
+            --depth;
+        }
+    }
+    if (open_index < 1) { send_response(id, JsonValue(nullptr)); return; }
+
+    std::string callee;
+    for (int i = open_index - 1; i >= 0; --i) {
+        if (toks[i].type == TokenType::ident && toks[i].value.has_value()) {
+            callee = toks[i].value.value();
+            break;
+        }
+    }
+    if (callee.empty()) { send_response(id, JsonValue(nullptr)); return; }
+
+    // Count commas at argument depth between '(' and the cursor.
+    int active = 0;
+    int inner = 0;
+    for (int i = open_index + 1; i < static_cast<int>(toks.size()); ++i) {
+        if (!token_before(toks[i], pos.line, pos.col)) break;
+        if (toks[i].type == TokenType::open_paren) ++inner;
+        else if (toks[i].type == TokenType::close_paren) {
+            if (inner == 0) break;
+            --inner;
+        } else if (toks[i].type == TokenType::comma && inner == 0) ++active;
+    }
+
+    auto parsed = parse_document(it->second);
+    // parse_document stores a success marker, not the AST, so use the symbol
+    // table's "function name(p1, p2)" detail recorded for function declarations.
+    std::vector<std::string> param_names;
+    if (const DeclInfo* decl = find_decl(parsed.symbols, callee)) {
+        const std::string& detail = decl->detail;
+        const size_t open = detail.find('(');
+        const size_t close = detail.rfind(')');
+        if (open != std::string::npos && close != std::string::npos && close > open) {
+            const std::string inside = detail.substr(open + 1, close - open - 1);
+            size_t begin = 0;
+            while (begin <= inside.size()) {
+                const size_t comma = inside.find(',', begin);
+                const std::string part = trim_string(
+                    inside.substr(begin, comma == std::string::npos ? std::string::npos : comma - begin));
+                if (!part.empty()) param_names.push_back(part);
+                if (comma == std::string::npos) break;
+                begin = comma + 1;
+            }
+        }
+    }
+
+    std::string label = callee + "(";
+    JsonValue::ArrayType parameters;
+    for (size_t i = 0; i < param_names.size(); ++i) {
+        if (i) label += ", ";
+        label += param_names[i];
+        JsonValue::ObjectType parameter;
+        parameter["label"] = param_names[i];
+        parameters.push_back(std::move(parameter));
+    }
+    label += ")";
+
+    JsonValue::ObjectType signature;
+    signature["label"] = label;
+    signature["parameters"] = JsonValue(std::move(parameters));
+    signature["activeParameter"] = static_cast<int64_t>(active);
+    JsonValue::ArrayType signatures;
+    signatures.push_back(std::move(signature));
+
+    JsonValue::ObjectType result;
+    result["signatures"] = JsonValue(std::move(signatures));
+    result["activeSignature"] = static_cast<int64_t>(0);
+    result["activeParameter"] = static_cast<int64_t>(active);
+    send_response(id, JsonValue(std::move(result)));
+}
+
+void LSPServer::handle_semantic_tokens(const JsonValue& id, const JsonValue& params) {
+    const JsonValue* td = params.get("textDocument");
+    if (!td) { send_error(id, -32602, "Missing textDocument"); return; }
+    const JsonValue* uri = td->get("uri");
+    if (!uri) { send_error(id, -32602, "Missing URI"); return; }
+    std::string uri_str = uri->as_string();
+    auto it = m_documents.find(uri_str);
+    if (it == m_documents.end()) { send_error(id, -32602, "Document not open"); return; }
+
+    auto parsed = parse_document(it->second);
+    std::vector<Token> toks = tokenize(it->second);
+    JsonValue::ArrayType data;
+    size_t prev_line = 0;
+    size_t prev_col = 0;
+    bool first = true;
+    for (const auto& tok : toks) {
+        const int type = semantic_type(tok, parsed.symbols);
+        if (type < 0 || tok.loc.line == 0) continue;
+        const size_t line = static_cast<size_t>(tok.loc.line - 1);
+        const size_t col = static_cast<size_t>(tok.loc.col - 1);
+        const size_t length = tok.value.has_value() ? tok.value.value().size() : 1;
+        const int64_t delta_line = first ? static_cast<int64_t>(line)
+                                         : static_cast<int64_t>(line - prev_line);
+        const int64_t delta_col = first ? static_cast<int64_t>(col)
+                                        : (line == prev_line ? static_cast<int64_t>(col - prev_col)
+                                                             : static_cast<int64_t>(col));
+        data.push_back(delta_line);
+        data.push_back(delta_col);
+        data.push_back(static_cast<int64_t>(length));
+        data.push_back(static_cast<int64_t>(type));
+        data.push_back(static_cast<int64_t>(0));  // no modifiers
+        prev_line = line;
+        prev_col = col;
+        first = false;
+    }
+
+    JsonValue::ObjectType result;
+    result["data"] = JsonValue(std::move(data));
+    send_response(id, JsonValue(std::move(result)));
 }
 
 // ── Diagnostics (now includes codegen) ─────────────────────────────

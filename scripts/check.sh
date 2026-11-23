@@ -93,6 +93,10 @@ step "LSP protocol features (rename, references, diagnostics lifecycle)"
 python3 tests/lsp/test_lsp_features.py ./build/cyan-lsp > build/last_lsp_features.log 2>&1 || die "LSP features (see build/last_lsp_features.log)"
 tail -1 build/last_lsp_features.log
 
+step "LSP protocol signature help and semantic tokens"
+python3 tests/lsp/test_lsp_signature.py ./build/cyan-lsp > build/last_lsp_signature.log 2>&1 || die "LSP signature/tokens (see build/last_lsp_signature.log)"
+tail -1 build/last_lsp_signature.log
+
 step "color diagnostics (-fcolor-diagnostics / NO_COLOR)"
 ./scripts/test_color.sh > build/last_color.log 2>&1 || die "color diagnostics (see build/last_color.log)"
 tail -1 build/last_color.log

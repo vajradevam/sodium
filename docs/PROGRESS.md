@@ -518,3 +518,12 @@ in `initialize`, and made `didClose` publish an empty diagnostics list so stale 
 (D-041). Added `tests/lsp/test_lsp_features.py`, wired into `check.sh`, covering 3 references vs 2
 uses, 3 rename edits and diagnostics clearing. `scripts/check.sh` green: 776 passed / 0 failed /
 18 skipped at both levels; both LSP protocol suites OK. Test counts unchanged (tooling only).
+
+## 2026-11-24 — D3b LSP signature help and semantic tokens
+Added `textDocument/signatureHelp` (finds the enclosing call from the token stream, derives the
+callee's parameter list from the symbol-table detail and counts the active argument) and
+`textDocument/semanticTokens/full` (delta-encoded keyword/type/number/string/function/variable/
+parameter classification using the tokenizer), both advertised in `initialize` (D-041). Added
+`tests/lsp/test_lsp_signature.py` to the gate covering the label, parameter list, active parameter
+and token types. `scripts/check.sh` green: 776 passed / 0 failed / 18 skipped at both levels; all
+three LSP protocol suites OK. Test counts unchanged (tooling only).
