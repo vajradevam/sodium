@@ -16,15 +16,6 @@ IRWidth width_of_int(IntType t) {
     return IRWidth::I64;
 }
 
-// Result type of `a + b` / `a - b` on integers: the wider operand, but nothing narrower than
-// i32 (C's integer promotion). The register holds the full 64-bit result, so a u8 difference
-// that went negative must not be claimed to be a u8 (it would be zero-extended on return).
-Type int_arith_type(const Type& a, const Type& b) {
-    const Type& wider = type_size(a) >= type_size(b) ? a : b;
-    if (wider.kind == Type::Int && type_size(wider) < 4) return Type::make_int(IntType::i32);
-    return wider;
-}
-
 uint32_t load_typed_field(IRBuilder& ir, uint32_t ptr, const Type& t) {
     if (t.kind == Type::Float) {
         return ir.fload(t.float_type == FloatType::f32 ? IRWidth::F32 : IRWidth::F64,
@@ -154,9 +145,14 @@ void Generator::gen_expr(const NodeExpr& expr)
         {
             gen->gen_expr(*bit_not->expr);
             gen->require_not_float(expr_source_loc(*bit_not->expr), "the operand of '~'");
+            const Type operand_type = gen->peek_type();
             uint32_t src = gen->pop_vreg();
             uint32_t v = gen->m_ir.not_(IRValue::vreg(src));
             gen->push_vreg(v);
+            if (operand_type.kind == Type::Int) {
+                gen->wrap_int_top(operand_type);
+                gen->m_tstack.back() = operand_type;
+            }
         }
 
         void operator()(const NodeExprLogNot* log_not)
@@ -855,10 +851,10 @@ void Generator::gen_expr(const NodeExpr& expr)
                             gen->m_tstack.back() = type_b;
                         }
                     } else {
-                        // int + int — result keeps the wider operand type
+                        // int + int (D-044)
                         uint32_t v = gen->m_ir.add(IRValue::vreg(a), IRValue::vreg(b));
                         gen->push_vreg(v);
-                        gen->m_tstack.back() = int_arith_type(type_a, type_b);
+                        gen->finish_int_binop(add->lhs, add->rhs, type_a, type_b, true);
                     }
                 }
                 void operator()(const BinExprMulti* mul) {
@@ -868,10 +864,13 @@ void Generator::gen_expr(const NodeExpr& expr)
                         gen->gen_float_arith(IROpcode::FMUL, expr_source_loc(*mul->lhs), "*");
                         return;
                     }
+                    const Type type_b = gen->peek_type();
                     uint32_t b = gen->pop_vreg();
+                    const Type type_a = gen->peek_type();
                     uint32_t a = gen->pop_vreg();
                     uint32_t v = gen->m_ir.mul(IRValue::vreg(a), IRValue::vreg(b));
                     gen->push_vreg(v);
+                    gen->finish_int_binop(mul->lhs, mul->rhs, type_a, type_b, true);
                 }
                 void operator()(const BinExprSub* sub) {
                     gen->gen_expr(*sub->lhs);
@@ -933,10 +932,10 @@ void Generator::gen_expr(const NodeExpr& expr)
                             gen->push_vreg(diff);
                         }
                     } else {
-                        // int - int — result keeps the wider operand type
+                        // int - int (D-044)
                         uint32_t v = gen->m_ir.sub(IRValue::vreg(a), IRValue::vreg(b));
                         gen->push_vreg(v);
-                        gen->m_tstack.back() = int_arith_type(type_a, type_b);
+                        gen->finish_int_binop(sub->lhs, sub->rhs, type_a, type_b, true);
                     }
                 }
                 void operator()(const BinExprDiv* div) {
@@ -946,10 +945,13 @@ void Generator::gen_expr(const NodeExpr& expr)
                         gen->gen_float_arith(IROpcode::FDIV, expr_source_loc(*div->lhs), "/");
                         return;
                     }
+                    const Type type_b = gen->peek_type();
                     uint32_t b = gen->pop_vreg();
+                    const Type type_a = gen->peek_type();
                     uint32_t a = gen->pop_vreg();
                     uint32_t v = gen->m_ir.div(IRValue::vreg(a), IRValue::vreg(b));
                     gen->push_vreg(v);
+                    gen->finish_int_binop(div->lhs, div->rhs, type_a, type_b, true);
                 }
                 void operator()(const BinExprMod* mod) {
                     gen->gen_expr(*mod->lhs);
@@ -957,10 +959,13 @@ void Generator::gen_expr(const NodeExpr& expr)
                     if (gen->top_two_have_float()) {
                         gen->fail(expr_source_loc(*mod->lhs), "operator '%' is not defined for floats");
                     }
+                    const Type type_b = gen->peek_type();
                     uint32_t b = gen->pop_vreg();
+                    const Type type_a = gen->peek_type();
                     uint32_t a = gen->pop_vreg();
                     uint32_t v = gen->m_ir.mod(IRValue::vreg(a), IRValue::vreg(b));
                     gen->push_vreg(v);
+                    gen->finish_int_binop(mod->lhs, mod->rhs, type_a, type_b, false);
                 }
                 void operator()(const BinExprLT* lt) {
                     gen->gen_expr(*lt->lhs);
@@ -1066,10 +1071,13 @@ void Generator::gen_expr(const NodeExpr& expr)
                     if (gen->top_two_have_float()) {
                         gen->fail(expr_source_loc(*and_op->lhs), "operator '&' is not defined for floats");
                     }
+                    const Type type_b = gen->peek_type();
                     uint32_t b = gen->pop_vreg();
+                    const Type type_a = gen->peek_type();
                     uint32_t a = gen->pop_vreg();
                     uint32_t v = gen->m_ir.and_(IRValue::vreg(a), IRValue::vreg(b));
                     gen->push_vreg(v);
+                    gen->finish_int_binop(and_op->lhs, and_op->rhs, type_a, type_b, false);
                 }
                 void operator()(const BinExprBitOr* or_op) {
                     gen->gen_expr(*or_op->lhs);
@@ -1077,10 +1085,13 @@ void Generator::gen_expr(const NodeExpr& expr)
                     if (gen->top_two_have_float()) {
                         gen->fail(expr_source_loc(*or_op->lhs), "operator '|' is not defined for floats");
                     }
+                    const Type type_b = gen->peek_type();
                     uint32_t b = gen->pop_vreg();
+                    const Type type_a = gen->peek_type();
                     uint32_t a = gen->pop_vreg();
                     uint32_t v = gen->m_ir.or_(IRValue::vreg(a), IRValue::vreg(b));
                     gen->push_vreg(v);
+                    gen->finish_int_binop(or_op->lhs, or_op->rhs, type_a, type_b, false);
                 }
                 void operator()(const BinExprXor* xor_op) {
                     gen->gen_expr(*xor_op->lhs);
@@ -1088,10 +1099,13 @@ void Generator::gen_expr(const NodeExpr& expr)
                     if (gen->top_two_have_float()) {
                         gen->fail(expr_source_loc(*xor_op->lhs), "operator '^' is not defined for floats");
                     }
+                    const Type type_b = gen->peek_type();
                     uint32_t b = gen->pop_vreg();
+                    const Type type_a = gen->peek_type();
                     uint32_t a = gen->pop_vreg();
                     uint32_t v = gen->m_ir.xor_(IRValue::vreg(a), IRValue::vreg(b));
                     gen->push_vreg(v);
+                    gen->finish_int_binop(xor_op->lhs, xor_op->rhs, type_a, type_b, false);
                 }
                 void operator()(const BinExprShl* shl_op) {
                     gen->gen_expr(*shl_op->lhs);
@@ -1099,10 +1113,13 @@ void Generator::gen_expr(const NodeExpr& expr)
                     if (gen->top_two_have_float()) {
                         gen->fail(expr_source_loc(*shl_op->lhs), "operator '<<' is not defined for floats");
                     }
+                    const Type type_b = gen->peek_type();
                     uint32_t b = gen->pop_vreg();
+                    const Type type_a = gen->peek_type();
                     uint32_t a = gen->pop_vreg();
                     uint32_t v = gen->m_ir.shl(IRValue::vreg(a), IRValue::vreg(b));
                     gen->push_vreg(v);
+                    gen->finish_int_binop(shl_op->lhs, shl_op->rhs, type_a, type_a, true);
                 }
                 void operator()(const BinExprShr* shr_op) {
                     gen->gen_expr(*shr_op->lhs);
@@ -1110,13 +1127,16 @@ void Generator::gen_expr(const NodeExpr& expr)
                     if (gen->top_two_have_float()) {
                         gen->fail(expr_source_loc(*shr_op->lhs), "operator '>>' is not defined for floats");
                     }
+                    const Type type_b = gen->peek_type();
                     uint32_t b = gen->pop_vreg();
+                    const Type type_a = gen->peek_type();
                     uint32_t a = gen->pop_vreg();
                     // Cyan integers are signed i64 by default: >> is arithmetic.
                     // Unsigned values are stored as non-negative 64-bit values, so
                     // ASHR gives the same result as SHR for them.
                     uint32_t v = gen->m_ir.ashr(IRValue::vreg(a), IRValue::vreg(b));
                     gen->push_vreg(v);
+                    gen->finish_int_binop(shr_op->lhs, shr_op->rhs, type_a, type_a, false);
                 }
             };
             BinVisitor visitor{ .gen = gen };

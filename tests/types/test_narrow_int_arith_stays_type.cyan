@@ -1,0 +1,45 @@
+// EXPECT-EXIT: 0
+// EXPECT-STDOUT: 44
+// EXPECT-STDOUT: 255
+// EXPECT-STDOUT: -128
+// EXPECT-STDOUT: 0
+// EXPECT-STDOUT: 201
+// EXPECT-STDOUT: 254
+// EXPECT-STDOUT: 129
+// EXPECT-STDOUT: 6
+// EXPECT-STDOUT: 100
+// EXPECT-STDOUT: 400
+// EXPECT-STDOUT: 250
+// EXPECT-STDOUT: -6
+// Integer arithmetic stays in the operands' type and wraps at its width (D-044), for every width:
+// u8 200 + 100 is 44, u8 0 - 1 is 255, i8 127 + 1 is -128, u16 65535 + 1 is 0. So `x + 1` on a u8
+// can be returned or passed to a u8 parameter without a cast. Mixed widths use the wider type.
+
+function add(a: u8, b: u8) -> u8 { return a + b; }
+function dec(a: u8) -> u8 { return a - 1; }
+function inc_i8(a: i8) -> i8 { return a + 1; }
+function inc_u16(a: u16) -> u16 { return a + 1; }
+function twice(a: u8) -> u8 { return a * 2; }
+function take(a: u8) -> u8 { return a; }
+function pass_on(a: u8) -> u8 { return take(a - 1); }
+function negate(a: u8) -> u8 { return -a; }
+function wide(a: u8, b: i32) -> i32 { return a + b; }
+function inv(a: u8) -> u8 { return ~a; }
+function inv_i8(a: i8) -> i8 { return ~a; }
+function mix(a: u8, b: u16) -> u16 { return a + b; }
+
+function main() {
+    print(add(200, 100));
+    print(dec(0));
+    print(inc_i8(127));
+    print(inc_u16(65535));
+    print(twice(100) + 1 - 0);
+    print(pass_on(255));
+    print(negate(127));
+    print(wide(1, 5));
+    print(add(50, 50));
+    print(mix(200, 200));
+    print(inv(5));
+    print(inv_i8(5));
+    return(0);
+}

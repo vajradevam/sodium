@@ -1,0 +1,12 @@
+// EXPECT-ERROR: argument 1 to 'take' has type i64, expected u32
+// A constant that does not fit the other operand's type keeps the arithmetic at i64, so passing the
+// result to a u32 parameter still needs an explicit `as u32`.
+
+function take(n: u32) -> u32 {
+    return n;
+}
+
+function main() {
+    var n: u32 = 7;
+    return take(n + 5000000000);
+}

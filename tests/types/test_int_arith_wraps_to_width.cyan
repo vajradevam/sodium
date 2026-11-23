@@ -1,0 +1,47 @@
+// EXPECT-EXIT: 0
+// EXPECT-STDOUT: 4294967295
+// EXPECT-STDOUT: -2147483648
+// EXPECT-STDOUT: 0
+// EXPECT-STDOUT: 1410065408
+// EXPECT-STDOUT: 1
+// EXPECT-STDOUT: 3
+// A 32-bit arithmetic result wraps to 32 bits like C: u32 0 - 1 is 4294967295, i32 INT_MAX + 1 is
+// INT_MIN, u32 65536 * 65536 is 0. Unsigned `n - 1 >= 0` is therefore always true.
+
+function dec(n: u32) -> u32 {
+    return n - 1;
+}
+
+function inc(n: i32) -> i32 {
+    return n + 1;
+}
+
+function square(n: u32) -> u32 {
+    return n * n;
+}
+
+function mul10(n: u32) -> u32 {
+    return n * 1000000000 * 10;
+}
+
+function main() {
+    print(dec(0));
+    print(inc(2147483647));
+    print(square(65536));
+    print(mul10(1));
+    var zero: u32 = 0;
+    if (zero - 1 >= 0) {
+        print(1);
+    }
+    var left: u32 = 3;
+    var steps: i64 = 0;
+    while (left - 1 >= 0) {
+        steps = steps + 1;
+        left = left - 1;
+        if (steps == 3) {
+            break;
+        }
+    }
+    print(steps);
+    return(0);
+}

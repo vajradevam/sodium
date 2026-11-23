@@ -13,13 +13,13 @@ struct T24 { var a: i64; var b: i64; var c: i64; };
 struct T40 { var a: i64; var b: i64; var c: i64; var d: i64; var e: i64; };
 struct TM { var a: i8; var b: i64; var c: i16; };
 
-function sum_T1(s: T1) -> i64 { return s.a * 1; }
+function sum_T1(s: T1) -> i64 { return (s.a as i64) * 1; }
 function make_T1(a: i8) -> T1 {
     var r: T1;
     r.a = a;
     return r;
 }
-function sum_T3(s: T3) -> i64 { return s.a * 1 + s.b * 10 + s.c * 100; }
+function sum_T3(s: T3) -> i64 { return (s.a as i64) * 1 + (s.b as i64) * 10 + (s.c as i64) * 100; }
 function make_T3(a: i8, b: i8, c: i8) -> T3 {
     var r: T3;
     r.a = a;
@@ -27,7 +27,7 @@ function make_T3(a: i8, b: i8, c: i8) -> T3 {
     r.c = c;
     return r;
 }
-function sum_T6(s: T6) -> i64 { return s.a * 1 + s.b * 10 + s.c * 100; }
+function sum_T6(s: T6) -> i64 { return (s.a as i64) * 1 + (s.b as i64) * 10 + (s.c as i64) * 100; }
 function make_T6(a: i16, b: i16, c: i16) -> T6 {
     var r: T6;
     r.a = a;
@@ -35,14 +35,14 @@ function make_T6(a: i16, b: i16, c: i16) -> T6 {
     r.c = c;
     return r;
 }
-function sum_T8(s: T8) -> i64 { return s.a * 1 + s.b * 10; }
+function sum_T8(s: T8) -> i64 { return (s.a as i64) * 1 + (s.b as i64) * 10; }
 function make_T8(a: i32, b: i32) -> T8 {
     var r: T8;
     r.a = a;
     r.b = b;
     return r;
 }
-function sum_T12(s: T12) -> i64 { return s.a * 1 + s.b * 10 + s.c * 100; }
+function sum_T12(s: T12) -> i64 { return (s.a as i64) * 1 + (s.b as i64) * 10 + (s.c as i64) * 100; }
 function make_T12(a: i32, b: i32, c: i32) -> T12 {
     var r: T12;
     r.a = a;
@@ -50,14 +50,14 @@ function make_T12(a: i32, b: i32, c: i32) -> T12 {
     r.c = c;
     return r;
 }
-function sum_T16(s: T16) -> i64 { return s.a * 1 + s.b * 10; }
+function sum_T16(s: T16) -> i64 { return (s.a as i64) * 1 + (s.b as i64) * 10; }
 function make_T16(a: i64, b: i64) -> T16 {
     var r: T16;
     r.a = a;
     r.b = b;
     return r;
 }
-function sum_T24(s: T24) -> i64 { return s.a * 1 + s.b * 10 + s.c * 100; }
+function sum_T24(s: T24) -> i64 { return (s.a as i64) * 1 + (s.b as i64) * 10 + (s.c as i64) * 100; }
 function make_T24(a: i64, b: i64, c: i64) -> T24 {
     var r: T24;
     r.a = a;
@@ -65,7 +65,7 @@ function make_T24(a: i64, b: i64, c: i64) -> T24 {
     r.c = c;
     return r;
 }
-function sum_T40(s: T40) -> i64 { return s.a * 1 + s.b * 10 + s.c * 100 + s.d * 1000 + s.e * 10000; }
+function sum_T40(s: T40) -> i64 { return (s.a as i64) * 1 + (s.b as i64) * 10 + (s.c as i64) * 100 + (s.d as i64) * 1000 + (s.e as i64) * 10000; }
 function make_T40(a: i64, b: i64, c: i64, d: i64, e: i64) -> T40 {
     var r: T40;
     r.a = a;
@@ -75,7 +75,7 @@ function make_T40(a: i64, b: i64, c: i64, d: i64, e: i64) -> T40 {
     r.e = e;
     return r;
 }
-function sum_TM(s: TM) -> i64 { return s.a * 1 + s.b * 10 + s.c * 100; }
+function sum_TM(s: TM) -> i64 { return (s.a as i64) * 1 + (s.b as i64) * 10 + (s.c as i64) * 100; }
 function make_TM(a: i8, b: i64, c: i16) -> TM {
     var r: TM;
     r.a = a;
@@ -86,9 +86,9 @@ function make_TM(a: i8, b: i64, c: i16) -> TM {
 function pos_mix(x: i64, p: T16, y: i64, q: T24, z: i64) -> i64 { return x + p.a * 10 + p.b * 100 + y * 1000 + q.a * 10000 + q.b * 100000 + q.c * 1000000 + z * 10000000; }
 function backfill(a: i64, b: i64, c: i64, d: i64, e: i64, p: T16, g: i64) -> i64 { return a + b * 10 + c * 100 + d * 1000 + e * 10000 + p.a * 100000 + p.b * 1000000 + g * 10000000; }
 function straddle7(a: i64, b: i64, c: i64, d: i64, e: i64, f: i64, g: i64, p: T16) -> i64 { return a + b * 10 + c * 100 + d * 1000 + e * 10000 + f * 100000 + g * 1000000 + p.a * 10000000 + p.b * 100000000; }
-function small_mix(p: T3, q: T6, r: T12, s: T8) -> i64 { return p.a + p.b * 2 + p.c * 3 + q.a * 4 + q.b * 5 + q.c * 6 + r.a * 7 + r.b * 8 + r.c * 9 + s.a * 10 + s.b * 11; }
+function small_mix(p: T3, q: T6, r: T12, s: T8) -> i64 { return (p.a as i64) + (p.b as i64) * 2 + (p.c as i64) * 3 + (q.a as i64) * 4 + (q.b as i64) * 5 + (q.c as i64) * 6 + (r.a as i64) * 7 + (r.b as i64) * 8 + (r.c as i64) * 9 + (s.a as i64) * 10 + (s.b as i64) * 11; }
 function big_two(p: T40, q: T40, k: i64) -> i64 { return p.a + p.e * 10 + q.a * 100 + q.e * 1000 + k * 10000 + p.c * 100000 + q.c * 1000000; }
-function mem_mixed(m: TM, x: i64, n: TM) -> i64 { return m.a + m.b * 10 + m.c * 100 + x * 1000 + n.a * 10000 + n.b * 100000 + n.c * 1000000; }
+function mem_mixed(m: TM, x: i64, n: TM) -> i64 { return (m.a as i64) + (m.b as i64) * 10 + (m.c as i64) * 100 + x * 1000 + (n.a as i64) * 10000 + (n.b as i64) * 100000 + (n.c as i64) * 1000000; }
 function relay16(p: T16) -> T16 {
     var r: T16;
     r.a = p.b + 7;

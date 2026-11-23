@@ -527,3 +527,22 @@ tokenizer does not retain them) and risk changing operator spacing inside expres
 formatter is idempotent by construction and is tested over every file under `tests/`. Output goes
 to stdout by default, or to `-o <file>`; `sodium fmt --check <file>` exits nonzero when the input
 is not already canonical. `--version` and `--help` are also added, with a man-style usage block.
+
+## D-044 Integer arithmetic stays in its operands' type and wraps (Y10)
+`n - 1` with `n: u32` used to be `i64` (the literal's type won), so `fib(n - 1)` and `return n - 1`
+were rejected for a `u32` parameter/return although `var m: u32 = n - 1` compiled; for `u8`/`u16` the
+C-style promotion to `i32` (D-039) caused the same rejections. Cyan now follows Rust/Go/Zig, not C:
+there is no integer promotion and no silent narrowing.
+- For `+ - * / % & | ^ << >>` and unary `-`/`~`, the result type is the operands' type. A
+  compile-time constant next to a typed integer takes that type if it fits (`constant_fits`);
+  otherwise the wider operand wins (ties keep the left type), so `u8 + i32` is `i32`. A constant
+  that does not fit (`n + 5000000000`) keeps the result `i64` and an explicit `as` is needed to
+  narrow it. A non-constant `i64` never adopts a narrower type.
+- Results of `+ - * / <<` and `~` are re-normalised (sext/zext from 8/16/32 bits) so they wrap at
+  the type's width: `u8 200 + 100` is 44, `u8 0 - 1` is 255, `i8 127 + 1` is -128, `u32 0 - 1` is
+  4294967295, `n - 1 >= 0` is always true for unsigned `n`. 64-bit types need nothing.
+- Consequence: widen before arithmetic that must not wrap, e.g. `(a as i64) - (b as i64)` for a
+  byte difference (`memcmp`/`strcmp` in cyanlib were changed to do so). Write `(x as i64) * n`, not
+  `x as i64 * n`: the parser reads `i64 *` as a pointer type.
+- This supersedes the promotion rule of D-039. Implementation: `Generator::int_binop_type`,
+  `wrap_int_top`, `finish_int_binop` (src/gen/typed.cpp).

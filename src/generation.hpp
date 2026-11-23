@@ -351,7 +351,7 @@ public:
     /// Placement of each argument word of a struct passed by value (D-012). A struct larger
     /// than 16 bytes is one pointer word where the ABI passes it by reference, else memory.
     std::vector<ArgPlacement> place_struct_arg(ArgPlacer& placer, const StructInfo& info) const;
-    /// A small struct that contains floats travels as pieces (X1b, D-040); empty when the
+    /// A small struct that contains floats travels as pieces (X1b, D-044); empty when the
     /// struct is not one (it then uses the plain integer words).
     std::vector<StructPiece> fp_struct_pieces(const StructInfo& info) const;
     void collect_leaves(const StructInfo& info, size_t base, std::vector<StructLeaf>& out) const;
@@ -417,6 +417,18 @@ public:
     /// The argument values are the top `call.args.size()` entries of the value/type stacks.
     void check_call_args(const NodeExprCall& call, SourceLoc loc, const std::string& name,
                          const std::vector<std::optional<Type>>& param_types, size_t param_count);
+    /// Result type of an integer binary operator (D-044): an integer constant next to a typed
+    /// integer takes that type when it fits, otherwise the wider operand wins (ties keep the left
+    /// type). There is no promotion: `u8 + u8` is a `u8`. Non-integer operands give the default i64.
+    Type int_binop_type(const NodeExpr* lhs, const NodeExpr* rhs, const Type& ta,
+                        const Type& tb) const;
+    /// Re-normalise the integer on top of the value stack to `t`'s width (sign- or zero-extend
+    /// from 8/16/32 bits) so a result wraps at its type's width like C; 64-bit types are a no-op.
+    void wrap_int_top(const Type& t);
+    /// Type the integer result on top of the stacks as `int_binop_type` says, wrapping it first
+    /// when `wrap` is set (operators whose result can leave the type's range).
+    void finish_int_binop(const NodeExpr* lhs, const NodeExpr* rhs, const Type& ta,
+                          const Type& tb, bool wrap);
     /// If `want` is a function-pointer type, the value on top of the type stack must have
     /// exactly that type (or be the constant 0); otherwise report an error naming `what`.
     void check_fn_ptr_assign(const Type& want, const NodeExpr* expr, SourceLoc loc,

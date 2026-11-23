@@ -586,3 +586,16 @@ Found when a stale /usr/local/bin/sodium (root-owned, not replaced because insta
 `command -v sodium` after installing and warns if it is missing from PATH or resolves to a
 different binary, with the fix command. scripts/test_install.sh covers not-on-PATH, shadowed and
 clean cases. check.sh passes; test counts unchanged.
+
+## 2026-11-23 — Y10 integer arithmetic stays in its operands' type (D-044)
+Reported: `fib(n - 1)` with `n: u32` was rejected ("argument 1 has type i64, expected u32") and
+`return n - 1` ("return type mismatch") while `var m: u32 = n - 1` compiled. Cause: a literal is i64,
+so the result was i64; for u8/u16 the C-style promotion to i32 caused the same rejections. A probe of
+8 int types x 15 expressions x 4 contexts found 120 of 480 programs rejected (all u8/i8/u16/i16 in
+argument/return position). Fix (D-044): no promotion, fitting constants adopt the other operand's
+type, results wrap at their type's width, `~x` keeps its type. The probe is now
+`scripts/test_type_matrix.sh` (512 programs must compile, plus a run-and-compare against gcc).
+Knock-on fixes: cyanlib `memcmp`/`strcmp`/`strncmp` byte differences widen with `as i64`;
+tests/abi/c_calls_cyan.cyan sums widen narrow fields; test_int_sub_promotion rewritten.
+Known sharp edge, not fixed: `x as i64 * 2` parses `i64 *` as a pointer type (write `(x as i64) * 2`).
+Done on branch fix/int-literal-arith (separate worktree) so the Phase T agent's tree was untouched.

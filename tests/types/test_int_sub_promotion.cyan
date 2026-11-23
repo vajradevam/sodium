@@ -1,9 +1,12 @@
 // EXPECT-EXIT: 0
+// EXPECT-STDOUT: 255
+// EXPECT-STDOUT: 44
+// EXPECT-STDOUT: -3
 // EXPECT-STDOUT: -1
 // EXPECT-STDOUT: 300
-// EXPECT-STDOUT: -3
-// Narrow integer arithmetic is promoted like C: a u8 difference that goes negative is a
-// signed value, not a zero-extended u8 (found while fixing the type-stack imbalance, D-039).
+// Narrow integer arithmetic stays in its type and wraps (D-044, replacing the C-style promotion
+// this test used to pin): a u8 difference that goes negative is 255, and 200 + 100 is 44. To get
+// the full difference, widen first with `as`.
 
 function diff(a: u8, b: u8) -> i64 {
     return a - b;
@@ -17,9 +20,19 @@ function count_down(n: i64) -> i64 {
     return n - sum(1, 2);
 }
 
+function diff_wide(a: u8, b: u8) -> i64 {
+    return (a as i64) - (b as i64);
+}
+
+function sum_wide(a: u8, b: u8) -> i64 {
+    return (a as i64) + (b as i64);
+}
+
 function main() {
     print(diff(1, 2));
     print(sum(200, 100));
     print(count_down(0));
+    print(diff_wide(1, 2));
+    print(sum_wide(200, 100));
     return(0);
 }
