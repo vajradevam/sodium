@@ -21,6 +21,10 @@ step "README code samples (compile and run, both targets)"
 ./scripts/doc_check.sh > build/last_doccheck.log 2>&1 || die "README samples (see build/last_doccheck.log)"
 tail -1 build/last_doccheck.log
 
+step "architecture docs vs source"
+./scripts/check_arch_docs.sh > build/last_archdocs.log 2>&1 || die "architecture docs (see build/last_archdocs.log)"
+tail -1 build/last_archdocs.log
+
 step "IR/assembly regression sweep (both targets)"
 ./scripts/sweep.sh > build/last_sweep.log 2>&1 || die "sweep (see build/last_sweep.log)"
 tail -2 build/last_sweep.log

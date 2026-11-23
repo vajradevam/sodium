@@ -492,3 +492,12 @@ riscv64 and runs it on x86_64; it is now a `check.sh` step. Verified all 21 test
 (fixed one pointing at a nonexistent recursion test). Gate counts recorded in the README: 776
 integration passed / 0 failed / 18 skipped, 325 C++ cases / 4465 checks, oracle 62/62, ABI 16/16,
 sweep 2394 invocations / 0 crashes, fuzz 1000 / 0 crashes.
+
+## 2026-11-24 — D2a IR implementation reference
+Added `docs/IR.md` describing the IR from the source: data model, opcode reference, verifier,
+-O1 pass pipeline (fold/mem2reg/CSE/cleanup, plus pre-pipeline leaf inlining), liveness, linear
+scan allocation, rewriting, emission and a file map. Added `scripts/check_arch_docs.sh`, wired
+into `check.sh`, which asserts that every named opcode, IR file and pass symbol actually exists
+in `src/ir/` and is mentioned by the doc, so the docs cannot drift silently from the code.
+`scripts/check.sh` green: 776 passed / 0 failed / 18 skipped at both levels; doc-check 13 samples;
+arch-doc verification OK. Test counts unchanged (documentation only).
