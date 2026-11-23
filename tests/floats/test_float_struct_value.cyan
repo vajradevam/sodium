@@ -1,0 +1,62 @@
+// Small structs that contain floats are passed and returned by value (X1b, D-040).
+// EXPECT-EXIT: 0
+// EXPECT-STDOUT: 5.000000 7.000000
+// EXPECT-STDOUT: 15.500000
+// EXPECT-STDOUT: 2.000000 1.000000
+// EXPECT-STDOUT: 3 2.500000
+// EXPECT-STDOUT: 4.000000 5.000000 6.000000
+// EXPECT-STDOUT: 1.000000 2.000000 3.000000 4.000000
+// EXPECT-STDOUT: 24.500000
+// EXPECT-STDOUT: 15.500000
+struct V2 { var x: f64; var y: f64; };
+struct P2 { var a: f32; var b: f32; };
+struct Tag { var n: i32; var w: f32; };
+struct P3 { var a: f32; var b: f32; var c: f32; };
+struct Quad { var lo: P2; var hi: P2; };
+
+function add(a: V2, b: V2) -> V2 {
+    var r: V2;
+    r.x = a.x + b.x;
+    r.y = a.y + b.y;
+    return r;
+}
+function swap(p: P2) -> P2 { var r: P2; r.a = p.b; r.b = p.a; return r; }
+function tag(n: i32, w: f32) -> Tag { var t: Tag; t.n = n; t.w = w; return t; }
+function bump(t: Tag) -> Tag { var r: Tag = t; r.n += 1; r.w *= 2.0f; return r; }
+function triple(a: f32, b: f32, c: f32) -> P3 { var p: P3; p.a = a; p.b = b; p.c = c; return p; }
+function shift(p: P3) -> P3 { return triple(p.a + 3.0f, p.b + 3.0f, p.c + 3.0f); }
+function quad(a: f32, b: f32, c: f32, d: f32) -> Quad {
+    var q: Quad; q.lo.a = a; q.lo.b = b; q.hi.a = c; q.hi.b = d; return q;
+}
+function weigh(a: V2, b: V2, c: V2, d: V2, e: V2, n: i64) -> f64 {
+    return a.x + b.x * 2.0 + c.x * 3.0 + d.x * 4.0 + e.x * 5.0 + e.y + n;
+}
+
+function main() {
+    var a: V2 = { .x = 1.0, .y = 2.0 };
+    var b: V2 = { .x = 4.0, .y = 5.0 };
+    var s: V2 = add(a, b);
+    print("%f %f", s.x, s.y);
+
+    var m: V2 = add(add(a, a), b);
+    print("%f", m.x + m.y + 0.5);
+
+    var pair: P2 = { .a = 1.0f, .b = 2.0f };
+    var w: P2 = swap(pair);
+    print("%f %f", w.a, w.b);
+
+    var t: Tag = bump(tag(2, 1.25f));
+    print("%d %f", t.n, t.w);
+
+    var p: P3 = shift(triple(1.0f, 2.0f, 3.0f));
+    print("%f %f %f", p.a, p.b, p.c);
+
+    var q: Quad = quad(1.0f, 2.0f, 3.0f, 4.0f);
+    print("%f %f %f %f", q.lo.a, q.lo.b, q.hi.a, q.hi.b);
+
+    var one: V2 = { .x = 1.0, .y = 0.5 };
+    var two: V2 = { .x = 2.0, .y = 0.0 };
+    print("%f", weigh(one, two, one, two, one, 3));
+    print("%f", weigh(one, one, one, one, one, 0));
+    return(0);
+}

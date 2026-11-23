@@ -123,6 +123,21 @@ struct ArgPlacement {
     bool fp_reg = false;   ///< `index` names an FP argument register
 };
 
+/// One register-sized part of a small struct that contains floats (X1b): `fp` pieces travel in
+/// an FP register (`size` 4 = f32, 8 = f64 or two packed f32), the others in an integer one.
+struct StructPiece {
+    size_t off;
+    size_t size;
+    bool fp;
+};
+
+/// A scalar field of a struct, after flattening nested structs.
+struct StructLeaf {
+    size_t off;
+    size_t size;
+    bool fp;
+};
+
 class ArgPlacer {
 public:
     explicit ArgPlacer(const TargetRegisterInfo& tri) : m_tri(tri) {}
@@ -157,6 +172,29 @@ public:
         return out;
     }
 
+    /// The pieces of a small float-containing struct, each in an argument register of its
+    /// class. Empty when the registers of either class cannot hold all of them (the caller
+    /// then passes the struct's integer words instead).
+    std::optional<std::vector<ArgPlacement>> fp_struct(const std::vector<StructPiece>& pieces) {
+        size_t ints = 0;
+        size_t fps = 0;
+        for (const StructPiece& p : pieces) (p.fp ? fps : ints)++;
+        if (m_regs_used + ints > m_tri.arg_regs.size() || m_fp_used + fps > m_tri.fp_arg_regs.size()) {
+            return std::nullopt;
+        }
+        std::vector<ArgPlacement> out;
+        for (const StructPiece& p : pieces) {
+            if (p.fp) {
+                ArgPlacement a{false, m_fp_used++};
+                a.fp_reg = true;
+                out.push_back(a);
+            } else {
+                out.push_back({false, m_regs_used++});
+            }
+        }
+        return out;
+    }
+
     /// A struct passed in memory: every word goes on the stack.
     std::vector<ArgPlacement> stack_struct(size_t words) {
         std::vector<ArgPlacement> out;
@@ -175,6 +213,12 @@ private:
     size_t m_regs_used = 0;
     size_t m_fp_used = 0;
     size_t m_stack_used = 0;
+};
+
+/// How a struct passed by value is placed: `pieces` is empty for the integer-word form.
+struct StructPlan {
+    std::vector<ArgPlacement> places;
+    std::vector<StructPiece> pieces;
 };
 
 /// The source location of an expression (its leftmost token), for diagnostics.
@@ -200,14 +244,6 @@ public:
     /// Apply the command-line warning policy (`-w`, `-Werror`).
     void set_warn_config(WarnConfig cfg) { m_diag.set_warn_config(cfg); }
     void set_color(bool v) { m_diag.set_color(v); }
-
-    /// True when a struct (or a struct nested in it) has a float field.
-    bool struct_has_float(const std::string& name) const;
-
-    /// A struct of at most 16 bytes that contains floats would be passed and returned in FP
-    /// registers by the System V / LP64D ABIs; that classification is not implemented
-    /// (D-039), so by-value use is rejected instead of silently breaking C interop.
-    void check_struct_by_value(const std::string& name, const SourceLoc& loc) const;
 
     // ---- floating point (D-038), gen/float.cpp ----
 
@@ -315,6 +351,20 @@ public:
     /// Placement of each argument word of a struct passed by value (D-012). A struct larger
     /// than 16 bytes is one pointer word where the ABI passes it by reference, else memory.
     std::vector<ArgPlacement> place_struct_arg(ArgPlacer& placer, const StructInfo& info) const;
+    /// A small struct that contains floats travels as pieces (X1b, D-040); empty when the
+    /// struct is not one (it then uses the plain integer words).
+    std::vector<StructPiece> fp_struct_pieces(const StructInfo& info) const;
+    void collect_leaves(const StructInfo& info, size_t base, std::vector<StructLeaf>& out) const;
+    /// Where a by-value struct argument goes: pieces in FP/integer registers when it has them
+    /// and they fit, else words.
+    StructPlan plan_struct_arg(ArgPlacer& placer, const StructInfo& info) const;
+    uint32_t load_struct_piece(uint32_t base, const StructInfo& info, const StructPiece& p);
+    void store_struct_piece(uint32_t base, const StructInfo& info, const StructPiece& p, uint32_t value);
+    void store_param_piece(const Var& var, const StructInfo& info, const StructPiece& p, size_t ordinal);
+    IRValue struct_piece_value(uint32_t vreg, const StructPiece& p) const;
+    uint32_t load_struct_range(uint32_t base, const StructInfo& info, size_t off, size_t n);
+    void store_struct_range(uint32_t base, const StructInfo& info, size_t off, size_t n, uint32_t value);
+    void store_param_range(const Var& var, const StructInfo& info, size_t off, size_t n, size_t ordinal);
     /// Read word `word` of the struct at address `base` (only real bytes are read).
     uint32_t load_struct_word(uint32_t base, const StructInfo& info, size_t word);
     /// Write word `word` of the struct at address `base` from a vreg (only real bytes are written).
@@ -379,7 +429,8 @@ public:
     /// Emit a direct or indirect call (see CallTarget) returning one / two words.
     uint32_t emit_call(const CallTarget& target, const std::vector<IRValue>& args, int reg_args);
     uint32_t emit_call2(const CallTarget& target, const std::vector<IRValue>& args,
-                        uint32_t& second, int reg_args);
+                        uint32_t& second, int reg_args, IRWidth w1 = IRWidth::I64,
+                        IRWidth w2 = IRWidth::I64);
 
     /// Check/convert the return expression against the current function's
     /// declared return type (Y1c).

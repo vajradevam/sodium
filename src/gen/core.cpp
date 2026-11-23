@@ -56,11 +56,11 @@ uint32_t Generator::emit_call(const CallTarget& target, const std::vector<IRValu
 }
 
 uint32_t Generator::emit_call2(const CallTarget& target, const std::vector<IRValue>& args,
-                               uint32_t& second, int reg_args) {
+                               uint32_t& second, int reg_args, IRWidth w1, IRWidth w2) {
     if (target.pointer) {
-        return m_ir.call2_indirect(IRValue::vreg(*target.pointer), args, second, reg_args);
+        return m_ir.call2_indirect(IRValue::vreg(*target.pointer), args, second, reg_args, w1, w2);
     }
-    return m_ir.call2(target.name, args, second, reg_args);
+    return m_ir.call2(target.name, args, second, reg_args, w1, w2);
 }
 
 const Var* Generator::find_var(const std::string& name) const {

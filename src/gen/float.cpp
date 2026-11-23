@@ -227,23 +227,6 @@ void Generator::store_float_at(uint32_t addr, FloatType ft, AssignOp op, const S
     store_float_top(addr, ft);
 }
 
-bool Generator::struct_has_float(const std::string& name) const {
-    auto it = m_struct_types.find(name);
-    if (it == m_struct_types.end()) return false;
-    for (const Type& t : it->second.field_types) {
-        if (t.kind == Type::Float) return true;
-        if (t.kind == Type::Struct && struct_has_float(t.struct_name)) return true;
-    }
-    return false;
-}
-
-void Generator::check_struct_by_value(const std::string& name, const SourceLoc& loc) const {
-    auto it = m_struct_types.find(name);
-    if (it == m_struct_types.end() || it->second.size > 16 || !struct_has_float(name)) return;
-    fail(loc, "struct '" + name + "' contains floats and cannot be passed or returned by value yet "
-                  "(pass a pointer; D-039)");
-}
-
 uint32_t Generator::emit_call_f(const CallTarget& target, const std::vector<IRValue>& args,
                                 IRWidth w, int reg_args) {
     if (target.pointer) {

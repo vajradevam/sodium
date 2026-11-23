@@ -1,6 +1,0 @@
-// A small struct that contains floats would travel in FP registers under the System V and
-// LP64D ABIs; that classification is not implemented, so by-value use is rejected (D-039).
-// EXPECT-ERROR: struct 'P' contains floats and cannot be passed or returned by value yet
-struct P { var x: f64; var y: f64; };
-function norm(p: P) -> f64 { return p.x + p.y; }
-function main() { var p: P; p.x = 1.0; print(norm(p)); return(0); }

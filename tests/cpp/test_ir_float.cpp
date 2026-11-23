@@ -352,3 +352,72 @@ TEST(float_return_value_is_placed_in_the_result_register) {
     auto r = emit_lines(g, homes, TestTarget::RiscV64);
     CHECK(has_line(r, "fld f10, -40(s0)"));
 }
+
+// ---- two-word results with register classes (X1b, D-040) ----
+
+static IRFunction ret2_function(IRWidth w0, IRWidth w1, std::map<uint32_t, Home>& homes) {
+    IRBuilder ir;
+    ir.start_function("pair");
+    auto make = [&](IRWidth w) {
+        return is_fp_width(w) ? IRValue::fvreg(ir.fconst(w, w == IRWidth::F32 ? 0x3f800000u
+                                                                              : 0x3ff0000000000000ull), w)
+                              : IRValue::vreg(ir.load_i64(7));
+    };
+    IRValue a = make(w0);
+    IRValue b = make(w1);
+    ir.ret2(a, b);
+    IRFunction f = std::move(*ir.end_function());
+    for (uint32_t v = 0; v < 2; v++) homes[v] = slot(static_cast<int>(v));
+    return f;
+}
+
+TEST(ret2_of_two_floats_uses_both_fp_result_registers) {
+    std::map<uint32_t, Home> homes;
+    IRFunction f = ret2_function(IRWidth::F64, IRWidth::F64, homes);
+    CHECK(verify_function(f).ok());
+    auto x = emit_lines(f, homes, TestTarget::X86_64);
+    CHECK(has_prefix(x, "movsd xmm0, [rbp"));
+    CHECK(has_prefix(x, "movsd xmm1, [rbp"));
+    homes.clear();
+    IRFunction g = ret2_function(IRWidth::F64, IRWidth::F64, homes);   // emit_lines rewrites in place
+    auto r = emit_lines(g, homes, TestTarget::RiscV64);
+    CHECK(has_prefix(r, "fld f10, "));
+    CHECK(has_prefix(r, "fld f11, "));
+}
+
+TEST(ret2_of_a_float_and_an_integer_uses_one_register_of_each_class) {
+    for (int order = 0; order < 2; order++) {
+        std::map<uint32_t, Home> homes;
+        IRFunction f = order == 0 ? ret2_function(IRWidth::F32, IRWidth::I64, homes)
+                                  : ret2_function(IRWidth::I64, IRWidth::F64, homes);
+        CHECK(verify_function(f).ok());
+        auto x = emit_lines(f, homes, TestTarget::X86_64);
+        CHECK(has_prefix(x, order == 0 ? "movss xmm0, [rbp" : "movsd xmm0, [rbp"));
+        CHECK(!has_prefix(x, "movsd xmm1") && !has_prefix(x, "movss xmm1"));
+        homes.clear();
+        IRFunction g = order == 0 ? ret2_function(IRWidth::F32, IRWidth::I64, homes)
+                                  : ret2_function(IRWidth::I64, IRWidth::F64, homes);
+        auto r = emit_lines(g, homes, TestTarget::RiscV64);
+        CHECK(has_prefix(r, order == 0 ? "flw f10, " : "fld f10, "));
+    }
+}
+
+TEST(call_result_pair_with_a_float_word_is_verified_and_captured_by_class) {
+    IRBuilder ir;
+    ir.start_function("caller");
+    uint32_t second = 0;
+    uint32_t first = ir.call2("callee", {}, second, -1, IRWidth::I64, IRWidth::F64);
+    ir.ret(IRValue::vreg(first));
+    IRFunction f = std::move(*ir.end_function());
+    CHECK(f.is_fp(second) && !f.is_fp(first));
+    CHECK(verify_function(f).ok());
+    // A float word recorded as an integer vreg is rejected.
+    IRBuilder bad;
+    bad.start_function("bad");
+    uint32_t s2 = 0;
+    uint32_t f1 = bad.call2("callee", {}, s2, -1, IRWidth::I64, IRWidth::F64);
+    IRFunction g = std::move(*bad.end_function());
+    g.fp_vregs.erase(s2);
+    (void)f1;
+    CHECK(!verify_function(g).ok());
+}

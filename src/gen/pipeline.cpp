@@ -125,7 +125,6 @@ void Generator::gen_func_def(const NodeFuncDef& func)
     if (func.return_type && func.return_type->kind == Type::Struct) {
         auto ret_info = get_struct_info(func.return_type->struct_name);
         if (!ret_info.has_value()) fail(func.name.loc, "Unknown struct type: " + func.return_type->struct_name);
-        check_struct_by_value(func.return_type->struct_name, func.name.loc);
         if (ret_info->size > 16) {
             uint32_t slot = alloc_object(8);
             m_ir.store_param(static_cast<int64_t>(placer.ordinal(placer.scalar())), 0,
@@ -157,8 +156,8 @@ void Generator::gen_func_def(const NodeFuncDef& func)
         if (param_type.kind == Type::Struct) {
             auto info = get_struct_info(param_type.struct_name);
             if (!info.has_value()) fail(func.params[i].loc, "Unknown struct type: " + param_type.struct_name);
-            check_struct_by_value(param_type.struct_name, func.params[i].loc);
-            const std::vector<ArgPlacement> places = place_struct_arg(placer, *info);
+            const StructPlan plan = plan_struct_arg(placer, *info);
+            const std::vector<ArgPlacement>& places = plan.places;
             if (info->size > 16 && places.size() == 1) {
                 // Passed by reference: the slot holds a pointer to the caller's copy.
                 uint32_t slot = alloc_object(8);
@@ -175,7 +174,12 @@ void Generator::gen_func_def(const NodeFuncDef& func)
                 .decl_loc = func.params[i].loc, .is_param = true, .dim_sizes = {} };
             scope.var_count += info->size;
             for (size_t w = 0; w < places.size(); w++) {
-                store_param_word(scope.vars.at(param_name), *info, w, placer.ordinal(places[w]));
+                if (!plan.pieces.empty()) {
+                    store_param_piece(scope.vars.at(param_name), *info, plan.pieces[w],
+                                      placer.ordinal(places[w]));
+                } else {
+                    store_param_word(scope.vars.at(param_name), *info, w, placer.ordinal(places[w]));
+                }
             }
             continue;
         }
