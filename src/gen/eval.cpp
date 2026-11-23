@@ -600,7 +600,14 @@ void Generator::collect_call_types()
 // ==========================================================================
 
 [[nodiscard]] std::optional<int64_t> Generator::sizeof_value(const NodeExprSizeof& sz) const {
-    if (sz.type.has_value()) return static_cast<int64_t>(type_size(*sz.type));
+    if (sz.type.has_value()) {
+        if (sz.type->kind == Type::Struct) {   // type_size() cannot see struct layouts (BF-001)
+            auto info = get_struct_info(sz.type->struct_name);
+            if (info.has_value()) return static_cast<int64_t>(info->size);
+            return std::nullopt;
+        }
+        return static_cast<int64_t>(type_size(*sz.type));
+    }
     if (!sz.struct_name.empty()) {
         auto info = get_struct_info(sz.struct_name);
         if (info.has_value()) return static_cast<int64_t>(info->size);
@@ -616,12 +623,20 @@ void Generator::collect_call_types()
                 auto found = it->vars.find(name);
                 if (found != it->vars.end()) {
                     const Var& var = found->second;
+                    // A struct variable stores its byte size in array_size (BF-001).
+                    if (var.type.kind == Type::Struct && !var.struct_type.empty()) {
+                        auto info = get_struct_info(var.struct_type);
+                        if (info.has_value()) return static_cast<int64_t>(info->size);
+                    }
                     if (var.array_size > 0)
                         return static_cast<int64_t>(var.array_size * var.elem_size);
                     t = var.type;
-                    break;
+                    return static_cast<int64_t>(type_size(t));
                 }
             }
+            // Not a variable: `sizeof(P)` where P names a struct type.
+            if (auto info = get_struct_info(name); info.has_value())
+                return static_cast<int64_t>(info->size);
         }
         return static_cast<int64_t>(type_size(t));
     }

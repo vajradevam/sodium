@@ -71,6 +71,8 @@ inline bool produces_result(IROpcode op) {
         case IROpcode::MUL:
         case IROpcode::DIV:
         case IROpcode::MOD:
+        case IROpcode::UDIV:
+        case IROpcode::UMOD:
         case IROpcode::AND:
         case IROpcode::OR:
         case IROpcode::XOR:
@@ -201,6 +203,8 @@ inline size_t operand_count_for(IROpcode op) {
         case IROpcode::MUL:
         case IROpcode::DIV:
         case IROpcode::MOD:
+        case IROpcode::UDIV:
+        case IROpcode::UMOD:
         case IROpcode::AND:
         case IROpcode::OR:
         case IROpcode::XOR:

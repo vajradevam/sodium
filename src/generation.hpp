@@ -420,6 +420,13 @@ public:
     /// Result type of an integer binary operator (D-044): an integer constant next to a typed
     /// integer takes that type when it fits, otherwise the wider operand wins (ties keep the left
     /// type). There is no promotion: `u8 + u8` is a `u8`. Non-integer operands give the default i64.
+    /// Integer division/modulo/right shift/ordered compare that honour u64 (BF-010): the other
+    /// widths hold sign- or zero-extended values, so the signed IR ops already agree with C.
+    /// With --bounds: trap ("index out of bounds") unless 0 <= index < dim. Used for loads and stores.
+    void emit_bounds_check(uint32_t index, size_t dim);
+    uint32_t emit_int_div(uint32_t a, uint32_t b, bool is_u64, bool modulo);
+    uint32_t emit_int_shr(uint32_t a, uint32_t b, bool is_u64);
+    uint32_t emit_int_cmp(IROpcode op, uint32_t a, uint32_t b, bool is_u64);
     Type int_binop_type(const NodeExpr* lhs, const NodeExpr* rhs, const Type& ta,
                         const Type& tb) const;
     /// Re-normalise the integer on top of the value stack to `t`'s width (sign- or zero-extend

@@ -465,6 +465,7 @@ void Generator::gen_stmt(const NodeStmt& stmt)
                 gen->coerce_float_top(local->type, stmt_arr_assign->name.loc, "array element assignment");
                 uint32_t fv = gen->pop_vreg();
                 uint32_t fidx = gen->pop_vreg();
+                gen->emit_bounds_check(fidx, local->dim_sizes.empty() ? local->array_size : local->dim_sizes[0]);
                 uint32_t fbase = gen->var_addr(*local);
                 uint32_t foff = gen->m_ir.mul(IRValue::vreg(fidx),
                                               IRValue::imm_i64(static_cast<int64_t>(local->elem_size)));
@@ -481,6 +482,7 @@ void Generator::gen_stmt(const NodeStmt& stmt)
                 if (it->vars.contains(name)) {
                     const auto& var = it->vars.at(name);
                     int64_t elem_bytes = static_cast<int64_t>(var.elem_size);
+                    gen->emit_bounds_check(idx, var.dim_sizes.empty() ? var.array_size : var.dim_sizes[0]);
                     uint32_t base_addr = gen->var_addr(var);
                     uint32_t offset = gen->m_ir.mul(IRValue::vreg(idx), IRValue::imm_i64(elem_bytes));
                     uint32_t elem_addr = gen->m_ir.add(IRValue::vreg(base_addr), IRValue::vreg(offset));
@@ -494,6 +496,8 @@ void Generator::gen_stmt(const NodeStmt& stmt)
                 }
             }
             if (gen->m_global_var_info.contains(name)) {
+                const Var& gvar = gen->m_global_var_info.at(name);
+                if (gvar.array_size > 0) gen->emit_bounds_check(idx, gvar.array_size);
                 uint32_t base_addr = gen->m_ir.lea_label(name);
                 uint32_t offset = gen->m_ir.mul(IRValue::vreg(idx), IRValue::imm_i64(8));
                 uint32_t elem_addr = gen->m_ir.add(IRValue::vreg(base_addr), IRValue::vreg(offset));
@@ -755,13 +759,13 @@ void Generator::gen_stmt(const NodeStmt& stmt)
                     case AssignOp::add_assign:     result = gen->m_ir.add(IRValue::vreg(old_val), IRValue::vreg(rhs)); break;
                     case AssignOp::sub_assign:     result = gen->m_ir.sub(IRValue::vreg(old_val), IRValue::vreg(rhs)); break;
                     case AssignOp::mul_assign:     result = gen->m_ir.mul(IRValue::vreg(old_val), IRValue::vreg(rhs)); break;
-                    case AssignOp::div_assign:     result = gen->m_ir.div(IRValue::vreg(old_val), IRValue::vreg(rhs)); break;
-                    case AssignOp::mod_assign:     result = gen->m_ir.mod(IRValue::vreg(old_val), IRValue::vreg(rhs)); break;
+                    case AssignOp::div_assign:     result = gen->emit_int_div(old_val, rhs, field_type == Type::make_int(IntType::u64), false); break;
+                    case AssignOp::mod_assign:     result = gen->emit_int_div(old_val, rhs, field_type == Type::make_int(IntType::u64), true); break;
                     case AssignOp::bitand_assign:  result = gen->m_ir.and_(IRValue::vreg(old_val), IRValue::vreg(rhs)); break;
                     case AssignOp::bitor_assign:   result = gen->m_ir.or_(IRValue::vreg(old_val), IRValue::vreg(rhs)); break;
                     case AssignOp::bitxor_assign:  result = gen->m_ir.xor_(IRValue::vreg(old_val), IRValue::vreg(rhs)); break;
                     case AssignOp::shl_assign:     result = gen->m_ir.shl(IRValue::vreg(old_val), IRValue::vreg(rhs)); break;
-                    case AssignOp::shr_assign:     result = gen->m_ir.ashr(IRValue::vreg(old_val), IRValue::vreg(rhs)); break;
+                    case AssignOp::shr_assign:     result = gen->emit_int_shr(old_val, rhs, field_type == Type::make_int(IntType::u64)); break;
                     default: break;
                 }
                 if (field_type.kind == Type::Int && field_size < 8) {
@@ -873,13 +877,13 @@ void Generator::gen_stmt(const NodeStmt& stmt)
                     case AssignOp::add_assign:     result = gen->m_ir.add(IRValue::vreg(old_val), IRValue::vreg(rhs)); break;
                     case AssignOp::sub_assign:     result = gen->m_ir.sub(IRValue::vreg(old_val), IRValue::vreg(rhs)); break;
                     case AssignOp::mul_assign:     result = gen->m_ir.mul(IRValue::vreg(old_val), IRValue::vreg(rhs)); break;
-                    case AssignOp::div_assign:     result = gen->m_ir.div(IRValue::vreg(old_val), IRValue::vreg(rhs)); break;
-                    case AssignOp::mod_assign:     result = gen->m_ir.mod(IRValue::vreg(old_val), IRValue::vreg(rhs)); break;
+                    case AssignOp::div_assign:     result = gen->emit_int_div(old_val, rhs, field_type == Type::make_int(IntType::u64), false); break;
+                    case AssignOp::mod_assign:     result = gen->emit_int_div(old_val, rhs, field_type == Type::make_int(IntType::u64), true); break;
                     case AssignOp::bitand_assign:  result = gen->m_ir.and_(IRValue::vreg(old_val), IRValue::vreg(rhs)); break;
                     case AssignOp::bitor_assign:   result = gen->m_ir.or_(IRValue::vreg(old_val), IRValue::vreg(rhs)); break;
                     case AssignOp::bitxor_assign:  result = gen->m_ir.xor_(IRValue::vreg(old_val), IRValue::vreg(rhs)); break;
                     case AssignOp::shl_assign:     result = gen->m_ir.shl(IRValue::vreg(old_val), IRValue::vreg(rhs)); break;
-                    case AssignOp::shr_assign:     result = gen->m_ir.ashr(IRValue::vreg(old_val), IRValue::vreg(rhs)); break;
+                    case AssignOp::shr_assign:     result = gen->emit_int_shr(old_val, rhs, field_type == Type::make_int(IntType::u64)); break;
                     default: break;
                 }
                 if (field_type.kind == Type::Int && field_size < 8) {
@@ -947,13 +951,13 @@ void Generator::gen_stmt(const NodeStmt& stmt)
                     case AssignOp::add_assign:     result = gen->m_ir.add(IRValue::vreg(old_val), IRValue::vreg(rhs)); break;
                     case AssignOp::sub_assign:     result = gen->m_ir.sub(IRValue::vreg(old_val), IRValue::vreg(rhs)); break;
                     case AssignOp::mul_assign:     result = gen->m_ir.mul(IRValue::vreg(old_val), IRValue::vreg(rhs)); break;
-                    case AssignOp::div_assign:     result = gen->m_ir.div(IRValue::vreg(old_val), IRValue::vreg(rhs)); break;
-                    case AssignOp::mod_assign:     result = gen->m_ir.mod(IRValue::vreg(old_val), IRValue::vreg(rhs)); break;
+                    case AssignOp::div_assign:     result = gen->emit_int_div(old_val, rhs, (ptr_type.kind == Type::Ptr && ptr_type.pointee && *ptr_type.pointee == Type::make_int(IntType::u64)), false); break;
+                    case AssignOp::mod_assign:     result = gen->emit_int_div(old_val, rhs, (ptr_type.kind == Type::Ptr && ptr_type.pointee && *ptr_type.pointee == Type::make_int(IntType::u64)), true); break;
                     case AssignOp::bitand_assign:  result = gen->m_ir.and_(IRValue::vreg(old_val), IRValue::vreg(rhs)); break;
                     case AssignOp::bitor_assign:   result = gen->m_ir.or_(IRValue::vreg(old_val), IRValue::vreg(rhs)); break;
                     case AssignOp::bitxor_assign:  result = gen->m_ir.xor_(IRValue::vreg(old_val), IRValue::vreg(rhs)); break;
                     case AssignOp::shl_assign:     result = gen->m_ir.shl(IRValue::vreg(old_val), IRValue::vreg(rhs)); break;
-                    case AssignOp::shr_assign:     result = gen->m_ir.ashr(IRValue::vreg(old_val), IRValue::vreg(rhs)); break;
+                    case AssignOp::shr_assign:     result = gen->emit_int_shr(old_val, rhs, (ptr_type.kind == Type::Ptr && ptr_type.pointee && *ptr_type.pointee == Type::make_int(IntType::u64))); break;
                     default: break;
                 }
                 typed_store(ptr, result, elem_size);

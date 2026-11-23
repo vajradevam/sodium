@@ -1,0 +1,10 @@
+// User functions may be named like machine registers (r8, rax, ax / a0, sp, ra, t1) on both targets.
+// EXPECT-EXIT: 0
+// EXPECT-STDOUT: 25
+
+function a0() -> i64 { return 3; }
+function sp() -> i64 { return 4; }
+function ra() -> i64 { return 5; }
+function rax() -> i64 { return 6; }
+function r8() -> i64 { return 7; }
+function main() { print(a0() + sp() + ra() + rax() + r8()); return(0); }

@@ -1,4 +1,4 @@
-// BF-001: sizeof(struct) is wrong on both targets.
+// BF-001 (fixed): sizeof(struct) is wrong on both targets.
 // A struct with two i64 fields is 16 bytes in C (natural alignment, no padding
 // needed). sizeof of both the type and a variable of that type must be 16.
 // Actual on compiler a1ec4d9: 8 for the type, 128 for either variable.

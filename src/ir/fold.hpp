@@ -123,6 +123,13 @@ inline bool try_fold_constant(const IRInstruction& insn,
             if (b == 0 || (a == std::numeric_limits<int64_t>::min() && b == -1)) return false;
             out = (insn.op == Op::DIV) ? a / b : a % b;
             return true;
+        case Op::UDIV:
+        case Op::UMOD:
+            if (b == 0) return false;
+            out = static_cast<int64_t>(insn.op == Op::UDIV
+                                           ? static_cast<uint64_t>(a) / static_cast<uint64_t>(b)
+                                           : static_cast<uint64_t>(a) % static_cast<uint64_t>(b));
+            return true;
         case Op::CMP_EQ: out = a == b; return true;
         case Op::CMP_NE: out = a != b; return true;
         case Op::CMP_LT: out = a < b;  return true;

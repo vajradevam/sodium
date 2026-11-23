@@ -1,0 +1,16 @@
+// sizeof of a struct type, a struct variable and a struct containing padding (BF-001).
+// EXPECT-EXIT: 0
+// COMPILE-FLAGS: -w
+// EXPECT-STDOUT: 24
+// EXPECT-STDOUT: 24
+// EXPECT-STDOUT: 8
+
+struct Q { var a: i8; var b: i64; var c: i8; };
+
+function main() {
+    var q: Q;
+    print(sizeof(Q));
+    print(sizeof(q));
+    print(sizeof(Q*));
+    return(0);
+}

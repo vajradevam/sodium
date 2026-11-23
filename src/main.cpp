@@ -1,5 +1,8 @@
 #include <cstdlib>
 #include <iostream>
+#include <sys/resource.h>
+#include <unistd.h>
+#include <cstdlib>
 #include <fstream>
 #include <sstream>
 #include <optional>
@@ -124,7 +127,7 @@ static void print_man_page() {
         "sodium " SODIUM_VERSION << std::endl;
 }
 
-int main(int argc, char* argv[]) {
+static int sodium_main(int argc, char* argv[]) {
 
     // ── `sodium fmt` subcommand (D-042) ──────────────────────────────
     if (argc > 1 && std::strcmp(argv[1], "fmt") == 0) {
@@ -616,4 +619,24 @@ int main(int argc, char* argv[]) {
     delete tri;
 
     return EXIT_SUCCESS;
+}
+
+// The parser and generator recurse once per nesting level, so a deeply nested but valid
+// program overflowed the default 8 MiB stack (BF-007). Raise the stack limit to 1 GiB (reserved,
+// not committed) and re-exec once so the new limit applies to the main thread.
+int main(int argc, char* argv[]) {
+    constexpr rlim_t want = rlim_t{1} << 30;
+    struct rlimit lim;
+    if (std::getenv("SODIUM_STACK_RAISED") == nullptr && getrlimit(RLIMIT_STACK, &lim) == 0 &&
+        lim.rlim_cur != RLIM_INFINITY && lim.rlim_cur < want) {
+        const rlim_t target = (lim.rlim_max == RLIM_INFINITY || lim.rlim_max >= want) ? want : lim.rlim_max;
+        if (target > lim.rlim_cur) {
+            lim.rlim_cur = target;
+            if (setrlimit(RLIMIT_STACK, &lim) == 0) {
+                setenv("SODIUM_STACK_RAISED", "1", 1);
+                execv("/proc/self/exe", argv);   // on failure just carry on with the old stack
+            }
+        }
+    }
+    return sodium_main(argc, argv);
 }

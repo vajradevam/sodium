@@ -1,4 +1,4 @@
-// BF-011: at -O1 the riscv64 backend emits spill-store offsets beyond the
+// BF-011 (fixed): at -O1 the riscv64 backend emits spill-store offsets beyond the
 // 12-bit signed immediate range of sd/ld (e.g. sd t0,-2072(s0)), so the
 // assembler rejects the generated code. x86_64 compiles and prints 1198.
 // The 120-term version in tests/edge/ passes on both targets.

@@ -129,6 +129,12 @@ public:
     virtual void signed_mod(const std::string& dst, const std::string& dividend,
                             const std::string& divisor) = 0;
 
+    /// Unsigned 64-bit division / modulo (u64 values; the zero-divisor check matches the signed ones).
+    virtual void unsigned_div(const std::string& dst, const std::string& dividend,
+                              const std::string& divisor) = 0;
+    virtual void unsigned_mod(const std::string& dst, const std::string& dividend,
+                              const std::string& divisor) = 0;
+
     virtual void neg(const std::string& reg) = 0;
     virtual void not_(const std::string& reg) = 0;
     virtual void xor_(const std::string& dst, const std::string& src) = 0;

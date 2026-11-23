@@ -546,3 +546,15 @@ there is no integer promotion and no silent narrowing.
   `x as i64 * n`: the parser reads `i64 *` as a pointer type.
 - This supersedes the promotion rule of D-039. Implementation: `Generator::int_binop_type`,
   `wrap_int_top`, `finish_int_binop` (src/gen/typed.cpp).
+
+## D-045 u64 is unsigned; wide immediates; compiler stack (Y11)
+`u64` division, remainder and `>>` use new unsigned IR ops (`udiv`, `umod`, `shr`), and ordered
+compares flip the sign bit of both operands first. `u8`/`u16`/`u32` already hold zero-extended
+values, so the signed ops stay correct for them. Integer casts re-normalise to the target type.
+riscv64 signed `div`/`rem` exit 136 on `INT64_MIN / -1` to match x86_64's trap (D-023). Loads and
+stores whose displacement exceeds 12 bits on riscv64, and and/or/xor with a wider-than-32-bit
+immediate, go through a scratch register. Function symbols are escaped with `$` in NASM output so
+a function may be called `r8` or `rax`. The compiler runs on a 1 GiB stack thread and the parser
+caps nesting at 20000 levels. In a cast, `x as T * y` multiplies; `as T*` before a delimiter is a
+pointer cast. Open: initialising or assigning a non-constant wider integer to a narrower variable is
+still silent (returns and arguments are strict).

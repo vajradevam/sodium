@@ -170,7 +170,8 @@ inline LiveRanges compute_live_ranges(const IRFunction& func) {
             if (insn.op == IROpcode::ASM) {
                 for (int preg : insn.asm_clobbers) asm_clobbers[idx].insert(preg);
             }
-            if (insn.op == IROpcode::DIV || insn.op == IROpcode::MOD) div_positions.insert(idx);
+            if (insn.op == IROpcode::DIV || insn.op == IROpcode::MOD ||
+                insn.op == IROpcode::UDIV || insn.op == IROpcode::UMOD) div_positions.insert(idx);
             if (insn.dst != IRInstruction::NONE_VREG) extend(insn.dst, idx);
             if (insn.dst2 != IRInstruction::NONE_VREG) extend(insn.dst2, idx);
             for (const auto& op : insn.operands) {

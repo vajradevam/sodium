@@ -459,14 +459,16 @@ void Generator::gen_expr(const NodeExpr& expr)
             }
             if (from.kind == Type::Int && to.kind == Type::Int) {
                 size_t src_sz = type_size(from), dst_sz = type_size(to);
-                if (dst_sz < src_sz) {
-                    if (dst_sz <= 1)      v = gen->m_ir.and_(IRValue::vreg(v), IRValue::imm_i64(0xFF));
-                    else if (dst_sz <= 2) v = gen->m_ir.and_(IRValue::vreg(v), IRValue::imm_i64(0xFFFF));
-                    else                  v = gen->m_ir.zext(IRValue::vreg(v), IRWidth::I32);
-                } else if (dst_sz > src_sz) {
+                if (dst_sz > src_sz) {
                     v = int_signed(from.int_type)
                             ? gen->m_ir.sext(IRValue::vreg(v), width_of_int(from.int_type))
                             : gen->m_ir.zext(IRValue::vreg(v), width_of_int(from.int_type));
+                } else if (dst_sz < 8 && (dst_sz < src_sz || int_signed(from.int_type) != int_signed(to.int_type))) {
+                    // Narrowing or a signedness change: re-normalise to the target (BF-008), so a
+                    // signed target holds its sign-extended value and an unsigned one its zero-extended one.
+                    gen->push_vreg(v);
+                    gen->wrap_int_top(to);
+                    v = gen->pop_vreg();
                 }
             }
             gen->push_vreg(v);
@@ -699,7 +701,7 @@ void Generator::gen_expr(const NodeExpr& expr)
             }
             if (indirect) {
                 gen->check_call_args(*expr_call, expr_call->name.loc, fname, param_types, param_types.size());
-            } else if (gen->has_declared_param_types(fname)) {
+            } else {
                 gen->check_call_args(*expr_call, expr_call->name.loc, fname, param_types,
                                      callee->params.size());
             }
@@ -949,7 +951,7 @@ void Generator::gen_expr(const NodeExpr& expr)
                     uint32_t b = gen->pop_vreg();
                     const Type type_a = gen->peek_type();
                     uint32_t a = gen->pop_vreg();
-                    uint32_t v = gen->m_ir.div(IRValue::vreg(a), IRValue::vreg(b));
+                    uint32_t v = gen->emit_int_div(a, b, gen->int_binop_type(div->lhs, div->rhs, type_a, type_b) == Type::make_int(IntType::u64), false);
                     gen->push_vreg(v);
                     gen->finish_int_binop(div->lhs, div->rhs, type_a, type_b, true);
                 }
@@ -963,7 +965,7 @@ void Generator::gen_expr(const NodeExpr& expr)
                     uint32_t b = gen->pop_vreg();
                     const Type type_a = gen->peek_type();
                     uint32_t a = gen->pop_vreg();
-                    uint32_t v = gen->m_ir.mod(IRValue::vreg(a), IRValue::vreg(b));
+                    uint32_t v = gen->emit_int_div(a, b, gen->int_binop_type(mod->lhs, mod->rhs, type_a, type_b) == Type::make_int(IntType::u64), true);
                     gen->push_vreg(v);
                     gen->finish_int_binop(mod->lhs, mod->rhs, type_a, type_b, false);
                 }
@@ -974,9 +976,12 @@ void Generator::gen_expr(const NodeExpr& expr)
                         gen->gen_float_compare(IROpcode::FCMP_LT, expr_source_loc(*lt->lhs), "<");
                         return;
                     }
+                    const Type type_b = gen->peek_type();
                     uint32_t b = gen->pop_vreg();
+                    const Type type_a = gen->peek_type();
                     uint32_t a = gen->pop_vreg();
-                    uint32_t v = gen->m_ir.cmp_lt(IRValue::vreg(a), IRValue::vreg(b));
+                    const bool u64 = gen->int_binop_type(lt->lhs, lt->rhs, type_a, type_b) == Type::make_int(IntType::u64);
+                    uint32_t v = gen->emit_int_cmp(IROpcode::CMP_LT, a, b, u64);
                     gen->push_vreg(v);
                 }
                 void operator()(const BinExprGT* gt) {
@@ -986,9 +991,12 @@ void Generator::gen_expr(const NodeExpr& expr)
                         gen->gen_float_compare(IROpcode::FCMP_GT, expr_source_loc(*gt->lhs), ">");
                         return;
                     }
+                    const Type type_b = gen->peek_type();
                     uint32_t b = gen->pop_vreg();
+                    const Type type_a = gen->peek_type();
                     uint32_t a = gen->pop_vreg();
-                    uint32_t v = gen->m_ir.cmp_gt(IRValue::vreg(a), IRValue::vreg(b));
+                    const bool u64 = gen->int_binop_type(gt->lhs, gt->rhs, type_a, type_b) == Type::make_int(IntType::u64);
+                    uint32_t v = gen->emit_int_cmp(IROpcode::CMP_GT, a, b, u64);
                     gen->push_vreg(v);
                 }
                 void operator()(const BinExprEQ* eq) {
@@ -1022,9 +1030,12 @@ void Generator::gen_expr(const NodeExpr& expr)
                         gen->gen_float_compare(IROpcode::FCMP_LE, expr_source_loc(*lte->lhs), "<=");
                         return;
                     }
+                    const Type type_b = gen->peek_type();
                     uint32_t b = gen->pop_vreg();
+                    const Type type_a = gen->peek_type();
                     uint32_t a = gen->pop_vreg();
-                    uint32_t v = gen->m_ir.cmp_le(IRValue::vreg(a), IRValue::vreg(b));
+                    const bool u64 = gen->int_binop_type(lte->lhs, lte->rhs, type_a, type_b) == Type::make_int(IntType::u64);
+                    uint32_t v = gen->emit_int_cmp(IROpcode::CMP_LE, a, b, u64);
                     gen->push_vreg(v);
                 }
                 void operator()(const BinExprGTE* gte) {
@@ -1034,9 +1045,12 @@ void Generator::gen_expr(const NodeExpr& expr)
                         gen->gen_float_compare(IROpcode::FCMP_GE, expr_source_loc(*gte->lhs), ">=");
                         return;
                     }
+                    const Type type_b = gen->peek_type();
                     uint32_t b = gen->pop_vreg();
+                    const Type type_a = gen->peek_type();
                     uint32_t a = gen->pop_vreg();
-                    uint32_t v = gen->m_ir.cmp_ge(IRValue::vreg(a), IRValue::vreg(b));
+                    const bool u64 = gen->int_binop_type(gte->lhs, gte->rhs, type_a, type_b) == Type::make_int(IntType::u64);
+                    uint32_t v = gen->emit_int_cmp(IROpcode::CMP_GE, a, b, u64);
                     gen->push_vreg(v);
                 }
                 void operator()(const BinExprAnd* and_op) {
@@ -1134,7 +1148,7 @@ void Generator::gen_expr(const NodeExpr& expr)
                     // Cyan integers are signed i64 by default: >> is arithmetic.
                     // Unsigned values are stored as non-negative 64-bit values, so
                     // ASHR gives the same result as SHR for them.
-                    uint32_t v = gen->m_ir.ashr(IRValue::vreg(a), IRValue::vreg(b));
+                    uint32_t v = gen->emit_int_shr(a, b, type_a == Type::make_int(IntType::u64));
                     gen->push_vreg(v);
                     gen->finish_int_binop(shr_op->lhs, shr_op->rhs, type_a, type_a, false);
                 }
@@ -1236,13 +1250,7 @@ uint32_t Generator::index_addr(const NodeExprIndex& index, Type& out_type) {
         gen_expr(*indices[k]);
         require_not_float(index.name.loc, "an array index");
         uint32_t v = pop_vreg();
-        if (m_bounds_check) {
-            const uint32_t lower = m_ir.cmp_ge(IRValue::vreg(v), IRValue::imm_i64(0));
-            const uint32_t upper = m_ir.cmp_lt(
-                IRValue::vreg(v), IRValue::imm_i64(static_cast<int64_t>(dims[k])));
-            const uint32_t in_range = m_ir.and_(IRValue::vreg(lower), IRValue::vreg(upper));
-            emit_runtime_check(IRValue::vreg(in_range), "index out of bounds\n");
-        }
+        emit_bounds_check(v, dims[k]);
         uint32_t scaled = m_ir.mul(IRValue::vreg(v),
                                    IRValue::imm_i64(static_cast<int64_t>(strides[k])));
         offset = have_offset ? m_ir.add(IRValue::vreg(offset), IRValue::vreg(scaled)) : scaled;

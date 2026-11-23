@@ -1,4 +1,4 @@
-// BF-002: a hexadecimal literal that needs more than 64 bits must be a compile
+// BF-002 (fixed): a hexadecimal literal that needs more than 64 bits must be a compile
 // error, just like the equivalent decimal literal. The tokenizer wraps the
 // accumulated uint64_t instead, so 0x10000000000000000 silently becomes 0.
 // EXPECT-ERROR: out of range for 64-bit signed integer

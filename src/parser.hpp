@@ -482,7 +482,7 @@ public:
     NodeEnumDef*            parse_enum_def();
     std::optional<IntType>  parse_type();
     /// Parse an integer type with any number of trailing '*' pointer levels.
-    std::optional<Type>     parse_full_type();
+    std::optional<Type>     parse_full_type(bool in_cast = false);
     Type                    parse_fn_type();
     std::optional<std::string> parse_struct_type_name();
 
@@ -495,6 +495,8 @@ private:
     Token consume();
 
     [[noreturn]] void error(const std::string& msg);
+    /// Report excessive nesting and stop; unwinding a recursion this deep is not worth recovering from.
+    [[noreturn]] void nesting_too_deep();
 
     /// Warn when an '=' appears where a comparison was meant in a condition.
     void warn_assignment_in_condition();
@@ -508,6 +510,16 @@ private:
 
     const std::vector<Token> m_tokens;
     size_t m_index = 0;
+    /// Nesting depth of expressions/blocks; bounded so hostile input gets a diagnostic, not a crash.
+    size_t m_depth = 0;
+    static constexpr size_t kMaxNesting = 20000;
+    struct DepthGuard {
+        Parser& p;
+        explicit DepthGuard(Parser& parser) : p(parser) {
+            if (++p.m_depth > kMaxNesting) p.nesting_too_deep();
+        }
+        ~DepthGuard() { --p.m_depth; }
+    };
     ArenaAllocator m_allocator;
     DiagnosticEngine m_diag;
 

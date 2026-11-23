@@ -53,6 +53,12 @@ public:
     void mul(const std::string& dst, const std::string& src) override;
     void signed_div(const std::string& dst, const std::string& dividend,
                     const std::string& divisor) override;
+    bool emit_wide_mem(const std::string& insn, const std::string& ops);
+    void emit_div_checks(const std::string& dividend, const std::string& divisor);
+    void unsigned_div(const std::string& dst, const std::string& dividend,
+                      const std::string& divisor) override;
+    void unsigned_mod(const std::string& dst, const std::string& dividend,
+                      const std::string& divisor) override;
     void signed_mod(const std::string& dst, const std::string& dividend,
                     const std::string& divisor) override;
     void neg(const std::string& reg) override;

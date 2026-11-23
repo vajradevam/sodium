@@ -1,4 +1,4 @@
-// BF-005: including an empty file is valid (a C preprocessor accepts it). The
+// BF-005 (fixed): including an empty file is valid (a C preprocessor accepts it). The
 // compiler mistakes an empty file for a missing file and reports an error.
 // EXPECT-EXIT: 0
 // EXPECT-STDOUT: 7

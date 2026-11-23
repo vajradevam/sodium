@@ -1,0 +1,12 @@
+// --bounds guards array stores of every element kind (BF-012).
+// COMPILE-FLAGS: --bounds
+// EXPECT-EXIT: 70
+
+function main() {
+    var a[4];
+    var i = 3;
+    a[i] = 1;
+    i = i + 1;
+    a[i] = 2;
+    return(0);
+}

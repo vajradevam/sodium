@@ -1,4 +1,4 @@
-// BF-004: an #include cycle without #pragma once / include guards must be
+// BF-004 (fixed): an #include cycle without #pragma once / include guards must be
 // diagnosed, not recursed into forever until the compiler stack overflows.
 // EXPECT-ERROR: include cycle
 

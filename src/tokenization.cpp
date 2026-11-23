@@ -423,6 +423,15 @@ std::vector<Token> Tokenizer::tokenize() {
 
                 // Convert hex string to uint64_t, then to decimal string
                 uint64_t val = 0;
+                size_t sig = 0; // significant digits after leading zeros
+                while (sig < hex_buf.size() && hex_buf[sig] == '0') sig++;
+                if (hex_buf.size() - sig > 16) {
+                    m_diag.error(tok_loc, "Integer literal '0x" + hex_buf +
+                                              "' out of range for 64-bit signed integer");
+                    if (g_lsp_mode) throw LSPAbort();
+                    std::cerr << DiagnosticEngine::render(m_diag.diagnostics().back());
+                    exit(EXIT_FAILURE);
+                }
                 for (char c : hex_buf) {
                     val *= 16;
                     if (c >= '0' && c <= '9')
@@ -601,12 +610,20 @@ std::vector<Token> Tokenizer::tokenize() {
             }
             else if (peek(1).has_value() && peek(1).value() == '*') {
                 consume(); consume();
+                bool closed = false;
                 while (peek().has_value()) {
                     if (peek().value() == '*' && peek(1).has_value() && peek(1).value() == '/') {
                         consume(); consume();
+                        closed = true;
                         break;
                     }
                     consume();
+                }
+                if (!closed) {
+                    m_diag.error(loc, "Unterminated block comment (missing '*/')");
+                    if (g_lsp_mode) throw LSPAbort();
+                    std::cerr << DiagnosticEngine::render(m_diag.diagnostics().back());
+                    exit(EXIT_FAILURE);
                 }
                 continue;
             }

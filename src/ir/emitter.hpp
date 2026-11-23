@@ -204,6 +204,16 @@ public:
                                      operand_name(insn, 1));
                 break;
 
+            case IROpcode::UDIV:
+                m_backend.unsigned_div(preg_name(insn.dst), operand_name(insn, 0),
+                                       operand_name(insn, 1));
+                break;
+
+            case IROpcode::UMOD:
+                m_backend.unsigned_mod(preg_name(insn.dst), operand_name(insn, 0),
+                                       operand_name(insn, 1));
+                break;
+
             case IROpcode::AND:
                 m_backend.mov(preg_name(insn.dst), operand_name(insn, 0));
                 m_backend.and_(preg_name(insn.dst), operand_name(insn, 1));

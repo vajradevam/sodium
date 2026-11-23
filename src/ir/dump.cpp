@@ -28,6 +28,8 @@ const char* ir_opcode_name(IROpcode op) {
         case IROpcode::MUL:         return "mul";
         case IROpcode::DIV:         return "div";
         case IROpcode::MOD:         return "mod";
+        case IROpcode::UDIV:        return "udiv";
+        case IROpcode::UMOD:        return "umod";
         case IROpcode::AND:         return "and";
         case IROpcode::OR:          return "or";
         case IROpcode::XOR:         return "xor";
@@ -349,6 +351,8 @@ size_t IRInstruction::operand_count() const {
         case IROpcode::MUL:
         case IROpcode::DIV:
         case IROpcode::MOD:
+        case IROpcode::UDIV:
+        case IROpcode::UMOD:
         case IROpcode::AND:
         case IROpcode::OR:
         case IROpcode::XOR:

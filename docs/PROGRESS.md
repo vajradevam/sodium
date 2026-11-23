@@ -699,3 +699,7 @@ larger stack frames crash at ~800; the 5000-level crashing case remains in xfail
 Known limits recorded but not filed: target-specific float→int out-of-range results (D-038),
 shift counts >= 64, entry-SP-only stack probing, and null checks on null-base-plus-offset.
 The first unchecked task of the next phase is Phase 8 B1 (Backend interface audit).
+
+## 2026-11-24 — Y11: fix every Phase T bug (BF-001..BF-012) plus register-named functions and `as T * n`
+All twelve xfail reproducers now pass and live in `tests/regress/`; new regression tests for u64
+ops, cast signedness, struct sizeof, nesting limit, register-named functions and cast-then-multiply.
