@@ -85,6 +85,10 @@ step "semantic error recovery (multiple functions)"
 ./scripts/test_semantic_recovery.sh > build/last_semerrors.log 2>&1 || die "semantic recovery (see build/last_semerrors.log)"
 tail -1 build/last_semerrors.log
 
+step "single mistake produces a single diagnostic (no cascade)"
+./scripts/test_no_cascade.sh > build/last_nocascade.log 2>&1 || die "no-cascade diagnostics (see build/last_nocascade.log)"
+tail -1 build/last_nocascade.log
+
 step "LSP protocol diagnostics (multiple severities)"
 python3 tests/lsp/test_lsp_diagnostics.py ./build/cyan-lsp > build/last_lsp.log 2>&1 || die "LSP diagnostics (see build/last_lsp.log)"
 tail -1 build/last_lsp.log

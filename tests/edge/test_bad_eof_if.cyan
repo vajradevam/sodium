@@ -1,0 +1,5 @@
+// T-3: EOF inside an if condition is diagnosed.
+// EXPECT-ERROR: Expected expression in if condition
+
+function main() {
+    if (

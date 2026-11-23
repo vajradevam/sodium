@@ -609,3 +609,15 @@ compiler (critical), BF-005 empty include reported as unreadable (low). Their xf
 `tests/xfail/`; `scripts/xfail.sh` reports 10 still-failing cases (BF-001..BF-005 × 2 targets).
 `sweep.sh` excludes `tests/xfail/` so the known crash cannot break the gate. Tests before → after:
 776 / 794 run-equivalents → 800 / 818. No compiler code changed.
+
+## 2026-11-23 — T-3 parser/diagnostics edge tests; BF-006 and BF-007 found
+Added 17 passing test sources (`tests/edge/`, 34 cases on both targets): a C-cross-checked
+precedence/associativity matrix, 1600-deep parentheses plus 120 nested ifs, and 15 EOF/truncation
+diagnostics (if, while, for, var, return, print, struct, type, switch, call, cast, index, field,
+asm, string). Added `scripts/test_no_cascade.sh` to check.sh (3 single-mistake cases × 2 targets,
+exactly one `error:` each). Found two more bugs: BF-006 untyped calls accept any argument count
+(high, silent wrong code) and BF-007 ~3000 nested parentheses crash the compiler (medium). Both
+have xfail tests; `scripts/xfail.sh` now reports 14 still-failing cases. The first gate run
+exposed that `fuzz_smoke.sh` mutated the BF-007 xfail file and rediscovered its crash, so the
+fuzz corpus now excludes `tests/xfail/` just like the runner and sweep. Tests before → after:
+800 / 818 run-equivalents → 834 / 852. No compiler code changed.

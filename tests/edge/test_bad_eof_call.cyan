@@ -1,0 +1,9 @@
+// T-3: EOF in a call argument list is diagnosed.
+// EXPECT-ERROR: Expected ')' after function arguments
+
+function f(a, b) {
+    return(a + b);
+}
+
+function main() {
+    f(1

@@ -216,7 +216,7 @@ Merge into `main` with `--no-ff` only after `check.sh --full` passes at T-8. Do 
 - [x] **T-2 Lexer/preprocessor edges.** Number limits (i64/u64 boundaries, overflow), malformed
   literals, string escapes, unterminated strings/comments, `#include` cycles, macro recursion, empty
   and very large input. Positive/negative tests on both targets; diagnostics assert a substring.
-- [ ] **T-3 Parser/diagnostics edges.** Deep nesting, precedence/associativity, error recovery with no
+- [x] **T-3 Parser/diagnostics edges.** Deep nesting, precedence/associativity, error recovery with no
   cascades, EOF inside every construct. Tests on both targets; compile-error tests assert a substring.
 - [ ] **T-4 Types/semantics extremes.** Casts across all width/sign pairs, shifts by 0/63/64,
   MIN/-1, modulo signs, float NaN/inf/-0/denormals, int<->float limits, pointer arithmetic, structs,

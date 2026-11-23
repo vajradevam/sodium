@@ -111,3 +111,35 @@ edge case, **low** = cosmetic/diagnostic quality.
   empty string both for a missing file and for a legitimately empty file, and the caller treats
   either as failure.
 * **xfail test path:** `tests/xfail/bf005_empty_include.cyan`
+
+## BF-006 — Untyped (legacy) functions accept the wrong number of arguments
+
+* **Severity:** high (silently compiles wrong code)
+* **Targets affected:** x86_64 and riscv64
+* **Found on compiler commit:** `a1ec4d935f01b58a4a22d259101b7f2b2f7a78af`
+* **Minimal reproducer:** `tests/xfail/bf006_untyped_call_arity.cyan`
+  ```
+  function f(a, b) { return(a + b); }
+  function main() { print(f(1)); return(0); }
+  ```
+* **Expected:** a compile error containing `wrong number of arguments` (typed functions already
+  produce `wrong number of arguments to 'f': expected N, got M`).
+* **Actual:** compiles and prints `1` — the missing parameter reads as zero. Calling with too
+  many arguments (`f(1, 2, 3)`) also compiles and prints `3`, silently discarding the extra value.
+* **Notes:** `Generator::check_call_args` is only called when a function has at least one typed
+  parameter (`has_typed_params`), so every purely-untyped function skips arity and type checking.
+* **xfail test path:** `tests/xfail/bf006_untyped_call_arity.cyan`
+
+## BF-007 — Deep parenthesis nesting overflows the compiler stack
+
+* **Severity:** medium (compiler crash on valid input; no diagnostic)
+* **Targets affected:** x86_64 and riscv64 (parser is shared)
+* **Found on compiler commit:** `a1ec4d935f01b58a4a22d259101b7f2b2f7a78af`
+* **Minimal reproducer:** `tests/xfail/bf007_deep_nesting_crash.cyan`, a `print` of `1` wrapped in
+  5000 nested parentheses.
+* **Expected:** compiles and prints `1` (1600 nested parentheses already do).
+* **Actual:** the compiler dies with SIGSEGV (exit 139); 2500 levels compile, 3000 crash. Deep
+  nested `if` blocks do not show the problem at the tested depths.
+* **Notes:** a nesting-depth limit with a source diagnostic would also be acceptable; a crash is
+  not. The passing regression uses 1600 levels (`tests/edge/test_parse_deep_nesting.cyan`).
+* **xfail test path:** `tests/xfail/bf007_deep_nesting_crash.cyan`

@@ -1,0 +1,5 @@
+// T-3: EOF in a return expression is diagnosed.
+// EXPECT-ERROR: Expected expression
+
+function main() {
+    return(

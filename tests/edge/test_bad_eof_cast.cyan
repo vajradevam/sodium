@@ -1,0 +1,5 @@
+// T-3: EOF after 'as' is diagnosed.
+// EXPECT-ERROR: Expected type after 'as'
+
+function main() {
+    var x = 1 as
