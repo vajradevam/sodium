@@ -1,0 +1,11 @@
+// BF-009: INT64_MIN / -1 must trap like x86_64 does (D-023). riscv64 instead
+// silently returns INT64_MIN. Checked by hand on both targets; the affected
+// target is riscv64 only.
+// TARGETS: riscv64
+// EXPECT-EXIT: 136
+
+function main() {
+    var m = -9223372036854775807 - 1;
+    print(m / -1);
+    return(0);
+}

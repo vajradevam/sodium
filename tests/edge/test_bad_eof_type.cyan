@@ -1,0 +1,5 @@
+// T-3: EOF after a variable type annotation is diagnosed.
+// EXPECT-ERROR: Expected type after ':'
+
+function main() {
+    var x:

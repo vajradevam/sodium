@@ -1,0 +1,10 @@
+// T-3: EOF after a field-access dot is diagnosed.
+// EXPECT-ERROR: Invalid statement
+
+struct S {
+    var a: i64;
+}
+
+function main() {
+    var s: S;
+    s.

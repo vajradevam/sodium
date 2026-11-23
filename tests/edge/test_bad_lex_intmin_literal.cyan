@@ -1,0 +1,8 @@
+// T-2: an unsuffixed decimal literal must fit in i64. The most negative i64 is
+// expressed as (-9223372036854775807 - 1), not by a literal one past MAX.
+// EXPECT-ERROR: out of range for 64-bit signed integer
+
+function main() {
+    var x = -9223372036854775808;
+    return(0);
+}

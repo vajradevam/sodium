@@ -1,0 +1,31 @@
+// T-4: shift counts around the 32/64-bit boundaries. Counts >= 64 follow the
+// hardware's masked count on both targets; C leaves those cases undefined, so
+// the expected values are the observed, target-consistent ones.
+// EXPECT-EXIT: 0
+// EXPECT-STDOUT: 1
+// EXPECT-STDOUT: 2
+// EXPECT-STDOUT: 2147483648
+// EXPECT-STDOUT: 4294967296
+// EXPECT-STDOUT: -9223372036854775808
+// EXPECT-STDOUT: 1
+// EXPECT-STDOUT: 2
+// EXPECT-STDOUT: 0
+// EXPECT-STDOUT: -1
+// EXPECT-STDOUT: -4
+// EXPECT-STDOUT: 100
+
+function main() {
+    print(1 << 0);
+    print(1 << 1);
+    print(1 << 31);
+    print(1 << 32);
+    print(1 << 63);
+    print(1 << 64);
+    print(1 << 65);
+    print(1 >> 63);
+    print(-8 >> 63);
+    print(-8 >> 1);
+    var u: u8 = 200;
+    print(u >> 1);
+    return(0);
+}

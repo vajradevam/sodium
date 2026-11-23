@@ -1,0 +1,28 @@
+// T-4: integer casts across width/sign pairs. These values were cross-checked
+// against gcc using the equivalent intN_t/uintN_t casts. Signed narrow casts
+// with out-of-range values are covered by xfail/bf008 (they zero-extend).
+// EXPECT-EXIT: 0
+// EXPECT-STDOUT: 255
+// EXPECT-STDOUT: 44
+// EXPECT-STDOUT: 65535
+// EXPECT-STDOUT: 0
+// EXPECT-STDOUT: 4294967295
+// EXPECT-STDOUT: 0
+// EXPECT-STDOUT: 18446744073709551615
+// EXPECT-STDOUT: 9223372036854775807
+// EXPECT-STDOUT: 127
+// EXPECT-STDOUT: 300
+
+function main() {
+    print("%u", -1 as u8);
+    print("%u", 300 as u8);
+    print("%u", 65535 as u16);
+    print("%u", 65536 as u16);
+    print("%u", -1 as u32);
+    print("%u", 4294967296 as u32);
+    print("%u", -1 as i64);
+    print("%u", 9223372036854775807 as i64);
+    print("%u", 127 as i8);
+    print("%u", 300 as i16);
+    return(0);
+}

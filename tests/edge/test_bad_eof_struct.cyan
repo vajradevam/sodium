@@ -1,0 +1,5 @@
+// T-3: EOF in a struct body is diagnosed.
+// EXPECT-ERROR: Expected '}' after struct fields
+
+struct S {
+    var a: i64;

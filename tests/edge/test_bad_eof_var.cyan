@@ -1,0 +1,5 @@
+// T-3: EOF in a variable initialiser is diagnosed.
+// EXPECT-ERROR: Invalid expression in variable declaration
+
+function main() {
+    var x =

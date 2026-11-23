@@ -1,0 +1,22 @@
+// T-2: integer literal boundaries. The largest signed i64 literal, the most
+// negative value expressed as (-MAX - 1), uppercase/lowercase hex prefixes and
+// leading zeros are all valid and must print their exact decimal value.
+// EXPECT-EXIT: 0
+// EXPECT-STDOUT: 9223372036854775807
+// EXPECT-STDOUT: -9223372036854775808
+// EXPECT-STDOUT: 9223372036854775807
+// EXPECT-STDOUT: 9223372036854775807
+// EXPECT-STDOUT: 0
+// EXPECT-STDOUT: 123
+// EXPECT-STDOUT: 11259375
+
+function main() {
+    print(9223372036854775807);
+    print(-9223372036854775807 - 1);
+    print(0x7FFFFFFFFFFFFFFF);
+    print(0X7FFFFFFFFFFFFFFF);
+    print(0x0);
+    print(000123);
+    print(0xabcdef);
+    return(0);
+}

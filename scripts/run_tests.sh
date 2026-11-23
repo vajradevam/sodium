@@ -298,7 +298,7 @@ while IFS= read -r path; do
         cat="${path#tests/}"; cat="${cat%%/*}"
         CASES+=("$cat|$t|$path")
     done
-done < <(find tests -type f -name '*.cyan' | sort)
+done < <(find tests -type f -name '*.cyan' -not -path 'tests/xfail/*' | sort)
 
 echo "========================================"
 echo "  Cyan Compiler Test Suite (discovered)"

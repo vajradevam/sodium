@@ -1,0 +1,6 @@
+// T-3: EOF inside an array index is diagnosed.
+// EXPECT-ERROR: Expected index expression
+
+function main() {
+    var a[3];
+    a[

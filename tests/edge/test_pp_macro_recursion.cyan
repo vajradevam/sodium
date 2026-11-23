@@ -1,0 +1,14 @@
+// T-2: self- and mutually-recursive object macros must terminate (the
+// preprocessor's expansion-depth limit stops them) and report the leftover
+// identifier instead of hanging.
+// EXPECT-ERROR: Undeclared identifier
+
+#define SELF SELF
+#define A B
+#define B A
+
+function main() {
+    print(SELF);
+    print(A);
+    return(0);
+}

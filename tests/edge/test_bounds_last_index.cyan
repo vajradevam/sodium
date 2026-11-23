@@ -1,0 +1,14 @@
+// T-6: --bounds must leave valid boundary indices (first and last) unchanged.
+// COMPILE-FLAGS: --bounds
+// EXPECT-EXIT: 0
+// EXPECT-STDOUT: 11
+// EXPECT-STDOUT: 44
+
+function main() {
+    var a[4];
+    a[0] = 11;
+    a[3] = 44;
+    print(a[0]);
+    print(a[3]);
+    return(0);
+}

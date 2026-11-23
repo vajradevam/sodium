@@ -1,0 +1,5 @@
+// T-3: EOF in an asm statement is diagnosed.
+// EXPECT-ERROR: Expected string literal for target in asm
+
+function main() {
+    asm(

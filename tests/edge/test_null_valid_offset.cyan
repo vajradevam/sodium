@@ -1,0 +1,12 @@
+// T-6: --check-null leaves a valid non-null pointer at a nonzero offset alone.
+// COMPILE-FLAGS: --check-null
+// EXPECT-EXIT: 0
+// EXPECT-STDOUT: 33
+
+function main() {
+    var a[4];
+    a[2] = 33;
+    var p = &a[2];
+    print(*p);
+    return(0);
+}
