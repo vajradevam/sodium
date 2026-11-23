@@ -1,0 +1,21 @@
+// BF-001: sizeof(struct) is wrong on both targets.
+// A struct with two i64 fields is 16 bytes in C (natural alignment, no padding
+// needed). sizeof of both the type and a variable of that type must be 16.
+// Actual on compiler a1ec4d9: 8 for the type, 128 for either variable.
+// EXPECT-EXIT: 0
+// COMPILE-FLAGS: -w
+// EXPECT-STDOUT: 16
+// EXPECT-STDOUT: 16
+// EXPECT-STDOUT: 16
+
+struct P { var a: i64; var b: i64; };
+
+function main() {
+    print(sizeof(P));
+    var s: P;
+    print(sizeof(s));
+    var t: P = { .a = 1, .b = 2 };
+    print(sizeof(t));
+    s.a = t.a;
+    return(0);
+}

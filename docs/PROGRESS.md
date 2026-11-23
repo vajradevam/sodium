@@ -586,3 +586,14 @@ Found when a stale /usr/local/bin/sodium (root-owned, not replaced because insta
 `command -v sodium` after installing and warns if it is missing from PATH or resolves to a
 different binary, with the fix command. scripts/test_install.sh covers not-on-PATH, shadowed and
 clean cases. check.sh passes; test counts unchanged.
+
+## 2026-11-23 — T-1 Phase T coverage inventory + xfail infrastructure + BF-001
+Baseline verified clean on `main` at `a1ec4d9` (check.sh green: 776 passed / 0 failed / 18 skipped
+per level); created branch `phase-T/edge-tests`. Inventoried 399 `.cyan` tests by feature and
+diagnostic in `docs/PHASE-T-COVERAGE.md` and listed the concrete gaps that drive T-2..T-7.
+Reproduced the known sizeof bug by hand on both targets (type = 8, variable = 128, C reference = 16)
+and recorded it as BF-001 in `docs/BUGS-FOUND.md` with the minimal reproducer at
+`tests/xfail/bf001_sizeof_struct.cyan`. Added `scripts/xfail.sh` (not wired into check.sh) which
+reports 2 still-failing cases; `scripts/run_tests.sh` now excludes `tests/xfail/` so the gate's
+test count is unchanged. Tests before → after: 776 / 794 run-equivalents → 776 / 794 (xfail tests
+are outside the gate). No compiler code changed.

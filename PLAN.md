@@ -210,7 +210,7 @@ compiler bug goes to `tests/xfail/` (excluded from the gate) plus an entry in `d
 Running xfail tests is done by `scripts/xfail.sh`, which is deliberately **not** part of `check.sh`.
 Merge into `main` with `--no-ff` only after `check.sh --full` passes at T-8. Do not push.
 
-- [ ] **T-1 Coverage inventory.** Map language features and diagnostics against existing tests; list
+- [x] **T-1 Coverage inventory.** Map language features and diagnostics against existing tests; list
   the untested combinations in `docs/PHASE-T-COVERAGE.md`. Done when the gaps drive the test cases of
   T-2..T-6 and no test weakness is used to hide a bug.
 - [ ] **T-2 Lexer/preprocessor edges.** Number limits (i64/u64 boundaries, overflow), malformed
