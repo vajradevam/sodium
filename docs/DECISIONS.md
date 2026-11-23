@@ -515,3 +515,15 @@ classifies tokenizer tokens into LSP semantic token types using keyword/type/tok
 empty list is published on `didClose` so stale diagnostics never linger. The VS Code extension
 declares these capabilities and its TextMate grammar is extended for the syntax added since 0.1.0
 (typed parameters, `f32`/`f64`, `enum`, `asm`, float literals, preprocessor directives).
+
+## D-042 `sodium fmt` is a comment-preserving line formatter (D4)
+The canonical formatter normalizes what can be changed without parsing the language: indentation
+is four spaces per brace depth, trailing whitespace is removed, blank runs collapse to one empty
+line, and tabs in leading indentation become spaces. Brace depth is tracked by scanning each line
+outside string and character literals; comment text, string contents and everything after `//`
+are preserved verbatim, so `// EXPECT-*` test headers survive formatting unchanged. This is
+deliberately not a full pretty-printer: a token-based reflow would have to drop comments (the
+tokenizer does not retain them) and risk changing operator spacing inside expressions. The
+formatter is idempotent by construction and is tested over every file under `tests/`. Output goes
+to stdout by default, or to `-o <file>`; `sodium fmt --check <file>` exits nonzero when the input
+is not already canonical. `--version` and `--help` are also added, with a man-style usage block.
