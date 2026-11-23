@@ -1,0 +1,14 @@
+// T-5: a moderately large stack frame (512 KiB) under --stack-probe must run
+// unchanged; the probe only rejects frames that descend past the 1 MiB limit
+// in a *later* call.
+// COMPILE-FLAGS: --stack-probe
+// EXPECT-EXIT: 0
+// EXPECT-STDOUT: 24
+
+function main() {
+    var pad[65536];
+    pad[0] = 11;
+    pad[65535] = 13;
+    print(pad[0] + pad[65535]);
+    return(0);
+}

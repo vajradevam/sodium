@@ -85,6 +85,10 @@ step "semantic error recovery (multiple functions)"
 ./scripts/test_semantic_recovery.sh > build/last_semerrors.log 2>&1 || die "semantic recovery (see build/last_semerrors.log)"
 tail -1 build/last_semerrors.log
 
+step "single mistake produces a single diagnostic (no cascade)"
+./scripts/test_no_cascade.sh > build/last_nocascade.log 2>&1 || die "no-cascade diagnostics (see build/last_nocascade.log)"
+tail -1 build/last_nocascade.log
+
 step "LSP protocol diagnostics (multiple severities)"
 python3 tests/lsp/test_lsp_diagnostics.py ./build/cyan-lsp > build/last_lsp.log 2>&1 || die "LSP diagnostics (see build/last_lsp.log)"
 tail -1 build/last_lsp.log
@@ -124,6 +128,11 @@ tail -1 build/last_paths.log
 step "fuzz smoke (deterministic mutations)"
 ./scripts/fuzz_smoke.sh 20261121 1000 > build/last_fuzz.log 2>&1 || die "fuzz smoke (see build/last_fuzz.log)"
 tail -2 build/last_fuzz.log
+
+step "random differential programs (Cyan vs gcc, both targets)"
+python3 scripts/random_diff.py --seed 20261123 --count 8 --opt O1 \
+    > build/last_diff.log 2>&1 || die "random differential (see build/last_diff.log)"
+tail -1 build/last_diff.log
 
 if [ $FULL -eq 1 ]; then
     step "sanitizer build (build-asan/)"

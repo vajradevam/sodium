@@ -1,0 +1,5 @@
+// T-3: EOF in a print argument list is diagnosed.
+// EXPECT-ERROR: Expected expression in print
+
+function main() {
+    print(

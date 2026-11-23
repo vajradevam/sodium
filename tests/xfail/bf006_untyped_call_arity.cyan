@@ -1,0 +1,13 @@
+// BF-006: a call to a function with untyped (legacy) parameters must check the
+// argument count, just as a typed function does. Missing arguments currently
+// read as zero and extra arguments are silently ignored.
+// EXPECT-ERROR: wrong number of arguments
+
+function f(a, b) {
+    return(a + b);
+}
+
+function main() {
+    print(f(1));
+    return(0);
+}

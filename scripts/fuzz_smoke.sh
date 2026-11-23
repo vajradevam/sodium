@@ -13,7 +13,10 @@ exec python3 - "$COMPILER" "$SEED" "$N" <<'PY'
 import glob, os, random, subprocess, sys, tempfile, shutil
 
 compiler, seed, n = sys.argv[1], int(sys.argv[2]), int(sys.argv[3])
-corpus = sorted(glob.glob("tests/**/*.cyan", recursive=True))
+corpus = sorted(p for p in glob.glob("tests/**/*.cyan", recursive=True)
+                if "/xfail/" not in p)
+# tests/xfail/ holds known compiler bugs (including crashes) tracked by
+# scripts/xfail.sh; mutating those would only rediscover the known crashes.
 assert corpus, "no corpus files found"
 rng = random.Random(seed)
 

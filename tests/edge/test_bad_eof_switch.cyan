@@ -1,0 +1,5 @@
+// T-3: EOF inside a switch expression is diagnosed.
+// EXPECT-ERROR: Expected expression in switch
+
+function main() {
+    switch (

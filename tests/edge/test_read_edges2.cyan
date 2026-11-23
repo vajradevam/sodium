@@ -1,0 +1,19 @@
+// T-6: read() at EOF returns 0 and read_eof() distinguishes it from a real
+// zero; a second read() of exhausted input is also EOF.
+// STDIN: 42
+// EXPECT-EXIT: 0
+// EXPECT-STDOUT: 42
+// EXPECT-STDOUT: 0
+// EXPECT-STDOUT: 0
+// EXPECT-STDOUT: 1
+
+function main() {
+    var a = read();
+    print(a);
+    print(read_eof());
+    var buf[8];
+    var n = read(buf);
+    print(n);
+    print(read_eof());
+    return(0);
+}

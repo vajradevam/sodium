@@ -202,6 +202,36 @@ Prerequisite check: Phases 3, 4 complete; compiler source subset needed is liste
 - [ ] **S7 Make the Cyan compiler the default; keep the C++ bootstrap in `bootstrap/` with a script to rebuild.**
 - [ ] **P9-END** gate, tag `selfhosted`.
 
+## Phase T — Extreme edge-case testing (find and REPORT bugs; never fix them)
+
+Rules for this phase are stricter than elsewhere: work on `phase-T/edge-tests`, never modify
+`src/`, `sodium-rt/` or `cyanlib/` (stop and report instead), and every failing test caused by a
+compiler bug goes to `tests/xfail/` (excluded from the gate) plus an entry in `docs/BUGS-FOUND.md`.
+Running xfail tests is done by `scripts/xfail.sh`, which is deliberately **not** part of `check.sh`.
+Merge into `main` with `--no-ff` only after `check.sh --full` passes at T-8. Do not push.
+
+- [x] **T-1 Coverage inventory.** Map language features and diagnostics against existing tests; list
+  the untested combinations in `docs/PHASE-T-COVERAGE.md`. Done when the gaps drive the test cases of
+  T-2..T-6 and no test weakness is used to hide a bug.
+- [x] **T-2 Lexer/preprocessor edges.** Number limits (i64/u64 boundaries, overflow), malformed
+  literals, string escapes, unterminated strings/comments, `#include` cycles, macro recursion, empty
+  and very large input. Positive/negative tests on both targets; diagnostics assert a substring.
+- [x] **T-3 Parser/diagnostics edges.** Deep nesting, precedence/associativity, error recovery with no
+  cascades, EOF inside every construct. Tests on both targets; compile-error tests assert a substring.
+- [x] **T-4 Types/semantics extremes.** Casts across all width/sign pairs, shifts by 0/63/64,
+  MIN/-1, modulo signs, float NaN/inf/-0/denormals, int<->float limits, pointer arithmetic, structs,
+  enums, fn pointers. Tests on both targets. Include reproduction of the known `sizeof(struct)` bug
+  as BF-001.
+- [x] **T-5 Codegen/regalloc stress.** Spills, 0..20+ args, mixed int/float args, deep expressions,
+  recursion depth, big frames with `--stack-probe`. Tests on both targets.
+- [x] **T-6 Runtime checks.** `--bounds`, `--check-null` at boundaries, print/read edges, `argc/argv`.
+  Tests on both targets.
+- [x] **T-7 Differential testing.** Add a deterministic random-program generator that compares
+  x86_64 vs riscv64 vs a gcc-compiled C reference; save any failure as an xfail test. Script lives in
+  `scripts/`, failures in `tests/xfail/`.
+- [x] **T-8 Phase end.** `check.sh --full`, regression sweep, state-of-project entry in
+  PROGRESS.md re-verified against the code, `git tag phase-T-done`, then `--no-ff` merge into `main`.
+
 ## Standing chores (do opportunistically when touching the area; each is its own commit)
 - [ ] Parser `parse_stmt` 30-branch chain → table/dispatch; precedence climbing (Pratt) for expressions.
 - [ ] Remove duplicate AST visitors (printer/LSP/gen walks) → one visitor utility.

@@ -1,0 +1,16 @@
+// T-6: argc/argv with three user arguments: argc is 4 (including argv[0]),
+// the last argument is non-null and argv(argc) is the NULL terminator.
+// ARGS: alpha beta gamma
+// EXPECT-EXIT: 0
+// EXPECT-STDOUT: 4
+// EXPECT-STDOUT: 1
+// EXPECT-STDOUT: 1
+// EXPECT-STDOUT: 1
+
+function main() {
+    print(argc());
+    print(argv(0) != 0);
+    print(argv(argc() - 1) != 0);
+    print(argv(argc()) == 0);
+    return(0);
+}

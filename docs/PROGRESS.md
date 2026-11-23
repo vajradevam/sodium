@@ -586,3 +586,103 @@ Found when a stale /usr/local/bin/sodium (root-owned, not replaced because insta
 `command -v sodium` after installing and warns if it is missing from PATH or resolves to a
 different binary, with the fix command. scripts/test_install.sh covers not-on-PATH, shadowed and
 clean cases. check.sh passes; test counts unchanged.
+
+## 2026-11-23 — T-1 Phase T coverage inventory + xfail infrastructure + BF-001
+Baseline verified clean on `main` at `a1ec4d9` (check.sh green: 776 passed / 0 failed / 18 skipped
+per level); created branch `phase-T/edge-tests`. Inventoried 399 `.cyan` tests by feature and
+diagnostic in `docs/PHASE-T-COVERAGE.md` and listed the concrete gaps that drive T-2..T-7.
+Reproduced the known sizeof bug by hand on both targets (type = 8, variable = 128, C reference = 16)
+and recorded it as BF-001 in `docs/BUGS-FOUND.md` with the minimal reproducer at
+`tests/xfail/bf001_sizeof_struct.cyan`. Added `scripts/xfail.sh` (not wired into check.sh) which
+reports 2 still-failing cases; `scripts/run_tests.sh` now excludes `tests/xfail/` so the gate's
+test count is unchanged. Tests before → after: 776 / 794 run-equivalents → 776 / 794 (xfail tests
+are outside the gate). No compiler code changed.
+
+## 2026-11-23 — T-2 lexer/preprocessor edge tests; BF-002..BF-005 found
+Added 12 passing test sources (`tests/edge/`, 24 cases on both targets) for i64/hex literal limits,
+all string escapes (byte-exact via memcmp), five malformed-literal diagnostics, recursive macros,
+empty input, an eight-deep include chain and a 4000-character literal. All pass on x86_64 and
+riscv64. Found four new bugs by hand, reduced each to a minimal reproducer, and filed them in
+`docs/BUGS-FOUND.md`: BF-002 hex overflow wraps to 0 (critical, silent wrong code), BF-003
+unterminated block comment silently accepted (medium), BF-004 include cycle stack-overflows the
+compiler (critical), BF-005 empty include reported as unreadable (low). Their xfail tests are in
+`tests/xfail/`; `scripts/xfail.sh` reports 10 still-failing cases (BF-001..BF-005 × 2 targets).
+`sweep.sh` excludes `tests/xfail/` so the known crash cannot break the gate. Tests before → after:
+776 / 794 run-equivalents → 800 / 818. No compiler code changed.
+
+## 2026-11-23 — T-3 parser/diagnostics edge tests; BF-006 and BF-007 found
+Added 17 passing test sources (`tests/edge/`, 34 cases on both targets): a C-cross-checked
+precedence/associativity matrix, 1600-deep parentheses plus 120 nested ifs, and 15 EOF/truncation
+diagnostics (if, while, for, var, return, print, struct, type, switch, call, cast, index, field,
+asm, string). Added `scripts/test_no_cascade.sh` to check.sh (3 single-mistake cases × 2 targets,
+exactly one `error:` each). Found two more bugs: BF-006 untyped calls accept any argument count
+(high, silent wrong code) and BF-007 ~3000 nested parentheses crash the compiler (medium). Both
+have xfail tests; `scripts/xfail.sh` now reports 14 still-failing cases. The first gate run
+exposed that `fuzz_smoke.sh` mutated the BF-007 xfail file and rediscovered its crash, so the
+fuzz corpus now excludes `tests/xfail/` just like the runner and sweep. Tests before → after:
+800 / 818 run-equivalents → 834 / 852. No compiler code changed.
+
+## 2026-11-23 — T-4 type/semantics extremes; BF-008..BF-010 found
+Added 5 passing test sources (`tests/edge/`, 10 cases on both targets): a gcc-cross-checked cast
+subset, shift counts 0..65, signed division/modulo matrix, IEEE special values (NaN/inf/-0/denormals),
+and enums/field offsets/fn-pointer tables/pointer differences. A 152-pair cast matrix against gcc
+and targeted probes found three more bugs: BF-008 `as i8/i16/i32` zero-extends (high), BF-009
+`MIN / -1` traps on x86_64 but silently returns MIN on riscv64 (high), BF-010 u64 arithmetic and
+comparisons use signed i64 semantics (high). All have xfail tests; `scripts/xfail.sh` now reports
+19 still-failing cases. Target-specific float→int out-of-range results are documented as a known
+limit (D-038/D-039), not filed as a bug. Tests before → after: 834 / 852 → 844 / 862 run-equivalents.
+No compiler code changed.
+
+## 2026-11-23 — T-5 codegen/regalloc stress tests
+Added 6 passing test sources (`tests/edge/`, 12 cases on both targets): 0..25 integer arguments
+with every sum checked, mixed int/float argument sequences across the 8-register boundary
+(1/7/8/9/12 FP args), 30 live locals held across a call, a 300-term expression with a call,
+1000-deep recursion and a 512 KiB frame under `--stack-probe`. All pass at -O0 and -O1. Found BF-011: riscv64 emits out-of-range sd/ld spill offsets at -O1 for deep expressions; the
+300-term case moved to xfail and the gate keeps a passing 120-term version. The entry-SP-only nature of the stack probe (a single 20 MiB frame segfaults) is
+documented in `docs/PHASE-T-COVERAGE.md` as a known limit, with the compile-time cost noted.
+Tests before → after: 844 / 862 → 856 / 874 run-equivalents. No compiler code changed.
+
+## 2026-11-23 — T-6 runtime-check and I/O edge tests; BF-012 found
+Added 8 passing test sources (`tests/edge/`, 16 cases on both targets): --bounds at first/last
+indices, i64-MAX and 2D out-of-range reads, --check-null with a valid nonzero-offset pointer,
+print edges (empty string, %%, %c, %x/%u/%ld, 24 ordered args), read()/read_eof() at EOF and
+argc/argv with three user arguments. Found BF-012: --bounds does not check array *writes* (high,
+both targets) - xfail added. Null checks on null-base-plus-offset are recorded as a known limit
+rather than a bug (D-035 checks the final address). `scripts/xfail.sh` now reports 22 still-failing
+cases. Tests before → after: 856 / 874 → 872 / 890 run-equivalents. No compiler code changed.
+
+## 2026-11-23 — T-7 differential random-program testing
+Added `scripts/random_diff.py`: deterministic (seed + program index) generation of integer
+programs valid in both C and Cyan; each is compiled with gcc and with sodium for x86_64 and
+riscv64, and stdout plus exit status are compared. Mismatches are saved as
+`tests/xfail/diff_*.cyan` with the gcc expectation and are reported by `scripts/xfail.sh`.
+Ran 96 programs (16 seed 20261123 / -O1, 40 seed 777 / -O1, 40 seed 31337 / -O0): 0 mismatches,
+so no xfail entries were added. Wired an 8-program fixed-seed run into `check.sh`. Test counts
+in the normal suite unchanged (872 / 890 run-equivalents); differential cases are reported
+separately (96 run + 8 per gate). No compiler code changed.
+
+## 2026-11-24 — Phase T state of the project (T-8)
+Re-verified against the code and gate logs before tagging. Work was done only on branch
+`phase-T/edge-tests`; `git diff main..HEAD -- src sodium-rt cyanlib` is empty. Phase T added
+48 passing test sources under `tests/edge/` plus support files, 12 xfail reproducer sources and
+the scripts `xfail.sh`, `test_no_cascade.sh` and `random_diff.py`; `run_tests.sh`, `sweep.sh`,
+`fuzz_smoke.sh` and `check.sh` were adjusted so known-bug xfail inputs never enter the gate and
+so the no-cascade and differential checks run on every commit.
+
+Final `scripts/check.sh --full` (sanitizers included): 872 passed / 0 failed / 18 skipped at
+both -O0 and -O1 and under ASan/UBSan; 325 C++ cases / 4465 checks; sweep 2682 invocations /
+0 crashes; oracle 62/62 at both levels; ABI interop 16/16; doc-check 13 samples; formatter
+459 files idempotent; no-cascade 3 cases × 2 targets; fuzz 1000 inputs / 0 crashes; differential
+8 fixed-seed programs / 0 mismatches. A separate 96-program differential sweep also found 0
+mismatches. `scripts/xfail.sh` reports 22 cases (12 bugs × affected targets), all still failing.
+
+Twelve compiler bugs were found and reported (never fixed) in `docs/BUGS-FOUND.md`: 2 critical
+(BF-002 hex literal overflow wraps, BF-004 include-cycle SIGSEGV), 7 high (BF-001 sizeof struct,
+BF-006 untyped call arity, BF-008 signed cast extension, BF-009 MIN/-1 target disagreement,
+BF-010 u64 signed semantics, BF-011 riscv64 out-of-range spill offsets, BF-012 missing bounds
+checks on writes), 2 medium (BF-003 unterminated comment, BF-007 deep-nesting crash) and 1 low
+(BF-005 empty include). The 1600-level nesting test was reduced to 400 levels because ASan's
+larger stack frames crash at ~800; the 5000-level crashing case remains in xfail (BF-007).
+Known limits recorded but not filed: target-specific float→int out-of-range results (D-038),
+shift counts >= 64, entry-SP-only stack probing, and null checks on null-base-plus-offset.
+The first unchecked task of the next phase is Phase 8 B1 (Backend interface audit).
