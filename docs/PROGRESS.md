@@ -473,3 +473,11 @@ type-stack imbalance and promote narrow int +/- to i32 (D-039). Small float stru
 compile error (X1b, open). `scripts/check.sh --full` green: integration 714 -> 778 passed (14 skipped, 4 new
 ABI harness files), unit 303 -> 320 cases, sweep 2388 invocations 0 crashes, oracle 62/62 at -O0 and -O1,
 fuzz 1000 inputs 0 crashes, ASan/UBSan clean.
+
+## 2026-11-23 — X1b small float structs by value (branch phase-7/float-structs, D-040)
+Classification into register pieces per target (System V eightbytes, LP64D flattening), class-aware
+`RET2`/two-result calls (`dst2_width`), piece-wise argument placement with the memory/int-word
+fallbacks, params and results. Verified against gcc both directions on both targets with 10 struct
+shapes plus register-exhaustion cases (tests/abi/float_struct_*, 16 ABI cases total); run test
+tests/floats/test_float_struct_value.cyan; 5 new unit cases. Removed the two by-value compile-error
+tests (behaviour intentionally lifted).

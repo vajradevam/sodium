@@ -239,13 +239,16 @@ public:
     }
 
     /// Call returning a two-word value: the first word is the result, the second is
-    /// written to `second`.
+    /// written to `second`. `w1`/`w2` give each word's class: an F32/F64 width means it
+    /// comes back in an FP result register (small structs with float words, X1b).
     uint32_t call2(const std::string& func, const std::vector<IRValue>& args, uint32_t& second,
-                   int reg_args = -1) {
-        auto dst = new_vreg();
-        second = new_vreg();
+                   int reg_args = -1, IRWidth w1 = IRWidth::I64, IRWidth w2 = IRWidth::I64) {
+        auto dst = is_fp_width(w1) ? new_fp_vreg() : new_vreg();
+        second = is_fp_width(w2) ? new_fp_vreg() : new_vreg();
         auto insn = IRInstruction::call(dst, func, args);
+        insn.dst_width = w1;
         insn.dst2 = second;
+        insn.dst2_width = w2;
         insn.reg_args = reg_args;
         emit(insn);
         return dst;
@@ -262,11 +265,13 @@ public:
 
     /// Indirect call returning a two-word value.
     uint32_t call2_indirect(IRValue target, const std::vector<IRValue>& args, uint32_t& second,
-                            int reg_args = -1) {
-        auto dst = new_vreg();
-        second = new_vreg();
+                            int reg_args = -1, IRWidth w1 = IRWidth::I64, IRWidth w2 = IRWidth::I64) {
+        auto dst = is_fp_width(w1) ? new_fp_vreg() : new_vreg();
+        second = is_fp_width(w2) ? new_fp_vreg() : new_vreg();
         auto insn = IRInstruction::call_indirect(dst, target, args);
+        insn.dst_width = w1;
         insn.dst2 = second;
+        insn.dst2_width = w2;
         insn.reg_args = reg_args;
         emit(insn);
         return dst;

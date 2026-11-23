@@ -1,0 +1,71 @@
+// C-interop (X1b): Cyan calls C functions that take and return small structs containing floats.
+// Each struct has a different register classification (System V eightbytes / LP64D flattening).
+// The Cyan definitions of the c_* functions are deliberately empty stubs that give the compiler
+// their signatures; scripts/test_abi_interop.sh weakens them so the C definitions win at link
+// time. Exit code N means check N failed.
+// SKIP-TEST: part of scripts/test_abi_interop.sh (needs the C object)
+struct FF { var a: f64; var b: f64; };
+struct F2 { var a: f32; var b: f32; };
+struct DI { var a: f64; var n: i64; };
+struct ID { var n: i64; var a: f64; };
+struct FI { var a: f32; var n: i32; };
+struct F3 { var a: f32; var b: f32; var c: f32; };
+struct D1 { var a: f64; };
+struct S1 { var a: f32; };
+struct NN { var p: F2; var q: F2; };
+struct DF { var a: f64; var b: f32; };
+
+function c_ff_make(a: f64, b: f64) -> FF { var r: FF; return r; }
+function c_f2_make(a: f32, b: f32) -> F2 { var r: F2; return r; }
+function c_di_make(a: f64, n: i64) -> DI { var r: DI; return r; }
+function c_id_make(n: i64, a: f64) -> ID { var r: ID; return r; }
+function c_fi_make(a: f32, n: i32) -> FI { var r: FI; return r; }
+function c_f3_make(a: f32, b: f32, c: f32) -> F3 { var r: F3; return r; }
+function c_d1_make(a: f64) -> D1 { var r: D1; return r; }
+function c_s1_make(a: f32) -> S1 { var r: S1; return r; }
+function c_df_make(a: f64, b: f32) -> DF { var r: DF; return r; }
+function c_nn_make(a: f32, b: f32, c: f32, d: f32) -> NN { var r: NN; return r; }
+function c_ff_sum(p: FF) -> f64 { return 0.0; }
+function c_f2_sum(p: F2) -> f64 { return 0.0; }
+function c_di_sum(p: DI) -> f64 { return 0.0; }
+function c_id_sum(p: ID) -> f64 { return 0.0; }
+function c_fi_sum(p: FI) -> f64 { return 0.0; }
+function c_f3_sum(p: F3) -> f64 { return 0.0; }
+function c_d1_sum(p: D1) -> f64 { return 0.0; }
+function c_s1_sum(p: S1) -> f64 { return 0.0; }
+function c_nn_sum(p: NN) -> f64 { return 0.0; }
+function c_df_sum(p: DF) -> f64 { return 0.0; }
+function c_five(a: FF, b: FF, c: FF, d: FF, e: FF) -> f64 { return 0.0; }
+function c_order(n: i64, p: DI, m: i64, q: F2, k: f64) -> f64 { return 0.0; }
+function c_f2_swap(p: F2) -> F2 { var r: F2; return r; }
+function c_relay_ff(p: FF) -> FF { var r: FF; return r; }
+function c_relay_di(p: DI) -> DI { var r: DI; return r; }
+function c_relay_id(p: ID) -> ID { var r: ID; return r; }
+function c_relay_f3(p: F3) -> F3 { var r: F3; return r; }
+function c_relay_df(p: DF) -> DF { var r: DF; return r; }
+function c_drain6(a: i64, b: i64, c: i64, d: i64, e: i64, f: i64, p: DI) -> f64 { return 0.0; }
+function c_drain8(a: i64, b: i64, c: i64, d: i64, e: i64, f: i64, g: i64, h: i64, p: DI) -> f64 { return 0.0; }
+
+function main() {
+    if (c_ff_sum(c_ff_make(1.5, 2.5)) != 17.5) { return(1); }
+    if (c_f2_sum(c_f2_make(1.5f, 2.5f)) != 17.5) { return(2); }
+    if (c_di_sum(c_di_make(1.5, 7)) != 22.0) { return(3); }
+    if (c_id_sum(c_id_make(7, 1.5)) != 22.0) { return(4); }
+    if (c_fi_sum(c_fi_make(1.5f, 7)) != 22.0) { return(5); }
+    if (c_f3_sum(c_f3_make(1.0f, 2.0f, 3.0f)) != 123.0) { return(6); }
+    if (c_d1_sum(c_d1_make(1.25)) != 2.5) { return(7); }
+    if (c_s1_sum(c_s1_make(1.25f)) != 2.5) { return(8); }
+    if (c_nn_sum(c_nn_make(1.0f, 2.0f, 3.0f, 4.0f)) != 1234.0) { return(9); }
+    if (c_df_sum(c_df_make(1.5, 2.5f)) != 17.5) { return(10); }
+    if (c_f2_sum(c_f2_swap(c_f2_make(1.0f, 2.0f))) != 21.0) { return(11); }
+    if (c_ff_sum(c_relay_ff(c_ff_make(3.0, 4.0))) != 34.0) { return(12); }
+    if (c_di_sum(c_relay_di(c_di_make(3.0, 4))) != 34.0) { return(13); }
+    if (c_id_sum(c_relay_id(c_id_make(4, 3.0))) != 34.0) { return(14); }
+    if (c_f3_sum(c_relay_f3(c_f3_make(1.0f, 0.5f, 0.25f))) != 105.25) { return(15); }
+    if (c_df_sum(c_relay_df(c_df_make(2.0, 0.5f))) != 20.5) { return(16); }
+    if (c_five(c_ff_make(1.0, 0.0), c_ff_make(2.0, 0.0), c_ff_make(3.0, 0.0), c_ff_make(4.0, 0.0), c_ff_make(5.0, 0.5)) != 54321.5) { return(17); }
+    if (c_order(1, c_di_make(2.0, 3), 4, c_f2_make(5.0f, 6.0f), 7.0) != 7654321.0) { return(18); }
+    if (c_drain6(1, 1, 1, 1, 1, 1, c_di_make(1.5, 7)) != 43.0) { return(20); }
+    if (c_drain8(1, 1, 1, 1, 1, 1, 1, 1, c_di_make(1.5, 7)) != 58.0) { return(21); }
+    return(0);
+}

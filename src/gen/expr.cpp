@@ -736,7 +736,6 @@ void Generator::gen_expr(const NodeExpr& expr)
                 const std::string& rname = return_type->struct_name;
                 ret_info = gen->get_struct_info(rname);
                 if (!ret_info.has_value()) gen->fail(expr_call->name.loc, "Unknown struct type: " + rname);
-                gen->check_struct_by_value(rname, expr_call->name.loc);
                 if (ret_info->size > 16) {
                     uint32_t slot = gen->alloc_object(ret_info->size);
                     hidden_result = gen->object_addr(slot, Generator::align_frame(ret_info->size, 8));
@@ -767,8 +766,8 @@ void Generator::gen_expr(const NodeExpr& expr)
                 const std::string& sname = arg_types[i].struct_name;
                 auto info = gen->get_struct_info(sname);
                 if (!info.has_value()) gen->fail(expr_call->name.loc, "Unknown struct type: " + sname);
-                gen->check_struct_by_value(sname, expr_call->name.loc);
-                const std::vector<ArgPlacement> places = gen->place_struct_arg(placer, *info);
+                const StructPlan plan = gen->plan_struct_arg(placer, *info);
+                const std::vector<ArgPlacement>& places = plan.places;
                 if (info->size > 16 && places.size() == 1) {
                     // By reference to a caller-made copy.
                     uint32_t slot = gen->alloc_object(info->size);
@@ -778,7 +777,13 @@ void Generator::gen_expr(const NodeExpr& expr)
                     continue;
                 }
                 for (size_t w = 0; w < places.size(); w++) {
-                    push_word(places[w], gen->load_struct_word(arg_vregs[i], *info, w));
+                    if (plan.pieces.empty()) {
+                        push_word(places[w], gen->load_struct_word(arg_vregs[i], *info, w));
+                    } else {
+                        const StructPiece& piece = plan.pieces[w];
+                        push_value(places[w], gen->struct_piece_value(
+                            gen->load_struct_piece(arg_vregs[i], *info, piece), piece));
+                    }
                 }
             }
             const int reg_count = static_cast<int>(reg_words.size());

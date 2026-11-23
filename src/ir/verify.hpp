@@ -428,7 +428,7 @@ inline IRVerifyResult verify_function(const IRFunction& f) {
                 FpShape shape{0, 0, 0};
                 const bool fp_op = fp_shape(insn.op, shape);
                 const bool flexible = insn.op == IROpcode::CALL || insn.op == IROpcode::CALL_INDIRECT ||
-                                      insn.op == IROpcode::RET;
+                                      insn.op == IROpcode::RET || insn.op == IROpcode::RET2;
                 auto class_of = [&](uint32_t vreg) { return f.is_fp(vreg) ? 2 : 1; };
                 auto check = [&](int want, uint32_t vreg, const std::string& what) {
                     if (want != 0 && class_of(vreg) != want) {
@@ -441,6 +441,9 @@ inline IRVerifyResult verify_function(const IRFunction& f) {
                     else if (insn.op == IROpcode::CALL || insn.op == IROpcode::CALL_INDIRECT)
                         check(is_fp_width(insn.dst_width) ? 2 : 1, insn.dst, "call result");
                     else check(1, insn.dst, "result");
+                }
+                if (insn.dst2 != IRInstruction::NONE_VREG) {
+                    check(is_fp_width(insn.dst2_width) ? 2 : 1, insn.dst2, "second call result");
                 }
                 for (size_t pos = 0; pos < insn.operands.size(); ++pos) {
                     const IRValue& op = insn.operands[pos];

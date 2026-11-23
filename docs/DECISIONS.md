@@ -467,7 +467,7 @@ are unchanged and verified against gcc in both directions on both targets (`test
   to the target's type like C. The arms of `c ? a : b` must both be floats or both integers (a float
   result travels through a frame temporary). Floats cannot be globals, global array elements or
   builtin arguments yet (compile error). Unary minus on a float flips the sign bit (`-0.0`).
-- **Not covered, tracked as X1b in PLAN.md:** a struct of at most 16 bytes that contains floats
+- **Not covered at the time (done in D-040):** a struct of at most 16 bytes that contains floats
   cannot be passed or returned by value (System V and LP64D classify its words into FP registers;
   not implemented). It is a compile error naming the struct, never a silent ABI mismatch. Larger
   structs (memory / by-reference classes) and float fields in memory work, as do arrays of floats
@@ -479,3 +479,24 @@ are unchanged and verified against gcc in both directions on both targets (`test
   values. Fixed. That exposed that a `u8 - u8` result was typed `u8` although its register holds the
   full 64-bit difference; narrow integer `+`/`-` results are now promoted to `i32` like C
   (`tests/types/test_int_sub_promotion.cyan`).
+
+## D-040 Small structs with floats travel as register pieces (X1b)
+A struct of at most 16 bytes that contains floats is split into at most two *pieces*, each an FP or
+an integer register word, exactly as gcc does on each target (verified both directions, tests/abi/
+float_struct_*). Structs with no float, and structs over 16 bytes, keep the integer-word / memory
+paths of D-012.
+- **System V:** each 8-byte word is SSE when every field in it is a float (f32 pair = one packed
+  word), else INTEGER. Words take the next argument/result register of their class.
+- **LP64D:** a struct that flattens (nested structs included) to one float, two floats, or a float
+  and an integer (<= 8 bytes) goes field by field in fa/a registers; anything else (3+ fields)
+  goes as integer words.
+- **Does not fit:** System V sends the whole struct to memory when either class lacks registers
+  (integer registers may remain free); LP64D falls back to the integer-word convention (which may
+  split between the last register and the stack).
+- **IR:** `RET2` operands and `CALL` `dst`/`dst2` carry a class by width (`dst2_width` is new);
+  results come back in the next result register of the class (rax/rdx, xmm0/xmm1; a0/a1, fa0/fa1),
+  so (float, int) is xmm0+rax and (int, float) is rax+xmm0. A single-piece float struct returns as
+  an ordinary float. Pieces are loaded/stored through FLOAD/FSTORE and a float-width `STORE_PARAM`,
+  so no bit-cast opcode is needed.
+- The by-value compile error and `check_struct_by_value` are removed; the two tests that asserted it
+  were replaced by `tests/floats/test_float_struct_value.cyan` and the C-interop pairs.

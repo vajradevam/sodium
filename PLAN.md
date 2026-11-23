@@ -159,7 +159,7 @@ anyway, tick the box, and note "not reproducible" in PROGRESS.md.
   - [x] **F3b riscv64 D/F emission and LP64D FP ABI:** same on riscv64 under qemu with gcc interop.
   - [x] **F4 Runtime print/format:** freestanding float formatter in `sodium-rt`, `print`/`fmt` integration, edge cases (0, -0, inf, nan, large, small).
   - [x] **F5a Floats in aggregates:** float fields (read, assign, compound, literals, nesting, arrays of float-field structs) and float arrays; by-value passing of small float structs is X1b.
-  - [ ] **X1b Small structs with floats by value:** classify the 8-byte words of structs of at most 16 bytes into FP/integer registers (System V eightbytes, LP64D flattening) for arguments and results, including the RET2/CALL second-result classes; then lift `check_struct_by_value`. Today it is a compile error (D-039).
+  - [x] **X1b Small structs with floats by value:** System V eightbyte / LP64D flattening classification into FP/integer register pieces for arguments and results (D-040); the by-value compile error is removed.
   - [x] **F5b Optimizer and oracle:** mem2reg/CSE/inline/peephole safety for FP, differential oracle programs with floats vs C, `--full` gate, merge `phase-7/floats`.
 - [x] **X2a Object macros and conditionals:** `#define NAME ...`, `#ifdef`/`#ifndef`/`#else`/`#endif`, string-literal-safe expansion, include guards and negative tests (D-033).
 - [x] **X2b Function macros and `#if`:** `#define F(a,b) body` with argument substitution and the `#if` constant-expression grammar from D-033, with tests on both targets.

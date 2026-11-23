@@ -303,6 +303,27 @@ private:
     /// The low value is parked in the scratch register first so that either
     /// operand may already live in the other's return register.
     void lower_ret2(const IRInstruction& insn, std::vector<IRInstruction>& out) const {
+        const bool fp0 = is_fp_width(insn.operands[0].width);
+        const bool fp1 = is_fp_width(insn.operands[1].width);
+        if (fp0 || fp1) {
+            // Each word goes to the next result register of its class (System V / LP64D):
+            // the first integer word to the first integer result register, the first float
+            // word to the first FP one, and so on.
+            int next_int = 0;
+            int next_fp = 0;
+            for (const IRValue& v : insn.operands) {
+                if (is_fp_width(v.width)) {
+                    out.push_back(fp_load_home(m_tri.fp_ret_reg + next_fp++, v.vreg_id, v.width));
+                    continue;
+                }
+                const int reg = next_int++ == 0 ? m_tri.ret_reg : m_tri.ret_reg2;
+                const Loc l = locate(v);
+                if (l.imm) out.push_back(IRInstruction::load_i64(static_cast<uint32_t>(reg), l.imm_val));
+                else out.push_back(l.spilled ? phys_load_slot(reg, l.spill_off) : phys_copy(reg, l.preg));
+            }
+            out.push_back(IRInstruction::ret_void());
+            return;
+        }
         const int scratch = m_tri.scratch_reg;
         const int r1 = m_tri.ret_reg;
         const int r2 = m_tri.ret_reg2;
@@ -328,13 +349,34 @@ private:
     /// Moves that capture a two-word call result (rax:rdx / a0:a1) into the homes
     /// of `dst` and `dst2`. The second word is parked in scratch first, so a home
     /// that is itself a return register cannot clobber the other word.
-    std::vector<IRInstruction> capture_call_results(uint32_t dst, uint32_t dst2) const {
+    std::vector<IRInstruction> capture_call_results(uint32_t dst, IRWidth w1, uint32_t dst2,
+                                                    IRWidth w2) const {
+        const bool fp1 = is_fp_width(w1);
+        const bool fp2 = is_fp_width(w2);
+        std::vector<IRInstruction> seq;
+        if (fp1 || fp2) {
+            // Mixed or all-float result: each word comes back in the next result register of
+            // its class. Stores to homes do not disturb the result registers.
+            int next_int = 0;
+            int next_fp = 0;
+            const uint32_t dsts[2] = {dst, dst2};
+            const IRWidth ws[2] = {w1, w2};
+            for (int k = 0; k < 2; k++) {
+                if (is_fp_width(ws[k])) {
+                    seq.push_back(fp_store_home(dsts[k], m_tri.fp_ret_reg + next_fp++, ws[k]));
+                    continue;
+                }
+                const int reg = next_int++ == 0 ? m_tri.ret_reg : m_tri.ret_reg2;
+                const Loc d = locate_vreg(dsts[k]);
+                seq.push_back(d.spilled ? phys_store_slot(d.spill_off, reg) : phys_copy(d.preg, reg));
+            }
+            return seq;
+        }
         const int scratch = m_tri.scratch_reg;
         const int r1 = m_tri.ret_reg;
         const int r2 = m_tri.ret_reg2;
         const Loc d1 = locate_vreg(dst);
         const Loc d2 = locate_vreg(dst2);
-        std::vector<IRInstruction> seq;
         seq.push_back(phys_copy(scratch, r2));
         seq.push_back(d1.spilled ? phys_store_slot(d1.spill_off, r1) : phys_copy(d1.preg, r1));
         seq.push_back(d2.spilled ? phys_store_slot(d2.spill_off, scratch) : phys_copy(d2.preg, scratch));
@@ -378,7 +420,7 @@ private:
                 // is stored to the vreg's home right after the call.
                 std::optional<std::pair<uint32_t, IRWidth>> fp_result;
                 if (is_call(insn.op) && insn.dst != IRInstruction::NONE_VREG &&
-                    is_fp_width(insn.dst_width)) {
+                    insn.dst2 == IRInstruction::NONE_VREG && is_fp_width(insn.dst_width)) {
                     fp_result = std::make_pair(insn.dst, insn.dst_width);
                     insn.dst = IRInstruction::NONE_VREG;
                 }
@@ -447,7 +489,7 @@ private:
                 // A two-word call result is captured by explicit moves after the call.
                 std::vector<IRInstruction> result_moves;
                 if (is_call(insn.op) && insn.dst2 != IRInstruction::NONE_VREG) {
-                    result_moves = capture_call_results(insn.dst, insn.dst2);
+                    result_moves = capture_call_results(insn.dst, insn.dst_width, insn.dst2, insn.dst2_width);
                     insn.dst = IRInstruction::NONE_VREG;
                     insn.dst2 = IRInstruction::NONE_VREG;
                 }

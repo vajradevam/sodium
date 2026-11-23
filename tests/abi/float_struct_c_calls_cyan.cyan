@@ -1,0 +1,46 @@
+// C-interop (X1b): C calls Cyan functions that take and return small structs containing floats.
+// Exit code N (from the C main) means check N failed.
+// SKIP-TEST: part of scripts/test_abi_interop.sh (needs the C object)
+struct FF { var a: f64; var b: f64; };
+struct F2 { var a: f32; var b: f32; };
+struct DI { var a: f64; var n: i64; };
+struct ID { var n: i64; var a: f64; };
+struct FI { var a: f32; var n: i32; };
+struct F3 { var a: f32; var b: f32; var c: f32; };
+struct D1 { var a: f64; };
+struct S1 { var a: f32; };
+struct NN { var p: F2; var q: F2; };
+struct DF { var a: f64; var b: f32; };
+
+function ff_make(a: f64, b: f64) -> FF { var r: FF; r.a = a; r.b = b; return r; }
+function f2_make(a: f32, b: f32) -> F2 { var r: F2; r.a = a; r.b = b; return r; }
+function di_make(a: f64, n: i64) -> DI { var r: DI; r.a = a; r.n = n; return r; }
+function id_make(n: i64, a: f64) -> ID { var r: ID; r.n = n; r.a = a; return r; }
+function fi_make(a: f32, n: i32) -> FI { var r: FI; r.a = a; r.n = n; return r; }
+function f3_make(a: f32, b: f32, c: f32) -> F3 { var r: F3; r.a = a; r.b = b; r.c = c; return r; }
+function d1_make(a: f64) -> D1 { var r: D1; r.a = a; return r; }
+function s1_make(a: f32) -> S1 { var r: S1; r.a = a; return r; }
+function df_make(a: f64, b: f32) -> DF { var r: DF; r.a = a; r.b = b; return r; }
+function nn_make(a: f32, b: f32, c: f32, d: f32) -> NN { var r: NN; r.p.a = a; r.p.b = b; r.q.a = c; r.q.b = d; return r; }
+function ff_sum(p: FF) -> f64 { return p.a * 10.0 + p.b; }
+function f2_sum(p: F2) -> f64 { return p.a * 10.0 + p.b; }
+function di_sum(p: DI) -> f64 { return p.a * 10.0 + p.n; }
+function id_sum(p: ID) -> f64 { return p.a * 10.0 + p.n; }
+function fi_sum(p: FI) -> f64 { return p.a * 10.0 + p.n; }
+function f3_sum(p: F3) -> f64 { return p.a * 100.0 + p.b * 10.0 + p.c; }
+function d1_sum(p: D1) -> f64 { return p.a * 2.0; }
+function s1_sum(p: S1) -> f64 { return p.a * 2.0; }
+function nn_sum(p: NN) -> f64 { return p.p.a * 1000.0 + p.p.b * 100.0 + p.q.a * 10.0 + p.q.b; }
+function df_sum(p: DF) -> f64 { return p.a * 10.0 + p.b; }
+function five(a: FF, b: FF, c: FF, d: FF, e: FF) -> f64 { return a.a + b.a * 10.0 + c.a * 100.0 + d.a * 1000.0 + e.a * 10000.0 + e.b; }
+function order(n: i64, p: DI, m: i64, q: F2, k: f64) -> f64 { return n * 1.0 + p.a * 10.0 + p.n * 100.0 + m * 1000.0 + q.a * 10000.0 + q.b * 100000.0 + k * 1000000.0; }
+function f2_swap(p: F2) -> F2 { var r: F2; r.a = p.b; r.b = p.a; return r; }
+function relay_ff(p: FF) -> FF { var r: FF; r.a = p.a; r.b = p.b; return r; }
+function relay_di(p: DI) -> DI { var r: DI; r.a = p.a; r.n = p.n; return r; }
+function relay_id(p: ID) -> ID { var r: ID; r.n = p.n; r.a = p.a; return r; }
+function relay_f3(p: F3) -> F3 { var r: F3; r.a = p.a; r.b = p.b; r.c = p.c; return r; }
+function relay_df(p: DF) -> DF { var r: DF; r.a = p.a; r.b = p.b; return r; }
+function drain6(a: i64, b: i64, c: i64, d: i64, e: i64, f: i64, p: DI) -> f64 { return p.a * 10.0 + p.n + a + b * 2.0 + c * 3.0 + d * 4.0 + e * 5.0 + f * 6.0; }
+function drain8(a: i64, b: i64, c: i64, d: i64, e: i64, f: i64, g: i64, h: i64, p: DI) -> f64 { return p.a * 10.0 + p.n + a + b * 2.0 + c * 3.0 + d * 4.0 + e * 5.0 + f * 6.0 + g * 7.0 + h * 8.0; }
+
+function main() { return(0); }

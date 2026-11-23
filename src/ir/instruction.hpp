@@ -52,6 +52,9 @@ struct IRInstruction {
     uint32_t src_line = 0;
     std::string src_file;
 
+    /// Width (and so register class) of `dst2`; an F32/F64 width marks a float result.
+    IRWidth dst2_width = IRWidth::I64;
+
     /// Sentinel for "no destination register".
     static constexpr uint32_t NONE_VREG = UINT32_MAX;
 
