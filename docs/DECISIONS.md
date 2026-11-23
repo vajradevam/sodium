@@ -500,3 +500,18 @@ paths of D-012.
   so no bit-cast opcode is needed.
 - The by-value compile error and `check_struct_by_value` are removed; the two tests that asserted it
   were replaced by `tests/floats/test_float_struct_value.cyan` and the C-interop pairs.
+
+## D-041 LSP feature semantics (D3)
+LSP requests operate on the document text already cached by `didOpen`/`didChange`, using the
+existing tokenizer and the AST symbol walkers; no separate index is persisted between requests.
+`textDocument/rename` returns a `WorkspaceEdit` with a single edit per matching *identifier
+token* in the open document (declaration and uses), and advertises `prepareRenameProvider` only
+when the token under the cursor resolves to a symbol. `textDocument/references` returns the same
+token ranges with `includeDeclaration` controlling whether the declaration is included.
+`textDocument/signatureHelp` parses the enclosing call expression and reports the callee's
+parameter list with the active parameter from the comma count. `textDocument/semanticTokens/full`
+classifies tokenizer tokens into LSP semantic token types using keyword/type/token-kind tables
+(line-only, no modifiers in this phase). Diagnostics are published on every `didChange` and an
+empty list is published on `didClose` so stale diagnostics never linger. The VS Code extension
+declares these capabilities and its TextMate grammar is extended for the syntax added since 0.1.0
+(typed parameters, `f32`/`f64`, `enum`, `asm`, float literals, preprocessor directives).
