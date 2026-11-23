@@ -587,6 +587,19 @@ Found when a stale /usr/local/bin/sodium (root-owned, not replaced because insta
 different binary, with the fix command. scripts/test_install.sh covers not-on-PATH, shadowed and
 clean cases. check.sh passes; test counts unchanged.
 
+## 2026-11-23 — Y10 integer arithmetic stays in its operands' type (D-044)
+Reported: `fib(n - 1)` with `n: u32` was rejected ("argument 1 has type i64, expected u32") and
+`return n - 1` ("return type mismatch") while `var m: u32 = n - 1` compiled. Cause: a literal is i64,
+so the result was i64; for u8/u16 the C-style promotion to i32 caused the same rejections. A probe of
+8 int types x 15 expressions x 4 contexts found 120 of 480 programs rejected (all u8/i8/u16/i16 in
+argument/return position). Fix (D-044): no promotion, fitting constants adopt the other operand's
+type, results wrap at their type's width, `~x` keeps its type. The probe is now
+`scripts/test_type_matrix.sh` (512 programs must compile, plus a run-and-compare against gcc).
+Knock-on fixes: cyanlib `memcmp`/`strcmp`/`strncmp` byte differences widen with `as i64`;
+tests/abi/c_calls_cyan.cyan sums widen narrow fields; test_int_sub_promotion rewritten.
+Known sharp edge, not fixed: `x as i64 * 2` parses `i64 *` as a pointer type (write `(x as i64) * 2`).
+Done on branch fix/int-literal-arith (separate worktree) so the Phase T agent's tree was untouched.
+
 ## 2026-11-23 — T-1 Phase T coverage inventory + xfail infrastructure + BF-001
 Baseline verified clean on `main` at `a1ec4d9` (check.sh green: 776 passed / 0 failed / 18 skipped
 per level); created branch `phase-T/edge-tests`. Inventoried 399 `.cyan` tests by feature and
@@ -686,3 +699,7 @@ larger stack frames crash at ~800; the 5000-level crashing case remains in xfail
 Known limits recorded but not filed: target-specific float→int out-of-range results (D-038),
 shift counts >= 64, entry-SP-only stack probing, and null checks on null-base-plus-offset.
 The first unchecked task of the next phase is Phase 8 B1 (Backend interface audit).
+
+## 2026-11-24 — Y11: fix every Phase T bug (BF-001..BF-012) plus register-named functions and `as T * n`
+All twelve xfail reproducers now pass and live in `tests/regress/`; new regression tests for u64
+ops, cast signedness, struct sizeof, nesting limit, register-named functions and cast-then-multiply.

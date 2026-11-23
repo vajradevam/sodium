@@ -1,0 +1,41 @@
+// EXPECT-EXIT: 0
+// EXPECT-STDOUT: 55
+// EXPECT-STDOUT: 21
+// EXPECT-STDOUT: 13
+// EXPECT-STDOUT: 8
+// An integer constant next to a typed integer takes that integer's type when it fits (like the
+// existing literal-fits rule for arguments), so `n - 1` stays u32/i32/u64 and can be passed on
+// to a parameter of the same type without a cast.
+
+function fib(n: u32) -> u32 {
+    if (n <= 1) {
+        return n;
+    }
+    return fib(n - 1) + fib(n - 2);
+}
+
+function fib_i32(n: i32) -> i32 {
+    if (n <= 1) {
+        return n;
+    }
+    return fib_i32(n - 1) + fib_i32(n - 2);
+}
+
+function fib_u64(n: u64) -> u64 {
+    if (n <= 1) {
+        return n;
+    }
+    return fib_u64(n - 1) + fib_u64(n - 2);
+}
+
+function twice(n: u32) -> u32 {
+    return n * 2;
+}
+
+function main() {
+    print(fib(10));
+    print(fib_i32(8));
+    print(fib_u64(7));
+    print(twice(4));
+    return(0);
+}

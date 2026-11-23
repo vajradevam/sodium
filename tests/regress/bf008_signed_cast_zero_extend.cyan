@@ -1,4 +1,4 @@
-// BF-008: a cast to a signed narrow type must sign-extend its truncated value
+// BF-008 (fixed): a cast to a signed narrow type must sign-extend its truncated value
 // to 64 bits (C: (uint64_t)(int8_t)-1 == 18446744073709551615). Cyan
 // zero-extends, so the expression behaves as 255.
 // EXPECT-EXIT: 0

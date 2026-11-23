@@ -1,4 +1,4 @@
-// BF-003: an unterminated /* comment must be a compile error. The substring
+// BF-003 (fixed): an unterminated /* comment must be a compile error. The substring
 // 'nterminated block comment' is matched case-insensitively on purpose: any
 // wording that says the comment is unterminated is acceptable.
 // EXPECT-ERROR: nterminated block comment

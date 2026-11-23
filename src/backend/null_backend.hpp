@@ -70,6 +70,11 @@ public:
     void signed_mod(const std::string& dst, const std::string& dividend,
                     const std::string& divisor) override { (void)dst; (void)dividend; (void)divisor; }
 
+    void unsigned_div(const std::string& dst, const std::string& dividend,
+                      const std::string& divisor) override { (void)dst; (void)dividend; (void)divisor; }
+    void unsigned_mod(const std::string& dst, const std::string& dividend,
+                      const std::string& divisor) override { (void)dst; (void)dividend; (void)divisor; }
+
     void neg(const std::string& reg) override { (void)reg; }
     void not_(const std::string& reg) override { (void)reg; }
     void xor_(const std::string& dst, const std::string& src) override { (void)dst; (void)src; }

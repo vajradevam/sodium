@@ -1,0 +1,22 @@
+// Casts between integer types re-normalise to the target (BF-008).
+// EXPECT-EXIT: 0
+// COMPILE-FLAGS: -w
+// EXPECT-STDOUT: -1
+// EXPECT-STDOUT: 255
+// EXPECT-STDOUT: -128
+// EXPECT-STDOUT: -1
+// EXPECT-STDOUT: 65535
+
+function main() {
+    var a: u8 = 255;
+    print((a as i8) as i64);
+    var b: i8 = -1;
+    print((b as u8) as i64);
+    var c: u8 = 128;
+    print((c as i8) as i64);
+    var d: u32 = 4294967295;
+    print((d as i32) as i64);
+    var e: i16 = -1;
+    print((e as u16) as i64);
+    return(0);
+}

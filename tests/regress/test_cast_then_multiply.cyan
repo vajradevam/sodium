@@ -1,0 +1,18 @@
+// `x as i64 * 2` is a multiplication; `as i64*` followed by a delimiter is still a pointer cast.
+// EXPECT-EXIT: 0
+// COMPILE-FLAGS: -w
+// EXPECT-STDOUT: 510
+// EXPECT-STDOUT: 9
+// EXPECT-STDOUT: 40
+
+function main() {
+    var x: u8 = 255;
+    print(x as i64 * 2);
+    var y: i32 = 3;
+    print(y as i64 * y);
+    var a[2];
+    a[0] = 40;
+    var p = &a[0] as i64*;
+    print(*p);
+    return(0);
+}

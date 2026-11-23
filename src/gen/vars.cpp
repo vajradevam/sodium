@@ -141,13 +141,13 @@ void Generator::store_var_from_vstack(const std::string& name, AssignOp op) {
                     case AssignOp::add_assign:     result = m_ir.add(IRValue::vreg(lhs), IRValue::vreg(rhs)); break;
                     case AssignOp::sub_assign:     result = m_ir.sub(IRValue::vreg(lhs), IRValue::vreg(rhs)); break;
                     case AssignOp::mul_assign:     result = m_ir.mul(IRValue::vreg(lhs), IRValue::vreg(rhs)); break;
-                    case AssignOp::div_assign:     result = m_ir.div(IRValue::vreg(lhs), IRValue::vreg(rhs)); break;
-                    case AssignOp::mod_assign:     result = m_ir.mod(IRValue::vreg(lhs), IRValue::vreg(rhs)); break;
+                    case AssignOp::div_assign:     result = emit_int_div(lhs, rhs, var.type == Type::make_int(IntType::u64), false); break;
+                    case AssignOp::mod_assign:     result = emit_int_div(lhs, rhs, var.type == Type::make_int(IntType::u64), true); break;
                     case AssignOp::bitand_assign:  result = m_ir.and_(IRValue::vreg(lhs), IRValue::vreg(rhs)); break;
                     case AssignOp::bitor_assign:   result = m_ir.or_(IRValue::vreg(lhs), IRValue::vreg(rhs)); break;
                     case AssignOp::bitxor_assign:  result = m_ir.xor_(IRValue::vreg(lhs), IRValue::vreg(rhs)); break;
                     case AssignOp::shl_assign:     result = m_ir.shl(IRValue::vreg(lhs), IRValue::vreg(rhs)); break;
-                    case AssignOp::shr_assign:     result = m_ir.ashr(IRValue::vreg(lhs), IRValue::vreg(rhs)); break;
+                    case AssignOp::shr_assign:     result = emit_int_shr(lhs, rhs, var.type == Type::make_int(IntType::u64)); break;
                     default: break;
                 }
                 // Truncate if needed

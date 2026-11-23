@@ -1,4 +1,4 @@
-// BF-010: u64 arithmetic and comparisons must be unsigned. With all bits set,
+// BF-010 (fixed): u64 arithmetic and comparisons must be unsigned. With all bits set,
 // C gives (u>>1)==2^63-1, u/2==2^63-1 and u<1 false. Cyan applies signed i64
 // semantics and gives all-ones, 0 and true.
 // EXPECT-EXIT: 0

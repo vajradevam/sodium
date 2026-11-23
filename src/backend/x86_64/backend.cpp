@@ -2,6 +2,7 @@
 #include <sstream>
 #include <unordered_map>
 #include <cctype>
+#include <regex>
 
 // Forward declarations for subregister helpers
 static std::string low8(const std::string& r);
@@ -247,6 +248,41 @@ void X8664Backend::signed_mod(const std::string& dst, const std::string& dividen
     }
 }
 
+// Unsigned division: rdx must be zero (not sign-extended rax) before `div`.
+void X8664Backend::unsigned_div(const std::string& dst, const std::string& dividend,
+                                const std::string& divisor) {
+    mov("r11", divisor);
+    std::string ok = ".Ldiv_ok_" + std::to_string(m_div_label_counter++);
+    emit_insn("cmp", "r11, 0");
+    emit_insn("jne", ok);
+    emit_insn("mov", "rdi, 1");
+    emit_insn("call", "_sodium_exit");
+    label(ok);
+    mov("rax", dividend);
+    emit_insn("xor", "edx, edx");
+    emit_insn("div", "r11");
+    if (dst != "rax") {
+        mov(dst, "rax");
+    }
+}
+
+void X8664Backend::unsigned_mod(const std::string& dst, const std::string& dividend,
+                                const std::string& divisor) {
+    mov("r11", divisor);
+    std::string ok = ".Ldiv_ok_" + std::to_string(m_div_label_counter++);
+    emit_insn("cmp", "r11, 0");
+    emit_insn("jne", ok);
+    emit_insn("mov", "rdi, 1");
+    emit_insn("call", "_sodium_exit");
+    label(ok);
+    mov("rax", dividend);
+    emit_insn("xor", "edx, edx");
+    emit_insn("div", "r11");
+    if (dst != "rdx") {
+        mov(dst, "rdx");
+    }
+}
+
 void X8664Backend::neg(const std::string& reg) {
     emit_insn("neg", reg);
 }
@@ -255,16 +291,32 @@ void X8664Backend::not_(const std::string& reg) {
     emit_insn("not", reg);
 }
 
+// and/or/xor accept only a sign-extended 32-bit immediate; wider constants go through r11.
+void X8664Backend::emit_logic_op(const char* op, const std::string& dst, const std::string& src) {
+    const bool numeric = !src.empty() && (std::isdigit(static_cast<unsigned char>(src[0])) || src[0] == '-');
+    if (numeric) {
+        try {
+            const long long v = std::stoll(src);
+            if (v < -2147483648LL || v > 2147483647LL) {
+                emit_insn("mov", "r11, " + src);
+                emit_insn(op, dst + ", r11");
+                return;
+            }
+        } catch (...) {}
+    }
+    emit_insn(op, dst + ", " + src);
+}
+
 void X8664Backend::xor_(const std::string& dst, const std::string& src) {
-    emit_insn("xor", dst + ", " + src);
+    emit_logic_op("xor", dst, src);
 }
 
 void X8664Backend::and_(const std::string& dst, const std::string& src) {
-    emit_insn("and", dst + ", " + src);
+    emit_logic_op("and", dst, src);
 }
 
 void X8664Backend::or_(const std::string& dst, const std::string& src) {
-    emit_insn("or", dst + ", " + src);
+    emit_logic_op("or", dst, src);
 }
 
 // Map 64-bit register name to 8-bit subregister
@@ -489,7 +541,7 @@ void X8664Backend::note_fp_arg_count(int count) {
 // ---- control ----
 
 void X8664Backend::call(const std::string& target) {
-    emit_insn("call", target);
+    emit_insn("call", nasm_symbol(target));
 }
 
 void X8664Backend::call_reg(const std::string& reg) {
@@ -502,16 +554,27 @@ void X8664Backend::syscall() {
 
 // ---- labels / directives ----
 
+// A user function called `r8`, `rax`, `ax`... would be read by NASM as the register. A leading `$`
+// makes NASM treat the word as an identifier; the emitted symbol name is unchanged.
+std::string X8664Backend::nasm_symbol(const std::string& name) {
+    static const std::regex reserved(
+        "^(?:[re]?(?:[abcd]x|[sd]i|[sb]p|ip)|[sd]il|[sb]pl|[abcd][lh]|r(?:[89]|1[0-5])[bwd]?"
+        "|[cdefgs]s|[xy]mm(?:[0-9]|1[0-5])|st[0-7]?|mm[0-7]|[cd]r[0-9]+|tr[0-9]+|byte|word|dword|qword|"
+        "tword|oword|yword|ptr|rel|abs|seg|wrt|short|near|far|strict|nosplit|to)$",
+        std::regex::icase);
+    return std::regex_match(name, reserved) ? "$" + name : name;
+}
+
 void X8664Backend::label(const std::string& name) {
-    *m_output << name << ":\n";
+    *m_output << nasm_symbol(name) << ":\n";
 }
 
 void X8664Backend::global_sym(const std::string& name) {
-    *m_output << "global " << name << "\n";
+    *m_output << "global " << nasm_symbol(name) << "\n";
 }
 
 void X8664Backend::extern_sym(const std::string& name) {
-    *m_output << "extern " << name << "\n";
+    *m_output << "extern " << nasm_symbol(name) << "\n";
 }
 
 void X8664Backend::section(const std::string& name) {
@@ -542,7 +605,7 @@ void X8664Backend::resq(const std::string& name, size_t count) {
 // ---- addressing modes ----
 
 std::string X8664Backend::addr_label(const std::string& sym) const {
-    return "[rel " + sym + "]";
+    return "[rel " + nasm_symbol(sym) + "]";
 }
 
 std::string X8664Backend::addr_reg_offset(const std::string& reg, int offset) const {

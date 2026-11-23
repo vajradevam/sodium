@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <cstdint>
+#include <limits>
 
 // ==========================================================================
 // Typed signatures: declared parameter types and call-site checking (Y1b).
@@ -135,6 +136,68 @@ void Generator::check_call_args(const NodeExprCall& call, SourceLoc loc, const s
         fail(loc, "argument " + std::to_string(i + 1) + " to " + what
                   + " has type " + type_name(got) + ", expected " + type_name(want));
     }
+}
+
+Type Generator::int_binop_type(const NodeExpr* lhs, const NodeExpr* rhs, const Type& ta,
+                               const Type& tb) const {
+    const Type fallback = Type::make_int(IntType::i64);
+    if (ta.kind != Type::Int || tb.kind != Type::Int) return fallback;
+    const auto ca = eval_const_expr(lhs);
+    const auto cb = eval_const_expr(rhs);
+    if (cb.has_value() && !ca.has_value() && constant_fits(cb.value(), ta.int_type)) return ta;
+    if (ca.has_value() && !cb.has_value() && constant_fits(ca.value(), tb.int_type)) return tb;
+    return type_size(ta) >= type_size(tb) ? ta : tb;
+}
+
+void Generator::emit_bounds_check(uint32_t index, size_t dim) {
+    if (!m_bounds_check) return;
+    const uint32_t lower = m_ir.cmp_ge(IRValue::vreg(index), IRValue::imm_i64(0));
+    const uint32_t upper = m_ir.cmp_lt(IRValue::vreg(index), IRValue::imm_i64(static_cast<int64_t>(dim)));
+    const uint32_t in_range = m_ir.and_(IRValue::vreg(lower), IRValue::vreg(upper));
+    emit_runtime_check(IRValue::vreg(in_range), "index out of bounds\n");
+}
+
+uint32_t Generator::emit_int_div(uint32_t a, uint32_t b, bool is_u64, bool modulo) {
+    const IRValue va = IRValue::vreg(a), vb = IRValue::vreg(b);
+    if (is_u64) return modulo ? m_ir.umod(va, vb) : m_ir.udiv(va, vb);
+    return modulo ? m_ir.mod(va, vb) : m_ir.div(va, vb);
+}
+
+uint32_t Generator::emit_int_shr(uint32_t a, uint32_t b, bool is_u64) {
+    const IRValue va = IRValue::vreg(a), vb = IRValue::vreg(b);
+    return is_u64 ? m_ir.shr(va, vb) : m_ir.ashr(va, vb);
+}
+
+// Unsigned order is signed order after flipping the sign bit of both operands.
+uint32_t Generator::emit_int_cmp(IROpcode op, uint32_t a, uint32_t b, bool is_u64) {
+    IRValue va = IRValue::vreg(a), vb = IRValue::vreg(b);
+    if (is_u64) {
+        const IRValue flip = IRValue::imm_i64(std::numeric_limits<int64_t>::min());
+        va = IRValue::vreg(m_ir.xor_(va, flip));
+        vb = IRValue::vreg(m_ir.xor_(vb, flip));
+    }
+    switch (op) {
+        case IROpcode::CMP_LT: return m_ir.cmp_lt(va, vb);
+        case IROpcode::CMP_LE: return m_ir.cmp_le(va, vb);
+        case IROpcode::CMP_GT: return m_ir.cmp_gt(va, vb);
+        default:               return m_ir.cmp_ge(va, vb);
+    }
+}
+
+void Generator::wrap_int_top(const Type& t) {
+    if (t.kind != Type::Int || type_size(t) >= 8 || m_vstack.empty()) return;
+    const IRWidth w = type_size(t) == 4 ? IRWidth::I32
+                    : type_size(t) == 2 ? IRWidth::I16 : IRWidth::I8;
+    const IRValue src = IRValue::vreg(m_vstack.back());
+    m_vstack.back() = is_signed(t.int_type) ? m_ir.sext(src, w) : m_ir.zext(src, w);
+}
+
+void Generator::finish_int_binop(const NodeExpr* lhs, const NodeExpr* rhs, const Type& ta,
+                                 const Type& tb, bool wrap) {
+    if (m_tstack.empty() || m_vstack.empty()) return;
+    const Type result = int_binop_type(lhs, rhs, ta, tb);
+    if (wrap) wrap_int_top(result);
+    m_tstack.back() = result;
 }
 
 void Generator::check_fn_ptr_assign(const Type& want, const NodeExpr* expr, SourceLoc loc,

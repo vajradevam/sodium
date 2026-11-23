@@ -142,6 +142,8 @@ public:
     IR_BINOP(mul, MUL)
     IR_BINOP(div, DIV)
     IR_BINOP(mod, MOD)
+    IR_BINOP(udiv, UDIV)
+    IR_BINOP(umod, UMOD)
     IR_BINOP(and_, AND)
     IR_BINOP(or_, OR)
     IR_BINOP(xor_, XOR)

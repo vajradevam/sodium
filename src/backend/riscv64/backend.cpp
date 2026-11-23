@@ -1,4 +1,5 @@
 #include "backend.hpp"
+#include <unordered_set>
 #include <sstream>
 #include <cstdint>
 #include <cctype>
@@ -34,7 +35,48 @@ void RISCV64Backend::debug_line(const std::string& file, uint32_t line) {
     emit_insn(".loc", std::to_string(file_id) + " " + std::to_string(line) + " 0");
 }
 
+// Loads and stores take a 12-bit signed displacement. Frames with many spills can exceed it
+// (BF-011), so such an access is rewritten as `li tmp, off; add tmp, tmp, base; op reg, 0(tmp)`.
+// tmp is a register the instruction does not otherwise use; when none of t0/the data register
+// is free (a store of t0, or base == t0), t1/t2 is borrowed and restored from just below sp.
+bool RISCV64Backend::emit_wide_mem(const std::string& insn, const std::string& ops) {
+    static const std::unordered_set<std::string> mem_ops = {
+        "ld", "sd", "lb", "lbu", "lh", "lhu", "lw", "lwu", "sb", "sh", "sw",
+        "fld", "fsd", "flw", "fsw"};
+    if (!mem_ops.contains(insn)) return false;
+    const size_t comma = ops.find(", ");
+    if (comma == std::string::npos) return false;
+    const std::string reg = ops.substr(0, comma);
+    const std::string addr = ops.substr(comma + 2);
+    const size_t open = addr.find('(');
+    if (open == std::string::npos || addr.back() != ')' || open == 0) return false;
+    int64_t off = 0;
+    try { off = std::stoll(addr.substr(0, open)); } catch (...) { return false; }
+    if (off >= -2048 && off <= 2047) return false;
+    const std::string base = addr.substr(open + 1, addr.size() - open - 2);
+
+    const bool is_load = insn[0] == 'l' || insn == "fld" || insn == "flw";
+    const bool fp_data = insn[0] == 'f';
+    std::string tmp;
+    if (is_load && !fp_data && reg != base) tmp = reg;       // the destination can hold the address
+    else if (reg != "t0" && base != "t0") tmp = "t0";
+    if (!tmp.empty()) {
+        emit_insn("li", tmp + ", " + std::to_string(off));
+        emit_insn("add", tmp + ", " + tmp + ", " + base);
+        emit_insn(insn, reg + ", 0(" + tmp + ")");
+        return true;
+    }
+    const std::string spare = (reg != "t1" && base != "t1") ? "t1" : "t2";
+    emit_insn("sd", spare + ", -8(sp)");
+    emit_insn("li", spare + ", " + std::to_string(off));
+    emit_insn("add", spare + ", " + spare + ", " + base);
+    emit_insn(insn, reg + ", 0(" + spare + ")");
+    emit_insn("ld", spare + ", -8(sp)");
+    return true;
+}
+
 void RISCV64Backend::emit_insn(const std::string& insn, const std::string& ops) {
+    if (emit_wide_mem(insn, ops)) return;
     // Emit .option norelax once at the start to prevent the assembler
     // from converting la (PC-relative) to gp-relative addressing.
     // We don't initialize gp in _start, so gp-relative would crash.
@@ -324,30 +366,61 @@ void RISCV64Backend::mul(const std::string& dst, const std::string& src) {
     }
 }
 
+// Runtime guards shared by signed div/rem: exit(1) on a zero divisor; and INT64_MIN / -1
+// exits 136 (BF-009). RISC-V defines that quotient as INT64_MIN instead of trapping, while
+// x86_64 raises SIGFPE (status 136), so the two targets are made to agree (D-023).
+void RISCV64Backend::emit_div_checks(const std::string& dividend, const std::string& divisor) {
+    const std::string id = std::to_string(m_div_label_counter++);
+    const std::string ok = ".Ldiv_ok_" + id;
+    const std::string safe = ".Ldiv_safe_" + id;
+    emit_insn("bnez", divisor + ", " + ok);
+    emit_insn("li", "a0, 1");
+    emit_insn("call", "_sodium_exit");
+    label(ok);
+    emit_ri("addi", m_scratch, divisor, 1);
+    emit_insn("bnez", m_scratch + ", " + safe);
+    emit_insn("li", m_scratch + ", 1");
+    emit_ri("slli", m_scratch, m_scratch, 63);
+    emit_insn("bne", dividend + ", " + m_scratch + ", " + safe);
+    emit_insn("li", "a0, 136");
+    emit_insn("call", "_sodium_exit");
+    label(safe);
+}
+
 void RISCV64Backend::signed_div(const std::string& dst, const std::string& dividend,
                                  const std::string& divisor) {
     // RISC-V div is a true three-operand instruction: div rd, rs1, rs2
     // Both source registers are read before the destination is written,
     // so rd may equal rs1 or rs2. No scratch register needed.
-    // Runtime zero-division check: exit(1) if divisor == 0
-    std::string ok = ".Ldiv_ok_" + std::to_string(m_div_label_counter++);
-    emit_insn("bnez", divisor + ", " + ok);
-    emit_insn("li", "a0, 1");
-    emit_insn("call", "_sodium_exit");
-    label(ok);
+    emit_div_checks(dividend, divisor);
     emit_rri("div", dst, dividend, divisor);
 }
 
 void RISCV64Backend::signed_mod(const std::string& dst, const std::string& dividend,
                                  const std::string& divisor) {
     // RISC-V rem is also three-operand: rem rd, rs1, rs2
-    // Runtime zero-division check: exit(1) if divisor == 0
+    emit_div_checks(dividend, divisor);
+    emit_rri("rem", dst, dividend, divisor);
+}
+
+void RISCV64Backend::unsigned_div(const std::string& dst, const std::string& dividend,
+                                  const std::string& divisor) {
     std::string ok = ".Ldiv_ok_" + std::to_string(m_div_label_counter++);
     emit_insn("bnez", divisor + ", " + ok);
     emit_insn("li", "a0, 1");
     emit_insn("call", "_sodium_exit");
     label(ok);
-    emit_rri("rem", dst, dividend, divisor);
+    emit_rri("divu", dst, dividend, divisor);
+}
+
+void RISCV64Backend::unsigned_mod(const std::string& dst, const std::string& dividend,
+                                  const std::string& divisor) {
+    std::string ok = ".Ldiv_ok_" + std::to_string(m_div_label_counter++);
+    emit_insn("bnez", divisor + ", " + ok);
+    emit_insn("li", "a0, 1");
+    emit_insn("call", "_sodium_exit");
+    label(ok);
+    emit_rri("remu", dst, dividend, divisor);
 }
 
 void RISCV64Backend::neg(const std::string& reg) {
@@ -360,7 +433,14 @@ void RISCV64Backend::not_(const std::string& reg) {
 
 void RISCV64Backend::xor_(const std::string& dst, const std::string& src) {
     if (is_imm_str(src)) {
-        emit_ri("xori", dst, dst, std::stoll(src));
+        const int64_t imm = std::stoll(src);
+        // xori/ori take a 12-bit signed immediate; larger values go through the scratch register.
+        if (imm >= -2048 && imm <= 2047) {
+            emit_ri("xori", dst, dst, imm);
+        } else {
+            emit_insn("li", "t0, " + std::to_string(imm));
+            emit_rri("xor", dst, dst, "t0");
+        }
     } else {
         emit_rri("xor", dst, dst, src);
     }
@@ -384,7 +464,13 @@ void RISCV64Backend::and_(const std::string& dst, const std::string& src) {
 
 void RISCV64Backend::or_(const std::string& dst, const std::string& src) {
     if (is_imm_str(src)) {
-        emit_ri("ori", dst, dst, std::stoll(src));
+        const int64_t imm = std::stoll(src);
+        if (imm >= -2048 && imm <= 2047) {
+            emit_ri("ori", dst, dst, imm);
+        } else {
+            emit_insn("li", "t0, " + std::to_string(imm));
+            emit_rri("or", dst, dst, "t0");
+        }
     } else {
         emit_rri("or", dst, dst, src);
     }

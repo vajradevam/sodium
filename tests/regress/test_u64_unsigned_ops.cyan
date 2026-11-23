@@ -1,0 +1,27 @@
+// u64 values with the top bit set use unsigned division, remainder, shifts and ordering
+// (BF-010), also in compound assignments.
+// EXPECT-EXIT: 0
+// COMPILE-FLAGS: -w
+// EXPECT-STDOUT: 9223372036854775807
+// EXPECT-STDOUT: 1
+// EXPECT-STDOUT: 1
+// EXPECT-STDOUT: 0
+// EXPECT-STDOUT: 1
+// EXPECT-STDOUT: 4611686018427387903
+// EXPECT-STDOUT: 1
+
+function main() {
+    var u: u64 = 0 as u64 - 1;
+    var h: u64 = u;
+    h /= 2;
+    print("%u", h);
+    print("%u", u % 2);
+    print(u > 5);
+    print(u < 5);
+    print(u >= u);
+    var s: u64 = u;
+    s >>= 2;
+    print("%u", s);
+    print(u / u);
+    return(0);
+}

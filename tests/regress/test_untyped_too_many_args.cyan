@@ -1,0 +1,5 @@
+// Calls to untyped functions are arity-checked too (BF-006).
+// EXPECT-ERROR: wrong number of arguments
+
+function f(a, b) { return(a + b); }
+function main() { print(f(1, 2, 3)); return(0); }

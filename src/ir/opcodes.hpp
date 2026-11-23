@@ -43,6 +43,8 @@ enum class IROpcode : uint8_t {
     MUL,         // %dst = %a * %b
     DIV,         // %dst = %a / %b (signed)
     MOD,         // %dst = %a % %b (signed)
+    UDIV,        // %dst = %a / %b (unsigned 64-bit)
+    UMOD,        // %dst = %a % %b (unsigned 64-bit)
     AND,         // %dst = %a & %b
     OR,          // %dst = %a | %b
     XOR,         // %dst = %a ^ %b

@@ -20,6 +20,14 @@ void Parser::error(const std::string& msg) {
     throw ParseAbort{};
 }
 
+void Parser::nesting_too_deep() {
+    SourceLoc loc = peek().has_value() ? peek().value().loc : SourceLoc{};
+    m_diag.error(loc, "Nesting is too deep (limit " + std::to_string(kMaxNesting) + " levels)");
+    if (g_lsp_mode) throw LSPAbort();
+    std::cerr << DiagnosticEngine::render(m_diag.diagnostics().back());
+    std::exit(EXIT_FAILURE);
+}
+
 [[noreturn]] void Parser::fail_at(const SourceLoc& loc, const std::string& msg) {
     m_diag.error(loc, msg);
     if (g_lsp_mode) throw LSPAbort();
@@ -53,6 +61,7 @@ void Parser::synchronize() {
 
 std::optional<NodeExpr*> Parser::parse_expr()
     {
+        DepthGuard depth_guard(*this);
         auto lhs = parse_or_expr();
         if (!lhs) return {};
 
@@ -363,7 +372,7 @@ NodeExpr* Parser::apply_casts(NodeExpr* expr) {
     if (!expr) return nullptr;
     while (peek().has_value() && peek().value().type == TokenType::_as) {
         SourceLoc loc = consume().loc;
-        auto target = parse_full_type();
+        auto target = parse_full_type(/*in_cast=*/true);
         if (!target.has_value()) error("Expected type after 'as'");
         auto cast = m_allocator.alloc<NodeExprCast>();
         cast->expr = expr;
@@ -454,6 +463,7 @@ std::optional<NodeExpr*> Parser::parse_primary_expr()
 
 std::optional<NodeExpr*> Parser::parse_unit_expr()
     {
+        DepthGuard depth_guard(*this);
         // Pointer dereference: *expr
         if (peek().has_value() && peek().value().type == TokenType::star) {
             auto deref = m_allocator.alloc<NodeExprDeref>();
@@ -806,6 +816,7 @@ std::optional<NodeExpr*> Parser::parse_unit_expr()
 
 NodeBlock* Parser::parse_block()
     {
+        DepthGuard depth_guard(*this);
         auto block = m_allocator.alloc<NodeBlock>();
         if (peek().has_value() && peek().value().type == TokenType::open_brace) {
             consume();
@@ -1521,7 +1532,7 @@ Type Parser::parse_fn_type() {
     return Type::make_ptr(func);
 }
 
-std::optional<Type> Parser::parse_full_type() {
+std::optional<Type> Parser::parse_full_type(bool in_cast) {
     auto base = parse_type();
     Type type;
     if (peek().has_value() && (peek().value().type == TokenType::_f32 ||
@@ -1547,6 +1558,16 @@ std::optional<Type> Parser::parse_full_type() {
         return {};
     }
     while (peek().has_value() && peek().value().type == TokenType::star) {
+        // `x as i64 * 2` multiplies: in a cast, a `*` followed by an operand is not a pointer star.
+        if (in_cast && peek(1).has_value()) {
+            switch (peek(1).value().type) {
+                case TokenType::int_lit: case TokenType::float_lit: case TokenType::ident:
+                case TokenType::open_paren: case TokenType::minus: case TokenType::tilde:
+                case TokenType::bang: case TokenType::amp:
+                    return type;
+                default: break;
+            }
+        }
         consume();
         Type* pointee = m_allocator.alloc<Type>();
         *pointee = type;

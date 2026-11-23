@@ -29,10 +29,10 @@ function strcmp(a: u8*, b: u8*) -> i64 {
     while (*(a + i) != 0 || *(b + i) != 0) {
         var ca = *(a + i);
         var cb = *(b + i);
-        if (ca != cb) { return(ca - cb); }
+        if (ca != cb) { return((ca as i64) - (cb as i64)); }
         i = i + 1;
     }
-    return(*(a + i) - *(b + i));
+    return((*(a + i) as i64) - (*(b + i) as i64));
 }
 
 // strncmp(a, b, n) — compares at most n bytes of two strings.
@@ -42,7 +42,7 @@ function strncmp(a: u8*, b: u8*, n: i64) -> i64 {
     while (i < n) {
         var ca = *(a + i);
         var cb = *(b + i);
-        if (ca != cb) { return(ca - cb); }
+        if (ca != cb) { return((ca as i64) - (cb as i64)); }
         if (ca == 0) { return(0); }
         i = i + 1;
     }
@@ -163,7 +163,7 @@ function memcmp(a: u8*, b: u8*, n: i64) -> i64 {
     var i = 0;
     while (i < n) {
         if (*(a + i) != *(b + i)) {
-            return(*(a + i) - *(b + i));
+            return((*(a + i) as i64) - (*(b + i) as i64));
         }
         i = i + 1;
     }

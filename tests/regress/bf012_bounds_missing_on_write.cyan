@@ -1,4 +1,4 @@
-// BF-012: --bounds must guard every array index, including assignment targets.
+// BF-012 (fixed): --bounds must guard every array index, including assignment targets.
 // Here a[4] is one past a 4-element array; the check should fire with exit 70.
 // COMPILE-FLAGS: --bounds
 // EXPECT-EXIT: 70

@@ -49,6 +49,10 @@ step "differential oracle under -O1 (both targets)"
 COMPILER=./scripts/sodium-o1.sh ./scripts/oracle.sh > build/last_oracle_o1.log 2>&1 || die "oracle under -O1 (see build/last_oracle_o1.log)"
 tail -2 build/last_oracle_o1.log
 
+step "type matrix (every int type x operator x context vs gcc, both targets)"
+./scripts/test_type_matrix.sh > build/last_typematrix.log 2>&1 || die "type matrix (see build/last_typematrix.log)"
+tail -1 build/last_typematrix.log
+
 step "C interop (struct ABI vs gcc, both targets)"
 ./scripts/test_abi_interop.sh > build/last_abi.log 2>&1 || die "ABI interop (see build/last_abi.log)"
 tail -1 build/last_abi.log

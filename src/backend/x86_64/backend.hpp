@@ -52,6 +52,12 @@ public:
     void mul(const std::string& dst, const std::string& src) override;
     void signed_div(const std::string& dst, const std::string& dividend,
                     const std::string& divisor) override;
+    void unsigned_div(const std::string& dst, const std::string& dividend,
+                      const std::string& divisor) override;
+    void unsigned_mod(const std::string& dst, const std::string& dividend,
+                      const std::string& divisor) override;
+    static std::string nasm_symbol(const std::string& name);
+    void emit_logic_op(const char* op, const std::string& dst, const std::string& src);
     void signed_mod(const std::string& dst, const std::string& dividend,
                     const std::string& divisor) override;
     void neg(const std::string& reg) override;

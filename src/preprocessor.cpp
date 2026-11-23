@@ -2,6 +2,8 @@
 #include "tokenization.hpp"
 
 #include <fstream>
+#include <optional>
+#include <algorithm>
 #include <filesystem>
 #include <unordered_map>
 #include <unordered_set>
@@ -23,9 +25,10 @@ static std::string trim(const std::string& s) {
 }
 
 // Read a file into a string.
-static std::string read_file(const std::string& path) {
+// An empty file is valid; only an unreadable one yields nullopt.
+static std::optional<std::string> read_file(const std::string& path) {
     std::ifstream f(path);
-    if (!f) return "";
+    if (!f) return std::nullopt;
     std::stringstream ss;
     ss << f.rdbuf();
     return ss.str();
@@ -388,7 +391,8 @@ static std::string preprocess_impl(
     const std::string& system_include_dir,
     std::unordered_set<std::string>& visited,
     std::vector<std::string>& all_included,
-    MacroTable& macros
+    MacroTable& macros,
+    std::vector<std::string>& include_stack
 ) {
     std::ostringstream out;
     std::istringstream in(source_text);
@@ -412,20 +416,27 @@ static std::string preprocess_impl(
             return true;
         }
 
-        std::string inc_text = read_file(resolved);
-        if (inc_text.empty()) {
-            // File not found or empty — emit an error marker
+        if (std::find(include_stack.begin(), include_stack.end(), resolved) != include_stack.end()) {
+            out << "#error \"include cycle: " << resolved << " includes itself (directly or indirectly); "
+                << "add '#pragma once' or an include guard\"\n";
+            return true;
+        }
+
+        const std::optional<std::string> inc_text = read_file(resolved);
+        if (!inc_text.has_value()) {
             out << "#error \"could not read file: " << resolved << "\"\n";
             return true;
         }
 
         all_included.push_back(resolved);
-        register_source_file(resolved, inc_text);
+        register_source_file(resolved, *inc_text);
 
         // Recursively process the included file
+        include_stack.push_back(resolved);
         std::string processed = preprocess_impl(
-            inc_text, resolved, include_dirs, system_include_dir,
-            visited, all_included, macros);
+            *inc_text, resolved, include_dirs, system_include_dir,
+            visited, all_included, macros, include_stack);
+        include_stack.pop_back();
 
         // Emit #line marker pointing back to the parent file (line after the include)
         out << "# 1 \"" << resolved << "\"\n";
@@ -571,10 +582,11 @@ PreprocessedResult preprocess(
     PreprocessedResult result;
     std::unordered_set<std::string> visited;
     MacroTable macros;
+    std::vector<std::string> include_stack{source_filename};
     std::string expanded = preprocess_impl(
         source_text, source_filename,
         include_dirs, system_include_dir,
-        visited, result.included_files, macros
+        visited, result.included_files, macros, include_stack
     );
     result.expanded_source = std::move(expanded);
     return result;

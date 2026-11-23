@@ -51,6 +51,8 @@ inline bool is_cse_op(IROpcode op) {
         case IROpcode::MUL:
         case IROpcode::DIV:
         case IROpcode::MOD:
+        case IROpcode::UDIV:
+        case IROpcode::UMOD:
         case IROpcode::AND:
         case IROpcode::OR:
         case IROpcode::XOR:
@@ -177,6 +179,7 @@ inline CSEStats cse_function(IRFunction& f) {
             // which the allocator does not model as a call.
             if (is_call(insn.op) || insn.op == IROpcode::SYSCALL ||
                 insn.op == IROpcode::DIV || insn.op == IROpcode::MOD ||
+                insn.op == IROpcode::UDIV || insn.op == IROpcode::UMOD ||
                 insn.op == IROpcode::ASM) {
                 available.clear();
                 uses.clear();
