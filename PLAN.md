@@ -182,7 +182,7 @@ anyway, tick the box, and note "not reproducible" in PROGRESS.md.
 - [x] **D3c VS Code extension refresh:** TextMate grammar for typed params/floats/enums/asm/preprocessor, declared LSP capabilities and client config (D-041).
 - [x] **D4a `--version` and `--help`:** man-style usage text with every flag, printed by `--help`/`-h`, and a stable `--version` string; scripted CLI tests.
 - [x] **D4b `sodium fmt`:** comment-preserving canonical line formatter (D-042) with stdout/`-o`/`--check` modes, idempotence test over every file under `tests/` and validity check of formatted sources.
-- [ ] **D5 Install/packaging script tested in a clean temp prefix.**
+- [x] **D5 Install/packaging script tested in a clean temp prefix.**
 - [ ] **P7-END** gate, tag.
 
 ## Phase 8 — More targets (optional; do only if Phases 0–7 are done)

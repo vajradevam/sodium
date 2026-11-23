@@ -109,6 +109,10 @@ step "formatter idempotence over all tests"
 ./scripts/test_formatter.sh > build/last_formatter.log 2>&1 || die "formatter (see build/last_formatter.log)"
 tail -1 build/last_formatter.log
 
+step "install script in a clean temp prefix"
+./scripts/test_install.sh > build/last_install.log 2>&1 || die "install (see build/last_install.log)"
+tail -1 build/last_install.log
+
 step "color diagnostics (-fcolor-diagnostics / NO_COLOR)"
 ./scripts/test_color.sh > build/last_color.log 2>&1 || die "color diagnostics (see build/last_color.log)"
 tail -1 build/last_color.log

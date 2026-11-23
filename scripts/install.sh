@@ -9,12 +9,21 @@ else
     INSTALL_PREFIX="${INSTALL_PREFIX:-/usr/local}"
 fi
 INSTALL_DIR="${INSTALL_DIR:-$INSTALL_PREFIX/bin}"
-VSCODE="${1:-}"
+VSCODE=""
 INSTALL_VSCODE=false
 
-if [ "$VSCODE" = "--vscode" ]; then
-    INSTALL_VSCODE=true
-fi
+while [ $# -gt 0 ]; do
+    case "$1" in
+        --vscode) INSTALL_VSCODE=true ;;
+        --prefix)
+            [ $# -ge 2 ] || { echo "--prefix requires a directory" >&2; exit 1; }
+            INSTALL_PREFIX="$2"
+            shift
+            ;;
+        *) echo "usage: $0 [--prefix DIR] [--vscode]" >&2; exit 1 ;;
+    esac
+    shift
+done
 
 # ── Colors ──────────────────────────────────────────────────────────
 RED='\033[0;31m'
@@ -101,11 +110,13 @@ fi
 
 # ── Verify ──────────────────────────────────────────────────────────
 info "Verifying installation..."
-echo "  sodium = $(which sodium)"
-echo "  cyan-lsp = $(which cyan-lsp)"
+[ -x "$INSTALL_DIR/sodium" ] || err "installed sodium is missing"
+"$INSTALL_DIR/sodium" --version >/dev/null 2>&1 || err "installed sodium does not run"
+ok "sodium → $INSTALL_DIR/sodium"
+ok "cyan-lsp → $INSTALL_DIR/cyan-lsp"
 echo ""
-echo "Try it out:"
-echo "  echo 'return(42);' > test.cyan"
-echo "  sodium test.cyan && ./test && echo \$?"
+echo "Try it out (add $INSTALL_DIR to PATH if needed):"
+echo "  echo 'function main() { return 42; }' > test.cyan"
+echo "  $INSTALL_DIR/sodium test.cyan && ./test && echo \$?"
 echo ""
 ok "Installation complete!"

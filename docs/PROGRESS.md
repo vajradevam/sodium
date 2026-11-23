@@ -553,3 +553,11 @@ headers) and string contents verbatim; braces inside literals/comments are ignor
 compared, `--check` accepts canonical output, EXPECT headers are byte-identical and a sample
 program keeps the same exit code and stdout after formatting. `scripts/check.sh` green: 776 passed
 / 0 failed / 18 skipped at both levels. Test counts unchanged (tooling only).
+
+## 2026-11-24 — D5 Install script verified in a clean prefix
+Added `scripts/test_install.sh` to the gate: it installs into a fresh temporary prefix, checks
+that both binaries, `sodium-rt/` and `cyanlib/` are present (with no nested runtime directory),
+and verifies the installed compiler compiles and runs a program. Improved `scripts/install.sh`
+with a `--prefix DIR` flag and honest verification that reports the installed paths instead of
+`which` output. `scripts/check.sh` green: 776 passed / 0 failed / 18 skipped at both levels;
+clean-prefix install OK. Test counts unchanged (tooling only).
