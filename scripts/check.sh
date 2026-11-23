@@ -105,6 +105,10 @@ step "CLI version and help text"
 python3 tests/cli/test_cli.py ./build/sodium > build/last_cli.log 2>&1 || die "CLI text (see build/last_cli.log)"
 tail -1 build/last_cli.log
 
+step "formatter idempotence over all tests"
+./scripts/test_formatter.sh > build/last_formatter.log 2>&1 || die "formatter (see build/last_formatter.log)"
+tail -1 build/last_formatter.log
+
 step "color diagnostics (-fcolor-diagnostics / NO_COLOR)"
 ./scripts/test_color.sh > build/last_color.log 2>&1 || die "color diagnostics (see build/last_color.log)"
 tail -1 build/last_color.log

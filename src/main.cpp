@@ -21,6 +21,7 @@
 #include "backend/riscv64/backend.hpp"
 #include "backend/peephole.hpp"
 #include "version.hpp"
+#include "formatter.hpp"
 
 namespace fs = std::filesystem;
 
@@ -124,6 +125,63 @@ static void print_man_page() {
 }
 
 int main(int argc, char* argv[]) {
+
+    // ── `sodium fmt` subcommand (D-042) ──────────────────────────────
+    if (argc > 1 && std::strcmp(argv[1], "fmt") == 0) {
+        bool check_only = false;
+        std::string fmt_output;
+        const char* fmt_input = nullptr;
+        for (int i = 2; i < argc; ++i) {
+            if (std::strcmp(argv[i], "--check") == 0) {
+                check_only = true;
+            } else if (std::strcmp(argv[i], "-o") == 0 || std::strcmp(argv[i], "--output") == 0) {
+                if (i + 1 >= argc) {
+                    std::cerr << "fmt: -o requires an argument\n";
+                    return EXIT_FAILURE;
+                }
+                fmt_output = argv[++i];
+            } else if (argv[i][0] == '-') {
+                std::cerr << "fmt: unknown option " << argv[i] << "\n";
+                return EXIT_FAILURE;
+            } else if (fmt_input == nullptr) {
+                fmt_input = argv[i];
+            } else {
+                std::cerr << "fmt: too many input files\n";
+                return EXIT_FAILURE;
+            }
+        }
+        if (!fmt_input) {
+            std::cerr << "usage: sodium fmt [--check] [-o FILE] <file.cyan>\n";
+            return EXIT_FAILURE;
+        }
+        std::ifstream input_file(fmt_input);
+        if (!input_file) {
+            std::cerr << "fmt: cannot read " << fmt_input << "\n";
+            return EXIT_FAILURE;
+        }
+        std::stringstream buffer;
+        buffer << input_file.rdbuf();
+        const std::string original = buffer.str();
+        const std::string formatted = formatter::format_source(original);
+        if (check_only) {
+            if (original != formatted) {
+                std::cerr << "fmt: " << fmt_input << " is not canonically formatted\n";
+                return EXIT_FAILURE;
+            }
+            return 0;
+        }
+        if (!fmt_output.empty()) {
+            std::ofstream output_file(fmt_output);
+            if (!output_file) {
+                std::cerr << "fmt: cannot write " << fmt_output << "\n";
+                return EXIT_FAILURE;
+            }
+            output_file << formatted;
+        } else {
+            std::cout << formatted;
+        }
+        return 0;
+    }
 
     bool print_ast_flag = false;
     bool emit_ir_flag = false;

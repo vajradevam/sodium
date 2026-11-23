@@ -543,3 +543,13 @@ with a man-style usage block covering every CLI flag and the `fmt` subcommand. A
 `tests/cli/test_cli.py` to the gate, which checks the version against the header and that all
 sections/options appear in help. `scripts/check.sh` green: 776 passed / 0 failed / 18 skipped at
 both levels; CLI test OK. Test counts unchanged (tooling only).
+
+## 2026-11-24 — D4b sodium fmt formatter
+Added `src/formatter.hpp` and the `sodium fmt` subcommand with stdout, `-o FILE` and `--check`
+modes (D-042). The formatter normalizes indentation to four spaces per brace depth, trims trailing
+whitespace and collapses blank runs, while preserving comment lines (including `// EXPECT-*` test
+headers) and string contents verbatim; braces inside literals/comments are ignored. Added
+`scripts/test_formatter.sh` to the gate: all 399 Cyan files under `tests/` are formatted twice and
+compared, `--check` accepts canonical output, EXPECT headers are byte-identical and a sample
+program keeps the same exit code and stdout after formatting. `scripts/check.sh` green: 776 passed
+/ 0 failed / 18 skipped at both levels. Test counts unchanged (tooling only).
