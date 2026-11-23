@@ -561,3 +561,21 @@ and verifies the installed compiler compiles and runs a program. Improved `scrip
 with a `--prefix DIR` flag and honest verification that reports the installed paths instead of
 `which` output. `scripts/check.sh` green: 776 passed / 0 failed / 18 skipped at both levels;
 clean-prefix install OK. Test counts unchanged (tooling only).
+
+## 2026-11-24 — P7-END phase 7 state of the project
+Re-verified against code and gate logs before tagging. Phase 7 completed all tooling/docs work:
+README rewritten from verified behavior with 13 fenced samples compiled on both targets by
+`scripts/doc_check.sh`; `docs/IR.md`, `docs/ABI.md`, `docs/BACKENDS.md` verified against the source
+by `scripts/check_arch_docs.sh`; `cyan-lsp` extended with rename, references, signature help and
+semantic tokens (D-041) plus diagnostics lifecycle; the VS Code grammar/client refreshed;
+`sodium fmt` (D-042), `--version` and man-style `--help` added; and the install script verified in
+a clean temp prefix. All of these run as steps of `scripts/check.sh`.
+
+Final `scripts/check.sh --full`: 776 passed / 0 failed / 18 skipped at both -O0 and -O1 and under
+ASan/UBSan; 325 C++ cases / 4465 checks; sweep 2394 invocations / 0 crashes; oracle 62/62 at both
+levels; ABI 16/16; regalloc benchmark 248 functions / 2 spills / 301692 callee-save assignments;
+debug line tables verified with -g; doc-check 13 samples; formatter idempotent over 399 files;
+three LSP protocol suites, VS Code check, CLI check and clean-prefix install all OK; fuzz 1000
+inputs / 0 crashes. The 18 skips are ABI/helper files exercised by their own scripts. Known limits
+unchanged: floats have no FP register allocation or constant folding, debug info is line tables
+only, and there is no self-hosting yet.

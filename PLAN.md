@@ -183,7 +183,7 @@ anyway, tick the box, and note "not reproducible" in PROGRESS.md.
 - [x] **D4a `--version` and `--help`:** man-style usage text with every flag, printed by `--help`/`-h`, and a stable `--version` string; scripted CLI tests.
 - [x] **D4b `sodium fmt`:** comment-preserving canonical line formatter (D-042) with stdout/`-o`/`--check` modes, idempotence test over every file under `tests/` and validity check of formatted sources.
 - [x] **D5 Install/packaging script tested in a clean temp prefix.**
-- [ ] **P7-END** gate, tag.
+- [x] **P7-END** gate, tag.
 
 ## Phase 8 — More targets (optional; do only if Phases 0–7 are done)
 - [ ] **B1 Backend interface audit:** document & test the `Backend` contract with a `null_backend` conformance suite.
