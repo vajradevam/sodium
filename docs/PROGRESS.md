@@ -536,3 +536,10 @@ of a `cyan.lspPath` setting (with a workspace-build fallback) and added that set
 `package.json`. Added `tests/vscode/test_extension.py`, wired into `check.sh`, which statically
 verifies the grammar and client config. `scripts/check.sh` green: 776 passed / 0 failed / 18 skipped
 at both levels; all LSP suites and the extension check OK. Tooling only; test counts unchanged.
+
+## 2026-11-24 — D4a Version and help text
+Added a single-source `src/version.hpp` (`SODIUM_VERSION 0.1.0`), `--version`, and `--help`/`-h`
+with a man-style usage block covering every CLI flag and the `fmt` subcommand. Added
+`tests/cli/test_cli.py` to the gate, which checks the version against the header and that all
+sections/options appear in help. `scripts/check.sh` green: 776 passed / 0 failed / 18 skipped at
+both levels; CLI test OK. Test counts unchanged (tooling only).

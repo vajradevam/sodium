@@ -20,6 +20,7 @@
 #include "backend/x86_64/backend.hpp"
 #include "backend/riscv64/backend.hpp"
 #include "backend/peephole.hpp"
+#include "version.hpp"
 
 namespace fs = std::filesystem;
 
@@ -63,6 +64,65 @@ static void cleanup_temp_dir() {
     g_tmp_dir.clear();
 }
 
+static void print_man_page() {
+    std::cout <<
+        "SODIUM(1)                  Cyan compiler manual                  SODIUM(1)\n"
+        "\n"
+        "NAME\n"
+        "    sodium - compile Cyan source to x86-64 or RISC-V 64 Linux\n"
+        "\n"
+        "SYNOPSIS\n"
+        "    sodium [OPTIONS] <file.cyan>\n"
+        "    sodium fmt [--check] [-o FILE] <file.cyan>\n"
+        "\n"
+        "DESCRIPTION\n"
+        "    Sodium compiles the Cyan language into a freestanding ELF executable\n"
+        "    linked against sodium-rt. The default target is x86_64; --target\n"
+        "    riscv64 cross-compiles for RISC-V 64. Optimization level -O1 is on by\n"
+        "    default. The 'fmt' subcommand formats source in place-compatible form\n"
+        "    (see docs/DECISIONS.md, D-042).\n"
+        "\n"
+        "OPTIONS\n"
+        "    -o <file>, --output <file>   Output path (default: input basename)\n"
+        "    -S, --emit-asm               Emit assembly and stop\n"
+        "    --target <arch>              x86_64 (default) or riscv64\n"
+        "    -O0, -O1                     Optimization level (default -O1)\n"
+        "    --no-alloc                   Bypass register allocation\n"
+        "    --verify-ir                  Run the IR verifier after every pass\n"
+        "    --emit-ir                    Print IR to stderr during codegen\n"
+        "    --dump-regalloc              Print allocator statistics\n"
+        "    -I <dir>, --include-dir <dir>        Add an include search directory\n"
+        "    --cyanlib-dir <dir>          Override the cyanlib directory\n"
+        "    -w, -Werror                  Suppress warnings / treat them as errors\n"
+        "    -fcolor-diagnostics, -fno-color-diagnostics\n"
+        "                                Force or disable colored diagnostics\n"
+        "    --bounds, --check-null, --stack-probe\n"
+        "                                Opt-in runtime checks (D-035)\n"
+        "    -g                           Emit DWARF line tables\n"
+        "    --print-ast                  Dump the AST and exit\n"
+        "    --version                    Print the compiler version and exit\n"
+        "    --help, -h                   Print this help and exit\n"
+        "\n"
+        "SUBCOMMANDS\n"
+        "    fmt [--check] [-o FILE] <file.cyan>\n"
+        "                                Canonical, comment-preserving formatter\n"
+        "\n"
+        "EXAMPLES\n"
+        "    sodium hello.cyan && ./hello\n"
+        "    sodium --target riscv64 -o hello-rv hello.cyan\n"
+        "    sodium -g --bounds program.cyan\n"
+        "\n"
+        "EXIT STATUS\n"
+        "    0   Compilation succeeded\n"
+        "    1   Compilation or I/O error\n"
+        "   70   A runtime check failed (--bounds, --check-null, --stack-probe)\n"
+        "\n"
+        "SEE ALSO\n"
+        "    docs/IR.md, docs/ABI.md, docs/BACKENDS.md, docs/MODULES.md\n"
+        "\n"
+        "sodium " SODIUM_VERSION << std::endl;
+}
+
 int main(int argc, char* argv[]) {
 
     bool print_ast_flag = false;
@@ -91,7 +151,14 @@ int main(int argc, char* argv[]) {
     };
 
     for (int i = 1; i < argc; i++) {
-        if (std::strcmp(argv[i], "--print-ast") == 0) {
+        if (std::strcmp(argv[i], "--version") == 0) {
+            std::cout << "sodium " SODIUM_VERSION << std::endl;
+            return 0;
+        } else if (std::strcmp(argv[i], "--help") == 0 ||
+                   std::strcmp(argv[i], "-h") == 0) {
+            print_man_page();
+            return 0;
+        } else if (std::strcmp(argv[i], "--print-ast") == 0) {
             print_ast_flag = true;
         } else if (std::strcmp(argv[i], "--emit-ir") == 0) {
             emit_ir_flag = true;

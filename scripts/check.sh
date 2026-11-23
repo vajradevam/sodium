@@ -101,6 +101,10 @@ step "VS Code extension grammar and client config"
 python3 tests/vscode/test_extension.py > build/last_vscode.log 2>&1 || die "VS Code extension (see build/last_vscode.log)"
 tail -1 build/last_vscode.log
 
+step "CLI version and help text"
+python3 tests/cli/test_cli.py ./build/sodium > build/last_cli.log 2>&1 || die "CLI text (see build/last_cli.log)"
+tail -1 build/last_cli.log
+
 step "color diagnostics (-fcolor-diagnostics / NO_COLOR)"
 ./scripts/test_color.sh > build/last_color.log 2>&1 || die "color diagnostics (see build/last_color.log)"
 tail -1 build/last_color.log
