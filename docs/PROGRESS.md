@@ -579,3 +579,10 @@ three LSP protocol suites, VS Code check, CLI check and clean-prefix install all
 inputs / 0 crashes. The 18 skips are ABI/helper files exercised by their own scripts. Known limits
 unchanged: floats have no FP register allocation or constant folding, debug info is line tables
 only, and there is no self-hosting yet.
+
+## 2026-11-24 — D5 follow-up: install.sh warns about a shadowing sodium
+Found when a stale /usr/local/bin/sodium (root-owned, not replaced because install falls back to
+~/.local when /usr/local/bin is unwritable) produced a broken program. install.sh now checks
+`command -v sodium` after installing and warns if it is missing from PATH or resolves to a
+different binary, with the fix command. scripts/test_install.sh covers not-on-PATH, shadowed and
+clean cases. check.sh passes; test counts unchanged.

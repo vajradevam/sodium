@@ -114,6 +114,16 @@ info "Verifying installation..."
 "$INSTALL_DIR/sodium" --version >/dev/null 2>&1 || err "installed sodium does not run"
 ok "sodium → $INSTALL_DIR/sodium"
 ok "cyan-lsp → $INSTALL_DIR/cyan-lsp"
+# ── PATH check: warn if another sodium would be run instead ─────────
+FOUND="$(command -v sodium 2>/dev/null || true)"
+if [ -z "$FOUND" ]; then
+    echo "  warning: $INSTALL_DIR is not on your PATH; add it to run 'sodium'"
+elif [ "$(readlink -f "$FOUND")" != "$(readlink -f "$INSTALL_DIR/sodium")" ]; then
+    echo "  warning: 'sodium' on your PATH is $FOUND, not the one just installed"
+    echo "           ($INSTALL_DIR/sodium). It is shadowing or shadowed by this install."
+    echo "           Remove it (sudo rm $FOUND) or put $INSTALL_DIR first in PATH,"
+    echo "           then run 'hash -r'."
+fi
 echo ""
 echo "Try it out (add $INSTALL_DIR to PATH if needed):"
 echo "  echo 'function main() { return 42; }' > test.cyan"

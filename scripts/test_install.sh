@@ -41,4 +41,21 @@ CYAN
 output=$("$WORK/hello" 2>&1) || fail "installed program failed to run"
 [ "$output" = "install ok" ] || fail "unexpected program output: $output"
 
+# A different sodium earlier on PATH must be reported, not silently ignored.
+CLEAN_PATH=""
+IFS=: read -ra DIRS <<< "$PATH"
+for d in "${DIRS[@]}"; do [ -x "$d/sodium" ] || CLEAN_PATH="$CLEAN_PATH:$d"; done
+PATH="${CLEAN_PATH#:}" INSTALL_PREFIX="$PREFIX" ./scripts/install.sh > "$WORK/nopath.log" 2>&1 \
+    || fail "install.sh failed with no sodium on PATH"
+grep -q "warning:.*not on your PATH" "$WORK/nopath.log" || fail "missing not-on-PATH warning"
+mkdir -p "$WORK/shadow"
+printf '#!/bin/sh\nexit 0\n' > "$WORK/shadow/sodium"; chmod +x "$WORK/shadow/sodium"
+PATH="$WORK/shadow:$PATH" INSTALL_PREFIX="$PREFIX" ./scripts/install.sh > "$WORK/shadow.log" 2>&1 \
+    || fail "install.sh failed with a shadowing sodium"
+grep -q "warning:.*is $WORK/shadow/sodium, not the one just installed" "$WORK/shadow.log" \
+    || fail "no warning about a shadowing sodium"
+PATH="$BIN:$PATH" INSTALL_PREFIX="$PREFIX" ./scripts/install.sh > "$WORK/ok.log" 2>&1 \
+    || fail "install.sh failed with install dir on PATH"
+! grep -q "warning:" "$WORK/ok.log" || fail "spurious PATH warning"
+
 echo "Install: clean-prefix install verified ($BIN)"
