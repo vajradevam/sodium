@@ -174,7 +174,7 @@ anyway, tick the box, and note "not reproducible" in PROGRESS.md.
 - [x] **P6-END** gate, tag (X1 blocked in docs/BLOCKED.md as multi-phase).
 
 ## Phase 7 — Tooling & docs
-- [ ] **D1 README rewrite from verified behavior only:** language reference (every construct with a test link), CLI flags, build/test instructions, architecture overview, known limitations. Every code sample in the README is extracted and compiled by a test (`scripts/doc_check.sh`).
+- [x] **D1 README rewrite from verified behavior only:** language reference (every construct with a test link), CLI flags, build/test instructions, architecture overview, known limitations. Every code sample in the README is extracted and compiled by a test (`scripts/doc_check.sh`).
 - [ ] **D2 `docs/IR.md`, `docs/ABI.md`, `docs/BACKENDS.md`** describing the actual implementation (generated/verified against code).
 - [ ] **D3 LSP hardening:** incremental diagnostics, rename, find-references, signature help, semantic tokens; protocol tests. VS Code extension refreshed for new syntax (typed params, enums, etc.).
 - [ ] **D4 `sodium fmt`** (canonical formatter; idempotence test over all tests) and `--version`, `--help`, man-style usage text.

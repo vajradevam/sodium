@@ -1,231 +1,276 @@
 # Cyan Language Compiler — Sodium
 
-> **Status: unverified.** This README predates the project reset and may be stale. Authoritative docs: `AGENTS.md`, `PLAN.md`, `docs/`. Task D1 rewrites this file from verified behavior.
+**Sodium** compiles **Cyan**, a small C-like systems language, to x86-64 (NASM) and
+RISC-V 64 (GAS) Linux. It is a freestanding compiler: the generated executable links
+directly against `sodium-rt/` and needs no libc. The long-term goal is a self-hosted
+compiler (`PLAN.md`, Phase 9).
 
-**Sodium** is a compiler for the **Cyan** programming language — a small, clean,
-compiled systems language targeting **x86-64 Linux** and **RISC-V 64**. Cyan is
-designed to be simple enough to hold in your head while being expressive enough
-for real programs.
+This README documents *verified* behavior only. Every ```` ```cyan ```` block is a
+complete program, extracted and compiled for both targets by `scripts/doc_check.sh`
+(which runs as part of `scripts/check.sh`). For the authoritative task list, design
+decisions and progress log see `AGENTS.md`, `PLAN.md` and `docs/`.
 
 ## Quick Start
 
 ```bash
-# Build from source
-git clone https://github.com/vajradevam/sodium.git
-cd sodium
+# Build (requires a C++20 compiler, CMake, NASM and ld)
 cmake -B build && cmake --build build
 
-# Compile and run a Cyan program (x86-64)
-./build/sodium my_program.cyan
-./my_program
-echo $?   # exit code
+# Compile, link and run a Cyan program (x86-64 is the default target)
+cat > hello.cyan <<'CYAN'
+function main() {
+    print("hello, Cyan");
+    return 0;
+}
+CYAN
+./build/sodium hello.cyan
+./hello
+
+# Cross-compile for RISC-V 64 and run under qemu
+./build/sodium --target riscv64 hello.cyan
+qemu-riscv64 ./hello
+
+# Or install system-wide (see D5 / scripts/install.sh)
+./scripts/install.sh
 ```
 
-**Or install system-wide:**
-```bash
-./scripts/install.sh
-sodium my_program.cyan
-```
+The return value of `main()` is the process exit code. Top-level statements are not
+allowed; a program must define `function main()` ([test](tests/integration/test_comprehensive.cyan)).
 
 ## Language Tour
 
-### Hello world
+Each subsection links to tests that verify the construct on both targets at `-O0`
+and `-O1`.
+
+### Variables and integer types
 
 ```cyan
 function main() {
-    return(42);
+    var a = 5;            // inferred i64
+    var b: i32 = 10;      // explicit width
+    var c: u8 = 255;
+    var flag: bool = true;
+    var ch: char = 65;
+    print("%d %d %d %d %d", a, b, c, flag, ch);
+    return 0;
 }
 ```
 
-```bash
-sodium hello.cyan && ./hello && echo $?
-# outputs: 42
-```
-
-### Variables and types
-
-```cyan
-function main() {
-    var x = 5;
-    var y: i32 = 10;
-    var z: u8 = 255;
-    var name = "Cyan";
-    return(0);
-}
-
-// All integer types:
-// i8, i16, i32, i64, u8, u16, u32, u64
-```
+Integer types are `i8`, `i16`, `i32`, `i64` and their unsigned counterparts `u8`–`u64`.
+Narrow integer `+`/`-` results are promoted to `i32` like C. `bool` and `char` are
+supported ([test](tests/types/test_bool_char.cyan)). `type` declares an alias
+([test](tests/types/test_type_alias.cyan)).
 
 ### Arithmetic and operators
 
 ```cyan
 function main() {
-    var sum   = x + y;
-    var diff  = x - y;
-    var prod  = x * y;
-    var quot  = x / y;
-    var rem   = x % y;
-
-    // Comparison
-    var eq  = x == y;
-    var neq = x != y;
-    var lt  = x < y;
-    var gt  = x > y;
-    var lte = x <= y;
-    var gte = x >= y;
-
-    // Logical
-    var both   = x > 0 && y < 100;
-    var either = x > 0 || y > 0;
-    var not    = !x;              // logical NOT (== 0 ? 1 : 0)
-
-    // Bitwise
-    var band    = x & y;
-    var bor     = x | y;
-    var bxor    = x ^ y;
-    var shifted = x << 2;
-    var not     = ~x;
-
-    // Compound assignment
-    x += 5;   y *= 2;   z >>= 1;
-
-    // Increment / decrement (statement-level)
-    a++;   ++a;   a--;   --a;
-
-    // Ternary
-    var max = x > y ? x : y;
-    return(0);
+    var x = 7;
+    var y = 2;
+    print("%d %d %d %d %d", x + y, x - y, x * y, x / y, x % y);
+    print("%d %d %d", x == y, x != y, x < y);
+    print("%d %d %d", x > 0 && y > 0, x > 0 || y > 0, !x);
+    print("%d %d %d %d", x & y, x | y, x ^ y, x << 1);
+    var z = 8;
+    z >>= 1;
+    z += 5;
+    print("%d", z);
+    print("%d", x > y ? x : y);   // ternary
+    return 0;
 }
 ```
+
+Operators: `+ - * / %`, comparisons `== != < <= > >=`, logical `&& || !`, bitwise
+`& | ^ ~ << >>`, compound assignment (`+= -= *= /= %= &= |= ^= <<= >>=`), and the
+ternary `?:`. Division/modulo by zero trap at runtime. Hex literals `0x…` are accepted
+([test](tests/integration/test_comprehensive.cyan)).
 
 ### Control flow
 
 ```cyan
 function main() {
     var x = 5;
+    if (x > 0) { print("positive"); } else if (x == 0) { print("zero"); } else { print("negative"); }
 
-    // if / else if / else
-    if x > 0 {
-        // ...
-    } else if x == 0 {
-        // ...
-    } else {
-        // ...
-    }
-
-    // while
     var i = 0;
-    while i < 10 { i = i + 1; }
+    while (i < 3) { i = i + 1; }
+    do { i = i - 1; } while (i > 0);
+    for (var j = 0; j < 3; j = j + 1) { print(j); i = i + j; }
 
-    // do-while
-    do { i = i - 1; } while i > 0;
-
-    // for
-    for var j = 0; j < 10; j = j + 1 { print(j); }
-
-    // switch (fall-through, no implicit break)
-    switch x {
-        case 1 { print("one"); }
-        case 2 { print("two"); }
-        default { print("other"); }
+    switch (x) {
+        case 1: { print("one"); break; }
+        case 5: { print("five"); break; }
+        default: { print("other"); }
     }
-
-    return(0);
+    return 0;
 }
 ```
+
+`if`/`else if`/`else`, `while`, `do…while`, C-style `for`, `switch`/`case`/`default`
+(with explicit fall-through — there is no implicit `break`), `break` and `continue`
+([test](tests/integration/test_scoping_switch.cyan)). Blocks introduce nested scopes
+with shadowing.
 
 ### Arrays
 
 ```cyan
-const size = 10;
-
 function main() {
-    // Declare and initialize
-    var arr[] = [10, 20, 30, 40, 50];
-
-    // Access and assign
-    arr[2] = 99;
-    var third = arr[2];
-
-    // Size from const expression
-    var buffer[size];
-    buffer[0] = 42;
-
-    return(0);
+    var a[5];                    // five i64s, zero-initialized
+    var b = [10, 20, 30];        // inferred i64[3]
+    const N = 4;
+    var c[N];                    // size from a constant
+    a[0] = 7;
+    b[1] = 99;
+    print("%d %d %d", a[0], b[1], c[0]);
+    return 0;
 }
 ```
+
+Arrays carry their element count (`var a[N]`) and support array literals
+(`var a = [1, 2, 3]`), indexing and assignment ([test](tests/unit/test_arr_lit.cyan)).
 
 ### Functions
 
 ```cyan
-function add(a, b) {
-    return(a + b);
+function add(a: i64, b: i64) -> i64 {
+    return a + b;
+}
+
+function fact(n: i64) -> i64 {
+    if (n <= 1) { return 1; }
+    return n * fact(n - 1);
 }
 
 function main() {
-    var result = add(3, 4);
-    print("%d", result);
-    return(0);
-}
-
-// Recursion
-function factorial(n) {
-    if n <= 1 { return(1); }
-    return(n * factorial(n - 1));
+    print("%d %d", add(3, 4), fact(5));
+    return 0;
 }
 ```
 
-### Structs
+Parameters and return types may be annotated (`function f(x: i64) -> i64`); untyped
+parameters are inferred from the call site and emit a warning. Recursion is supported
+([test](tests/unit/test_func_rec.cyan)).
+
+### Structs and enums
 
 ```cyan
-struct Point { var x; var y; var z; };
+struct Point { var x: i64; var y: i64; };
+enum Color { Red, Green = 5, Blue };
 
 function main() {
     var p: Point;
-    p.x = 10;  p.y = 20;  p.z = 30;
-    p.x += 5;                // compound assignment on fields
-    var sum = p.x + p.y;     // field reads in expressions
-    return(0);
+    p.x = 10;
+    p.y = p.x + 5;
+    print("%d %d", p.x, p.y);
+    print("%d %d %d", Red, Green, Blue);
+    var c = Green;
+    print("%d", c);
+    return 0;
 }
 ```
 
-### Pointers and heap allocation
+Struct fields are typed; structs can be passed by pointer and returned by value.
+Small structs containing floats travel in FP/integer register pieces per the target
+ABI. Enum constants are i64 values with optional explicit assignments
+([structs](tests/floats/test_float_struct.cyan), [enums](tests/types/test_enum.cyan)).
+
+### Pointers and memory
 
 ```cyan
 function main() {
     var x = 42;
-    var ptr = &x;
-    *ptr = 100;              // write through pointer
-    *ptr += 50;              // compound assign through pointer
-    var y = *ptr;            // read through pointer
+    var p = &x;
+    *p = 100;
+    var y = *p;
 
-    // Heap allocation (SFL allocator)
-    var buf = malloc(256);
-    *buf = 123;
+    var buf = malloc(32);        // segregated-free-list heap allocator
+    *buf = 7;
+    *(buf + 8) = 9;              // pointer arithmetic scales by element size
+    var sum = *buf + *(buf + 8);
     free(buf);
 
-    // Pointer to struct fields
-    var p: Point;
-    var px = &p.x;
-    *px = 42;
-
-    // Pointer arithmetic (type-aware scaling)
-    var arr[4];
-    var ap = &arr[0];        // address of first element (type: Ptr(i64))
-    ap = ap + 1;             // advance by sizeof(i64) = 8 bytes
-    var val = *ap;           // load second element
-
-    // With malloc'd buffers
-    var buf = malloc(32);
-    buf = buf + 1;           // advance by sizeof(i64) = 8 bytes
-    *buf = 20;
-
-    // Pointer difference (element count)
-    var diff = (ap + 3) - ap; // 3 (elements, not bytes)
-    return(0);
+    print("%d %d", y, sum);
+    return 0;
 }
 ```
+
+`&x` takes an address, `*p` dereferences (reads and writes), `p + n` and `p - q`
+scale by the pointee size. `malloc`/`free` come from the freestanding SFL allocator;
+`cyanlib/mem.cyan` adds `calloc`, `realloc` and aligned allocations
+([test](tests/oracle/ptr_malloc_store.cyan)).
+
+### Floats
+
+```cyan
+function main() {
+    var a: f64 = 7.5;
+    var b: f64 = 2.5;
+    var c: f32 = 1.5f;
+    print("%f %f %f", a + b, a * b, a / b);
+    print("%f", c);
+    var i: i64 = 3;
+    print("%f", i * 1.5);          // int converts to float
+    print("%d", (a + b) as i64);   // explicit conversion
+    print("%f", 1e3 + 2.5e-1);
+    return 0;
+}
+```
+
+`f32` and `f64` literals (`1.5`, `2e-3`, `1.5f`) and arithmetic use the C-compatible
+System V / LP64D FP ABI, verified against gcc on both targets. `print(x)` formats by
+the value's type; `%f` forces fixed six-digit float formatting (the freestanding
+formatter is exact). `%d`/`%x`/`%u`/`%c`/`%s` reject floats; use `as i64` first.
+Float literals with `f` suffix are `f32`
+([arithmetic](tests/floats/test_float_arith.cyan),
+[formatting](tests/floats/test_float_print.cyan),
+[conversion](tests/floats/test_float_convert.cyan)).
+
+### Global and static variables, constants
+
+```cyan
+const N = 3;
+global var g = 0;
+
+function counter() {
+    static var calls = 0;
+    calls = calls + 1;
+    return calls;
+}
+
+function main() {
+    g = g + counter();
+    var a[N];
+    print("%d %d", g, N);
+    return 0;
+}
+```
+
+`global var` is initialized before `main`, `static var` persists across calls, and
+`const` names compile-time integer expressions (also usable as array sizes)
+([test](tests/integration/test_comprehensive.cyan)).
+
+### Input and output
+
+```cyan
+function main() {
+    print(42);                       // plain integer
+    print("hello");                  // plain string
+    print();                         // just a newline
+    print("x=%d y=%d", 10, 20);      // C-style format string
+    print("%x %u %c %ld", 255, 4294967295, 65, 1234567890123);
+    print("100%%");                  // literal %
+    var n = read();                  // integer from stdin (EOF -> 0)
+    print("%d", n);
+    return 0;
+}
+```
+
+Format specifiers: `%d`, `%s`, `%x`, `%u`, `%c`, `%ld`, `%f`, `%%`. When the first
+argument is not a string literal, `print` falls back to plain integer/string output.
+`read()` reads an integer; `read(buf)` reads a line into an array buffer and returns
+the byte count ([print](tests/unit/test_fprint.cyan),
+[read](tests/unit/test_read_str.cyan)). `cyanlib/io.cyan` adds `fprint(fd, s)` and
+`assert(cond, msg)`.
 
 ### Command-line arguments
 
@@ -233,316 +278,174 @@ function main() {
 function main() {
     print("argc = %d", argc());
     var i = 0;
-    while i < argc() {
+    while (i < argc()) {
         print("argv[%d] = %s", i, argv(i));
         i = i + 1;
     }
-    return(0);
+    return 0;
 }
 ```
 
-The entry point is `function main()` (C-style). The runtime captures `argc`
-and `argv` from the kernel before `main()` is called.
+`argc()` and `argv(i)` are builtins backed by values captured in `_start` on both
+targets ([test](tests/unit/test_argc.cyan)).
 
-### Global and static variables
+### Preprocessor and inline assembly
 
 ```cyan
-global g_count = 0;       // initialized global
-global g_buffer[256];     // zero-initialized (.bss)
-
-function counter() {
-    static calls = 0;     // persists across calls
-    calls = calls + 1;
-    return(calls);
-}
+#define LIMIT 3
+#define DOUBLE(x) ((x) * 2)
 
 function main() {
-    g_count = g_count + 1;
-    return(g_count);
+#if defined(LIMIT) && LIMIT == 3
+    var n = DOUBLE(2);
+#else
+    var n = 0;
+#endif
+    asm("x86_64", "nop", []);
+    asm("riscv64", "nop", []);
+    print("%d", n);
+    return 0;
 }
 ```
 
-### Constants (compile-time evaluation)
+The preprocessor supports `#include`, `#pragma once`, `#ifdef`/`#ifndef`/`#else`/
+`#endif`, object- and function-like `#define`, and `#if` constant expressions
+(`defined`, comparisons, arithmetic, `&&`, `||`, `!`). Inactive branches emit no
+tokens. `asm("arch", "instruction", ["clobbers"])` emits one line of target-specific
+assembly; the clobber list must contain only caller-saved registers
+([macros](tests/unit/test_preprocessor_macros.cyan),
+[asm](tests/checks/test_inline_asm.cyan)). See `docs/MODULES.md` for cyanlib naming
+and header conventions.
+
+### Optional runtime checks
 
 ```cyan
-const SIZE = 100;
-const MAX = SIZE * 2 + 1;
-
 function main() {
-    var arr[SIZE];
-
-    // Hex literals (0x prefix, any integer size)
-    var mask = 0xff;              // 255
-    const PAGE = 0x1000;          // 4096
-    return(0);
+    var a[4];
+    var i = 0;
+    while (i < 4) { a[i] = i; i = i + 1; }
+    print("%d", a[2]);
+    return 0;
 }
 ```
 
-### Input / output
-
-```cyan
-// Print integers and strings (unified statement)
-print(42);               // "42\n"
-print("hello");          // "hello\n"
-print();                  // just "\n"
-
-// C-style format strings: %d (integer), %s (string), %% (literal %)
-print("x=%d y=%d", x, y);                   // "x=10 y=20\n"
-print("the answer is %d", 42);              // "the answer is 42\n"
-print("value: %s", "hello");                // "value: hello\n"
-print("100%%");                              // "100%\n"
-print("%d + %d = %d", 2, 3, 2 + 3);         // "2 + 3 = 5\n"
-print("double(21)=%d", double(21));         // function call in arg
-
-// Read integer from stdin
-var input = read();
-
-// Read a line of text into an array buffer
-var buf[256];
-var n = read(buf);       // reads up to 256 bytes, returns byte count
-```
-
-The `print` statement uses C-style format specifiers (`%d` for integers,
-`%s` for string literals/pointers, `%%` for a literal `%`). Arguments
-after the format string are comma-separated expressions (including function
-calls). When the first argument is not a string literal, `print` falls back
-to the original behavior: printing a single integer or string.
-
-`read()` with no arguments reads an integer (backward compatible).
-`read(buf)` reads a line of text into an array buffer and returns the
-number of bytes read (excluding the null terminator). Both share a single
-internal buffer, so mixed calls work correctly.
-
-
+`--bounds` checks every array index, `--check-null` checks pointer dereferences and
+`--stack-probe` checks the stack pointer at function entry. A failed check prints a
+fixed message and exits with status 70; valid programs are unchanged. With none of
+these flags the generated code is identical to the unchecked build
+([bounds](tests/checks/test_bounds_fail.cyan),
+[null](tests/checks/test_null_read_fail.cyan),
+[stack](tests/checks/test_stack_probe_fail.cyan)).
 
 ## Both Architectures
 
-Cyan compiles to **two backends** from the same source:
+The same source compiles to either backend:
 
 ```bash
-# x86-64 (native)
-./build/sodium -o myprog program.cyan
+./build/sodium -o myprog program.cyan      # x86-64 (default)
 ./myprog
 
-# Or use default output name (strip .cyan suffix)
-./build/sodium program.cyan
-./program
-
-# RISC-V 64 (cross-compile)
 ./build/sodium --target riscv64 program.cyan
 qemu-riscv64 ./program
+
+./build/sodium -S program.cyan             # emit assembly and stop
+./build/sodium -g program.cyan             # DWARF line tables for gdb
 ```
 
-All language features work identically on both targets. The full test suite
-(302 tests) runs on both architectures with 0 failures.
-
-The RISC-V backend handles large stack frames (e.g. `var buf[256]` = 2048 bytes)
-by using `li`+`add` for frame offsets that exceed the 12-bit signed immediate
-range of `addi`, and by computing `lea` addresses directly in the destination
-register to avoid clobbering live values.
+Both targets run the full suite with identical results. The RISC-V backend handles
+large stack frames (frame offsets beyond the 12-bit `addi` range) with `li`+`add`
+and materializes addresses directly in the destination register.
 
 ## Building from Source
 
-### Dependencies
-
-- **C++20 compiler** (GCC 11+, Clang 14+)
-- **CMake** 3.15+
-- **NASM** (for x86-64 assembly)
-- **GNU ld** (for x86-64 linking)
-- **riscv64-elf-gcc** (for RISC-V cross-compilation — optional)
-- **qemu-riscv64** (for running RISC-V binaries — optional)
-
-### Build
+Dependencies: a C++20 compiler (GCC 11+/Clang 14+), CMake 3.20+, NASM, GNU `ld`, and
+optionally `riscv64-elf-gcc`/`riscv64-elf-as` plus `qemu-riscv64` for the RISC-V
+backend. `gdb`/`readelf` are used only by the debug-info test.
 
 ```bash
-cmake -B build && cmake --build build
-```
+cmake -B build -DCMAKE_BUILD_TYPE=Release && cmake --build build -j$(nproc)
 
-Produces:
-- **`build/sodium`** — the Cyan compiler
-- **`build/cyan-lsp`** — the LSP language server
+# Debug/instrumented build (the IR verifier always runs)
+cmake -B build-asan -DCMAKE_BUILD_TYPE=Debug && cmake --build build-asan
 
-### Debug build
-
-```bash
-cmake -B build -DCMAKE_BUILD_TYPE=Debug && cmake --build build
-```
-
-### Runtime library
-
-The runtime (`sodium-rt/`) includes CRT startup, I/O, and the heap allocator:
-
-```bash
-# Build runtime for x86-64
+# Runtime libraries (also built automatically by CMake)
 make -C sodium-rt
-
-# Build runtime for RISC-V
 make -C sodium-rt/riscv64
 ```
 
-The runtime is linked automatically by the compiler.
+Outputs: `build/sodium` (compiler), `build/cyan-lsp` (language server). The runtime
+is linked automatically.
 
-## Compilation Pipeline
-
-```
-.cyan → Tokenizer → Parser → AST → IR Builder → 
-  Liveness Analysis → Linear Scan Allocator → IR Rewriter → 
-  Backend (x86-64 | RISC-V) → Assembly → Link → ELF
-```
-
-The compiler uses an **SSA-style intermediate representation** with virtual
-registers, liveness analysis, and linear scan register allocation before
-emitting target-specific assembly. This enables clean multi-architecture
-support and lays the groundwork for optimization passes.
-
-### Compiler flags
+## Compiler Flags
 
 ```
--o <file>              Specify output binary path (default: strip .cyan suffix)
--S                     Emit assembly only, stop (POSIX convention)
---target <arch>        Target architecture: x86_64 (default) or riscv64
---print-ast            Dump the AST and exit
---emit-ir              Print IR during code generation
---no-alloc             Bypass register allocator (all values on stack)
--I <dir>               Add include directory
+-o <file>, --output <file>   Output path (default: input basename without .cyan)
+-S, --emit-asm               Emit assembly and stop
+--target <arch>              x86_64 (default) or riscv64
+-O0, -O1                     Optimization level (-O1 is the default)
+--no-alloc                   Bypass register allocation (all values on stack)
+--verify-ir                  Run the IR verifier after every pass
+--emit-ir                    Print the IR during code generation
+--dump-regalloc              Print allocator statistics and pass counters
+-I <dir>, --include-dir <dir>        Add an include search directory
+--cyanlib-dir <dir>          Override the cyanlib search directory
+-w, -Werror                  Suppress warnings / promote them to errors
+-fcolor-diagnostics, -fno-color-diagnostics, NO_COLOR
+--bounds, --check-null, --stack-probe
+-g                           Emit DWARF line tables (NASM %line / GAS .file+.loc)
+--print-ast                  Dump the AST and exit
 ```
-
-Examples:
-```bash
-sodium -o myprog foo.cyan    # output binary is 'myprog'
-sodium -S foo.cyan            # produce foo.asm, stop (no binary)
-sodium -S -o /tmp/bar.asm foo.cyan  # custom asm output path
-sodium foo.cyan               # default: strip .cyan
-```
-
-### Runtime library
-
-A freestanding C runtime (`sodium-rt/allocator.c`) provides:
-
-- **Segregated Free List (SFL) allocator** — 15 size classes (16–2048 bytes),
-  O(1) alloc/free, 2 MB BSS heap, bump-pointer fallback for large blocks
-- CRT startup (`_start`) and exit
-- `print()` / `read()` via raw syscalls
 
 ## Project Structure
 
 ```
-├── src/
-│   ├── main.cpp                 Entry point, CLI (`-o`, `-S`, `--target`), linking
-│   ├── tokenization.hpp/cpp     Lexer
-│   ├── parser.hpp/cpp           Recursive-descent parser → AST
-│   ├── generation.hpp/cpp       Code generation (AST → IR → target)
-│   ├── preprocessor.hpp/cpp     #include, #pragma once
-│   ├── ast_printer.hpp/cpp      Debug AST dump
-│   ├── arena.hpp                Bump-pointer arena allocator
-│   ├── json.hpp                 Minimal JSON library
-│   ├── lsp.hpp/cpp              LSP server (diagnostics, completions, hover, goto-def)
-│   ├── lsp_main.cpp             LSP entry point
-│   ├── ir/                      Intermediate representation
-│   │   ├── builder.hpp          IR builder
-│   │   ├── module.hpp           IR module
-│   │   ├── function.hpp         IR functions
-│   │   ├── instruction.hpp      IR instruction format
-│   │   ├── value.hpp            Operand types (vregs, immediates, labels)
-│   │   ├── opcodes.hpp          All IR opcodes
-│   │   ├── liveness.hpp         Liveness analysis
-│   │   ├── linear_scan.hpp      Linear scan register allocation
-│   │   ├── rewriter.hpp         Assign physical registers to IR
-│   │   ├── emitter.hpp          IR → assembly emission
-│   │   ├── dump.hpp/cpp         IR debug dump
-│   │   ├── block.hpp            Basic blocks
-│   │   └── target_regs.hpp      Target register file descriptions
-│   └── backend/
-│       ├── interface.hpp        Abstract backend interface
-│       ├── x86_64/backend.hpp/cpp    x86-64 codegen
-│       ├── riscv64/backend.hpp/cpp   RISC-V 64 codegen
-│       └── null_backend.hpp     No-op backend for testing
-├── sodium-rt/                   Freestanding runtime library
-│   ├── allocator.c              SFL allocator (shared C source)
-│   ├── x86_64/                  x86-64 runtime (NASM assembly)
-│   │   ├── crt0.asm             CRT entry point
-│   │   ├── exit.asm             _sodium_exit
-│   │   ├── print.asm            _sodium_print_int
-│   │   ├── read.asm             _sodium_read_int
-│   │   └── Makefile
-│   └── riscv64/                 RISC-V 64 runtime (GAS assembly)
-│       ├── crt0.asm
-│       ├── exit.asm
-│       ├── print.asm
-│       ├── read.asm
-│       └── Makefile
-├── tests/
-│   ├── unit/                    100+ unit tests (.cyan)
-│   ├── integration/             Integration tests
-│   └── include/                 Include mechanism tests
-├── examples/                    Example programs
-├── vscode-extension/            VS Code extension (syntax + LSP)
-├── scripts/run_tests.sh         Test runner (dual-architecture)
-├── scripts/install.sh           Install script
-└── CMakeLists.txt
+src/                        Compiler sources (tokenizer → preprocessor → parser → gen → IR → backend)
+  ir/                       IR, verifier, liveness, linear scan, rewriter, emitter, inline, FP opcodes
+  backend/{x86_64,riscv64}/ Target backends and a null backend for LSP codegen
+sodium-rt/                  Freestanding runtime (CRT, print/read/exit, SFL allocator, float formatter)
+cyanlib/                    Library in Cyan (containers, fmt, io, mem, string)
+bench/                      Benchmark programs and dynamic instruction-count baselines
+docs/                       DECISIONS, PROGRESS, MODULES, BLOCKED, STYLE
+tests/                      unit, integration, types, floats, checks, oracle, abi, lsp, warnings, cpp
+scripts/                    check.sh, run_tests.sh, doc_check.sh, bench.sh, install.sh, debug-info test
+vscode-extension/           VS Code syntax, theme and LSP integration
 ```
 
 ## Testing
 
-The test suite runs on **both architectures**:
-
 ```bash
-# Run all tests (x86-64 + RISC-V if qemu is available)
-bash scripts/run_tests.sh
+scripts/check.sh            # build + style + sweep + effects + benchmarks + oracle + ABI + suite
+scripts/check.sh --full     # also builds with ASan/UBSan and re-runs the suite
+scripts/run_tests.sh        # discoverable test runner; --filter SUBSTR, --target NAME, -j N
+scripts/bench.sh            # dynamic guest instruction counts vs committed baselines
 ```
 
-```text
-Results: 302 passed, 0 failed
-```
-
-Each test file compiles to both backends and the resulting binary's exit
-code is checked against an expected value. **48 compile-failure tests**
-verify that invalid programs are correctly rejected across ~30 distinct
-error categories.
+Latest gate (`scripts/check.sh --full`): **776 integration tests passed**, 0 failed,
+18 skipped on both targets at `-O0` and `-O1` and under ASan/UBSan; **325 C++ unit
+cases / 4465 checks**; **62/62** differential oracle comparisons; **16/16** C ABI
+interoperability cases; **2394** sweep invocations with 0 crashes; fuzz smoke 1000
+inputs with 0 crashes. The 18 skips are ABI/helper files exercised by their own
+scripts. See `docs/PROGRESS.md` for the append-only history.
 
 ## LSP Server
 
-The `cyan-lsp` server implements the Language Server Protocol over stdin/stdout:
+`build/cyan-lsp` implements LSP over stdin/stdout: diagnostics, completions, hover,
+go-to-definition, document symbols and signature help. The `vscode-extension/`
+directory provides a TextMate grammar, a theme and LSP integration.
 
-- **Diagnostics** — compile errors as you type
-- **Completions** — keywords and identifiers
-- **Hover** — token kind and declaration details
-- **Go-to-definition** — jumps to declaration
-- **Document symbols** — functions, variables, constants, parameters
+## Known Limitations
 
-### VS Code Extension
-
-The `vscode-extension/` directory provides:
-- Syntax highlighting (TextMate grammar for `.cyan`)
-- Cyan Dark theme (teal/cyan accents)
-- LSP integration (errors, completions, hover, goto-def, document symbols)
-
-Install with:
-```bash
-./scripts/install.sh --vscode
-```
-
-## Current Status
-
-- **302 tests passing** across both x86-64 and RISC-V
-- **Packed stack allocation**: all integer types use their exact byte sizes on
-the stack (`i8` → 1 byte, `i16` → 2 bytes, `i32` → 4 bytes, `i64` → 8 bytes)
-- **Full IR pipeline** with SSA virtual registers and linear scan allocation
-- **Dual backend**: x86-64 (NASM) and RISC-V 64 (GAS)
-- **Complete runtime**: SFL allocator, CRT, I/O
-- **LSP server**: fully functional with VS Code extension
-- **Hex literals** (`0x` prefix) and **logical NOT** (`!`) operator
-- **SFL heap allocator** with 15 size classes, O(1) alloc/free
-- **`argc()`/`argv()` builtins** for command-line argument access
-- **C-style `function main()` entry point** — top-level statements are not allowed; the program must define `main()` which returns the exit code
-- **Unified `print`** with C-style format strings (`%d`, `%s`, `%%`), multiple comma-separated arguments, expressions/function calls in args, and backward compatible with plain integer and string-literal printing
-- **`read(buf)` builtin** for reading lines from stdin into array buffers
-- **Shared input buffer**: both `read()` and `read(buf)` share a single `.bss`
-  buffer with cursor, enabling correct mixed calls on the same input stream
-- **48 compile-failure tests** (up from 9) covering ~30 error categories
-- **RISC-V large stack-frame support**: auto-detect and handle frame offsets
-  exceeding the 12-bit `addi` immediate range
-- **Platform**: Linux (x86-64 native + RISC-V cross-compile via qemu)
+- Floats have no FP register allocation: FP values are stack-resident and lowered
+  through scratch FP registers, which is correct across calls but slower. There is
+  no float constant folding yet.
+- Floats cannot be globals, global array elements or builtin arguments; the arms of
+  a float ternary must both be floats. `u64` values above `i64::MAX` convert to float
+  as negative (documented, not trapped).
+- Structs larger than 16 bytes containing floats use the memory/by-reference ABI,
+  not register pieces.
+- No WASM or aarch64 backend (`PLAN.md` Phase 8); no self-hosting yet (Phase 9).
+- Debug info is line tables only (`-g`), not full DWARF DIEs for locals and types.
+- The compiler is single-threaded; incremental LSP reparsing is limited.
 
 ## License
 

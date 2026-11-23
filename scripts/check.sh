@@ -17,6 +17,10 @@ grep -q "warning:" build/last_build.log && die "build produced warnings (see bui
 step "style check (changed files; see docs/STYLE.md)"
 ./scripts/check_style.sh || die "style (trailing whitespace / tab indentation)"
 
+step "README code samples (compile and run, both targets)"
+./scripts/doc_check.sh > build/last_doccheck.log 2>&1 || die "README samples (see build/last_doccheck.log)"
+tail -1 build/last_doccheck.log
+
 step "IR/assembly regression sweep (both targets)"
 ./scripts/sweep.sh > build/last_sweep.log 2>&1 || die "sweep (see build/last_sweep.log)"
 tail -2 build/last_sweep.log

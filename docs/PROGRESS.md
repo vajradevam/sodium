@@ -481,3 +481,14 @@ fallbacks, params and results. Verified against gcc both directions on both targ
 shapes plus register-exhaustion cases (tests/abi/float_struct_*, 16 ABI cases total); run test
 tests/floats/test_float_struct_value.cyan; 5 new unit cases. Removed the two by-value compile-error
 tests (behaviour intentionally lifted).
+
+## 2026-11-24 — D1 README rewrite from verified behavior
+Rewrote README.md from scratch: every language construct is a complete, compilable program with a
+link to the test that verifies it, and all CLI flags, build/test instructions, architecture
+overview, project layout and known limitations were re-checked against the source and gate logs.
+Removed stale claims (302 tests, nonexistent `examples/`, absent flags). Added
+`scripts/doc_check.sh`, which extracts all 13 fenced `cyan` blocks, compiles each for x86_64 and
+riscv64 and runs it on x86_64; it is now a `check.sh` step. Verified all 21 test-file links resolve
+(fixed one pointing at a nonexistent recursion test). Gate counts recorded in the README: 776
+integration passed / 0 failed / 18 skipped, 325 C++ cases / 4465 checks, oracle 62/62, ABI 16/16,
+sweep 2394 invocations / 0 crashes, fuzz 1000 / 0 crashes.
