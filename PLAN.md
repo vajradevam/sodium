@@ -229,7 +229,7 @@ Merge into `main` with `--no-ff` only after `check.sh --full` passes at T-8. Do 
 - [x] **T-7 Differential testing.** Add a deterministic random-program generator that compares
   x86_64 vs riscv64 vs a gcc-compiled C reference; save any failure as an xfail test. Script lives in
   `scripts/`, failures in `tests/xfail/`.
-- [ ] **T-8 Phase end.** `check.sh --full`, regression sweep, state-of-project entry in
+- [x] **T-8 Phase end.** `check.sh --full`, regression sweep, state-of-project entry in
   PROGRESS.md re-verified against the code, `git tag phase-T-done`, then `--no-ff` merge into `main`.
 
 ## Standing chores (do opportunistically when touching the area; each is its own commit)

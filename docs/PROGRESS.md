@@ -660,3 +660,29 @@ Ran 96 programs (16 seed 20261123 / -O1, 40 seed 777 / -O1, 40 seed 31337 / -O0)
 so no xfail entries were added. Wired an 8-program fixed-seed run into `check.sh`. Test counts
 in the normal suite unchanged (872 / 890 run-equivalents); differential cases are reported
 separately (96 run + 8 per gate). No compiler code changed.
+
+## 2026-11-24 — Phase T state of the project (T-8)
+Re-verified against the code and gate logs before tagging. Work was done only on branch
+`phase-T/edge-tests`; `git diff main..HEAD -- src sodium-rt cyanlib` is empty. Phase T added
+48 passing test sources under `tests/edge/` plus support files, 12 xfail reproducer sources and
+the scripts `xfail.sh`, `test_no_cascade.sh` and `random_diff.py`; `run_tests.sh`, `sweep.sh`,
+`fuzz_smoke.sh` and `check.sh` were adjusted so known-bug xfail inputs never enter the gate and
+so the no-cascade and differential checks run on every commit.
+
+Final `scripts/check.sh --full` (sanitizers included): 872 passed / 0 failed / 18 skipped at
+both -O0 and -O1 and under ASan/UBSan; 325 C++ cases / 4465 checks; sweep 2682 invocations /
+0 crashes; oracle 62/62 at both levels; ABI interop 16/16; doc-check 13 samples; formatter
+459 files idempotent; no-cascade 3 cases × 2 targets; fuzz 1000 inputs / 0 crashes; differential
+8 fixed-seed programs / 0 mismatches. A separate 96-program differential sweep also found 0
+mismatches. `scripts/xfail.sh` reports 22 cases (12 bugs × affected targets), all still failing.
+
+Twelve compiler bugs were found and reported (never fixed) in `docs/BUGS-FOUND.md`: 2 critical
+(BF-002 hex literal overflow wraps, BF-004 include-cycle SIGSEGV), 7 high (BF-001 sizeof struct,
+BF-006 untyped call arity, BF-008 signed cast extension, BF-009 MIN/-1 target disagreement,
+BF-010 u64 signed semantics, BF-011 riscv64 out-of-range spill offsets, BF-012 missing bounds
+checks on writes), 2 medium (BF-003 unterminated comment, BF-007 deep-nesting crash) and 1 low
+(BF-005 empty include). The 1600-level nesting test was reduced to 400 levels because ASan's
+larger stack frames crash at ~800; the 5000-level crashing case remains in xfail (BF-007).
+Known limits recorded but not filed: target-specific float→int out-of-range results (D-038),
+shift counts >= 64, entry-SP-only stack probing, and null checks on null-base-plus-offset.
+The first unchecked task of the next phase is Phase 8 B1 (Backend interface audit).
