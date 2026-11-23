@@ -510,3 +510,11 @@ Extended `scripts/check_arch_docs.sh` to verify their register names, ABI symbol
 file references and decision IDs against `src/ir/target_regs.hpp`, the generator, both backends and
 DECISIONS.md. `scripts/check.sh` green: 776 passed / 0 failed / 18 skipped at both levels; all doc
 checks pass. Documentation only; test counts unchanged.
+
+## 2026-11-24 — D3a LSP rename, references and diagnostics lifecycle
+Added `textDocument/rename` (WorkspaceEdit with one edit per matching identifier token) and
+`textDocument/references` (honouring `context.includeDeclaration`) to `cyan-lsp`, advertised both
+in `initialize`, and made `didClose` publish an empty diagnostics list so stale errors do not linger
+(D-041). Added `tests/lsp/test_lsp_features.py`, wired into `check.sh`, covering 3 references vs 2
+uses, 3 rename edits and diagnostics clearing. `scripts/check.sh` green: 776 passed / 0 failed /
+18 skipped at both levels; both LSP protocol suites OK. Test counts unchanged (tooling only).

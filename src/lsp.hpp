@@ -47,6 +47,8 @@ private:
     void handle_hover(const JsonValue& id, const JsonValue& params);
     void handle_definition(const JsonValue& id, const JsonValue& params);
     void handle_document_symbol(const JsonValue& id, const JsonValue& params);
+    void handle_rename(const JsonValue& id, const JsonValue& params);
+    void handle_references(const JsonValue& id, const JsonValue& params);
 
     // ── Diagnostics ───────────────────────────────────────────────────
     void publish_diagnostics(const std::string& uri, const std::string& text);

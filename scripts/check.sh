@@ -89,6 +89,10 @@ step "LSP protocol diagnostics (multiple severities)"
 python3 tests/lsp/test_lsp_diagnostics.py ./build/cyan-lsp > build/last_lsp.log 2>&1 || die "LSP diagnostics (see build/last_lsp.log)"
 tail -1 build/last_lsp.log
 
+step "LSP protocol features (rename, references, diagnostics lifecycle)"
+python3 tests/lsp/test_lsp_features.py ./build/cyan-lsp > build/last_lsp_features.log 2>&1 || die "LSP features (see build/last_lsp_features.log)"
+tail -1 build/last_lsp_features.log
+
 step "color diagnostics (-fcolor-diagnostics / NO_COLOR)"
 ./scripts/test_color.sh > build/last_color.log 2>&1 || die "color diagnostics (see build/last_color.log)"
 tail -1 build/last_color.log

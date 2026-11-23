@@ -51,6 +51,10 @@ void LSPServer::run() {
             handle_definition(*id, *params);
         } else if (method == "textDocument/documentSymbol") {
             handle_document_symbol(*id, *params);
+        } else if (method == "textDocument/rename") {
+            handle_rename(*id, *params);
+        } else if (method == "textDocument/references") {
+            handle_references(*id, *params);
         } else if (method == "$cancelRequest") {
             // ignore
         } else {
@@ -133,6 +137,8 @@ void LSPServer::handle_initialize(const JsonValue& id, const JsonValue& /*params
     capabilities["hoverProvider"] = true;
     capabilities["definitionProvider"] = true;
     capabilities["documentSymbolProvider"] = true;
+    capabilities["referencesProvider"] = true;
+    capabilities["renameProvider"] = true;
 
     result["capabilities"] = std::move(capabilities);
     JsonValue::ObjectType server_info;
@@ -179,6 +185,11 @@ void LSPServer::handle_text_document_did_close(const JsonValue& params) {
     const JsonValue* uri = td->get("uri");
     if (!uri) return;
     m_documents.erase(uri->as_string());
+    // Clear diagnostics so stale errors do not linger after a document closes.
+    JsonValue::ObjectType params_out;
+    params_out["uri"] = uri->as_string();
+    params_out["diagnostics"] = JsonValue::ArrayType{};
+    send_notification("textDocument/publishDiagnostics", JsonValue(std::move(params_out)));
 }
 
 // ── Symbol table helpers ───────────────────────────────────────────
@@ -682,6 +693,119 @@ void LSPServer::handle_document_symbol(const JsonValue& id, const JsonValue& par
     }
 
     send_response(id, JsonValue(std::move(result)));
+}
+
+// ── Rename / references ────────────────────────────────────────────
+
+namespace {
+
+JsonValue token_range(const Token& tok) {
+    const size_t line = tok.loc.line > 0 ? static_cast<size_t>(tok.loc.line - 1) : 0;
+    const size_t col = tok.loc.col > 0 ? static_cast<size_t>(tok.loc.col - 1) : 0;
+    const size_t length = tok.value.has_value() ? tok.value.value().size() : 1;
+    JsonValue::ObjectType start, end;
+    start["line"] = static_cast<int64_t>(line);
+    start["character"] = static_cast<int64_t>(col);
+    end["line"] = static_cast<int64_t>(line);
+    end["character"] = static_cast<int64_t>(col + length);
+    JsonValue::ObjectType range;
+    range["start"] = JsonValue(std::move(start));
+    range["end"] = JsonValue(std::move(end));
+    return JsonValue(std::move(range));
+}
+
+} // namespace
+
+void LSPServer::handle_rename(const JsonValue& id, const JsonValue& params) {
+    const JsonValue* td = params.get("textDocument");
+    const JsonValue* pos_val = params.get("position");
+    const JsonValue* new_name = params.get("newName");
+    if (!td || !pos_val || !new_name) { send_error(id, -32602, "Missing rename parameters"); return; }
+    const JsonValue* uri = td->get("uri");
+    if (!uri) { send_error(id, -32602, "Missing URI"); return; }
+    const JsonValue* line_val = pos_val->get("line");
+    const JsonValue* char_val = pos_val->get("character");
+    if (!line_val || !char_val) { send_error(id, -32602, "Invalid position"); return; }
+
+    Position pos{static_cast<size_t>(line_val->as_int()),
+                 static_cast<size_t>(char_val->as_int())};
+    std::string uri_str = uri->as_string();
+    auto it = m_documents.find(uri_str);
+    if (it == m_documents.end()) { send_error(id, -32602, "Document not open"); return; }
+
+    std::vector<Token> toks = tokenize(it->second);
+    std::string name;
+    for (const auto& tok : toks) {
+        if (position_matches(pos, tok) && tok.type == TokenType::ident && tok.value.has_value()) {
+            name = tok.value.value();
+            break;
+        }
+    }
+    if (name.empty()) { send_response(id, JsonValue(nullptr)); return; }
+
+    JsonValue::ArrayType edits;
+    for (const auto& tok : toks) {
+        if (tok.type == TokenType::ident && tok.value.has_value() &&
+            tok.value.value() == name) {
+            JsonValue::ObjectType edit;
+            edit["range"] = token_range(tok);
+            edit["newText"] = new_name->as_string();
+            edits.push_back(std::move(edit));
+        }
+    }
+
+    JsonValue::ObjectType changes;
+    changes[uri_str] = JsonValue(std::move(edits));
+    JsonValue::ObjectType workspace_edit;
+    workspace_edit["changes"] = JsonValue(std::move(changes));
+    send_response(id, JsonValue(std::move(workspace_edit)));
+}
+
+void LSPServer::handle_references(const JsonValue& id, const JsonValue& params) {
+    const JsonValue* td = params.get("textDocument");
+    const JsonValue* pos_val = params.get("position");
+    if (!td || !pos_val) { send_error(id, -32602, "Missing reference parameters"); return; }
+    const JsonValue* uri = td->get("uri");
+    if (!uri) { send_error(id, -32602, "Missing URI"); return; }
+    const JsonValue* line_val = pos_val->get("line");
+    const JsonValue* char_val = pos_val->get("character");
+    if (!line_val || !char_val) { send_error(id, -32602, "Invalid position"); return; }
+
+    Position pos{static_cast<size_t>(line_val->as_int()),
+                 static_cast<size_t>(char_val->as_int())};
+    std::string uri_str = uri->as_string();
+    auto it = m_documents.find(uri_str);
+    if (it == m_documents.end()) { send_error(id, -32602, "Document not open"); return; }
+
+    std::vector<Token> toks = tokenize(it->second);
+    std::string name;
+    for (const auto& tok : toks) {
+        if (position_matches(pos, tok) && tok.type == TokenType::ident && tok.value.has_value()) {
+            name = tok.value.value();
+            break;
+        }
+    }
+    if (name.empty()) { send_response(id, JsonValue(JsonValue::ArrayType{})); return; }
+
+    const JsonValue* context = params.get("context");
+    const JsonValue* include_decl = context ? context->get("includeDeclaration") : nullptr;
+    const bool with_decl = !include_decl || !include_decl->is_bool() || include_decl->as_bool();
+    auto parse_result = parse_document(it->second);
+    const DeclInfo* decl = find_decl(parse_result.symbols, name);
+
+    JsonValue::ArrayType locations;
+    for (const auto& tok : toks) {
+        if (tok.type != TokenType::ident || !tok.value.has_value() ||
+            tok.value.value() != name) continue;
+        if (!with_decl && decl && tok.loc.line == decl->loc.line && tok.loc.col == decl->loc.col) {
+            continue;
+        }
+        JsonValue::ObjectType location;
+        location["uri"] = uri_str;
+        location["range"] = token_range(tok);
+        locations.push_back(std::move(location));
+    }
+    send_response(id, JsonValue(std::move(locations)));
 }
 
 // ── Diagnostics (now includes codegen) ─────────────────────────────
