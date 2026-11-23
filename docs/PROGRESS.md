@@ -501,3 +501,12 @@ into `check.sh`, which asserts that every named opcode, IR file and pass symbol 
 in `src/ir/` and is mentioned by the doc, so the docs cannot drift silently from the code.
 `scripts/check.sh` green: 776 passed / 0 failed / 18 skipped at both levels; doc-check 13 samples;
 arch-doc verification OK. Test counts unchanged (documentation only).
+
+## 2026-11-24 — D2b ABI and backend implementation references
+Added `docs/ABI.md` (platform ABI, integer arguments/returns, struct-by-value and float-struct
+classification, FP conventions, runtime/stack) and `docs/BACKENDS.md` (Backend contract, x86-64
+SSE/NASM backend, riscv64 D/F/GAS backend, post-emission peephole), both derived from the source.
+Extended `scripts/check_arch_docs.sh` to verify their register names, ABI symbols, backend methods,
+file references and decision IDs against `src/ir/target_regs.hpp`, the generator, both backends and
+DECISIONS.md. `scripts/check.sh` green: 776 passed / 0 failed / 18 skipped at both levels; all doc
+checks pass. Documentation only; test counts unchanged.

@@ -176,7 +176,7 @@ anyway, tick the box, and note "not reproducible" in PROGRESS.md.
 ## Phase 7 — Tooling & docs
 - [x] **D1 README rewrite from verified behavior only:** language reference (every construct with a test link), CLI flags, build/test instructions, architecture overview, known limitations. Every code sample in the README is extracted and compiled by a test (`scripts/doc_check.sh`).
 - [x] **D2a `docs/IR.md` + doc verification harness:** document the IR (values, opcodes, passes, regalloc, emitter) from the source and add `scripts/check_arch_docs.sh` that verifies named opcodes/paths actually exist in the code.
-- [ ] **D2b `docs/ABI.md` and `docs/BACKENDS.md`:** document calling conventions (integer, FP, aggregates) and both backends from the source; extend the verification harness to cover register names and files.
+- [x] **D2b `docs/ABI.md` and `docs/BACKENDS.md`:** document calling conventions (integer, FP, aggregates) and both backends from the source; extend the verification harness to cover register names and files.
 - [ ] **D3 LSP hardening:** incremental diagnostics, rename, find-references, signature help, semantic tokens; protocol tests. VS Code extension refreshed for new syntax (typed params, enums, etc.).
 - [ ] **D4 `sodium fmt`** (canonical formatter; idempotence test over all tests) and `--version`, `--help`, man-style usage text.
 - [ ] **D5 Install/packaging script tested in a clean temp prefix.**

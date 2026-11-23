@@ -47,3 +47,38 @@ IR_SYMBOLS=(
 check_claims docs/IR.md 'src/ir/*.hpp src/gen/*.cpp' 'IR.md' "${IR_SYMBOLS[@]}"
 
 echo "Arch docs: IR.md claims verified against source"
+
+# ---- docs/ABI.md: calling-convention symbols, registers and decisions ----
+ABI_SYMBOLS=(
+    TargetRegisterInfo ArgPlacer assign_arg_regs FP_PARAM_ORDINAL_BASE
+    STORE_PARAM RET2 split_struct_args large_struct_by_ref fp_overflow_to_gpr
+    fp_arg_regs fp_ret_reg arg_regs ret_reg2 call_target_reg
+)
+check_claims docs/ABI.md 'src/ir/target_regs.hpp src/generation.hpp src/ir/rewriter.hpp src/ir/emitter.hpp' 'ABI.md' "${ABI_SYMBOLS[@]}"
+
+ABI_REGS=(rdi rsi rdx rcx rax rbp a0 a7 s0 t0)
+check_claims docs/ABI.md 'src/ir/target_regs.hpp' 'ABI.md' "${ABI_REGS[@]}"
+
+for decision in D-001 D-012 D-014 D-038 D-040; do
+    grep -q -- "$decision" docs/ABI.md || fail "ABI.md does not mention $decision"
+    grep -q -- "$decision" docs/DECISIONS.md || fail "DECISIONS.md does not contain $decision"
+done
+
+# ---- docs/BACKENDS.md: backend interface, implementations and drivers ----
+BACKEND_FILES=(
+    src/backend/interface.hpp src/backend/null_backend.hpp src/backend/peephole.hpp
+    src/backend/x86_64/backend.cpp src/backend/riscv64/backend.cpp
+)
+for file in "${BACKEND_FILES[@]}"; do
+    [ -f "$file" ] || fail "BACKENDS.md references missing file $file"
+    grep -q -- "$file" docs/BACKENDS.md || fail "BACKENDS.md does not mention $file"
+done
+
+BACKEND_SYMBOLS=(
+    emit_insn func_prologue func_epilogue debug_line stack_probe_check
+    load_imm signed_div fp_arith call_reg addr_indexed note_fp_arg_count
+    NullBackend X8664Backend RISCV64Backend peephole_optimize
+)
+check_claims docs/BACKENDS.md 'src/backend/*.hpp src/backend/x86_64/*.cpp src/backend/riscv64/*.cpp' 'BACKENDS.md' "${BACKEND_SYMBOLS[@]}"
+
+echo "Arch docs: ABI.md and BACKENDS.md claims verified against source"
