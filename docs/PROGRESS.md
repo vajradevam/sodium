@@ -650,3 +650,13 @@ argc/argv with three user arguments. Found BF-012: --bounds does not check array
 both targets) - xfail added. Null checks on null-base-plus-offset are recorded as a known limit
 rather than a bug (D-035 checks the final address). `scripts/xfail.sh` now reports 22 still-failing
 cases. Tests before → after: 856 / 874 → 872 / 890 run-equivalents. No compiler code changed.
+
+## 2026-11-23 — T-7 differential random-program testing
+Added `scripts/random_diff.py`: deterministic (seed + program index) generation of integer
+programs valid in both C and Cyan; each is compiled with gcc and with sodium for x86_64 and
+riscv64, and stdout plus exit status are compared. Mismatches are saved as
+`tests/xfail/diff_*.cyan` with the gcc expectation and are reported by `scripts/xfail.sh`.
+Ran 96 programs (16 seed 20261123 / -O1, 40 seed 777 / -O1, 40 seed 31337 / -O0): 0 mismatches,
+so no xfail entries were added. Wired an 8-program fixed-seed run into `check.sh`. Test counts
+in the normal suite unchanged (872 / 890 run-equivalents); differential cases are reported
+separately (96 run + 8 per gate). No compiler code changed.

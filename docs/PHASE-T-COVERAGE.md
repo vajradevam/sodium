@@ -67,3 +67,13 @@ nonzero offset (`*(p + 1)` where `p == 0`, or `p->b` with a nonzero field offset
 nonzero address that passes the check and then segfaults. D-035 specifies a check on pointer
 reads/writes but does not require base-pointer tracking, so this is recorded as a limit rather
 than a bug. Direct `*p` reads/writes and offset-zero field writes are checked correctly.
+
+## T-7 differential generator scope
+
+`scripts/random_diff.py` generates integer-only expressions shared by C and Cyan (literals,
++ - * / %, bitwise ops, shifts 0..8, comparisons, ternary, unary ops). It deliberately excludes
+constructs with known bugs (BF-001..BF-012) and implementation-defined C behaviour, so a
+mismatch always indicates a new finding. Mismatches are written to `tests/xfail/diff_*.cyan`
+with the gcc output as EXPECT-STDOUT/EXPECT-EXIT and are picked up by `scripts/xfail.sh`.
+`check.sh` runs 8 fixed-seed programs per commit; larger sweeps are run manually with
+`--count`/`--seed`/`--opt`.

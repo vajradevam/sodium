@@ -226,7 +226,7 @@ Merge into `main` with `--no-ff` only after `check.sh --full` passes at T-8. Do 
   recursion depth, big frames with `--stack-probe`. Tests on both targets.
 - [x] **T-6 Runtime checks.** `--bounds`, `--check-null` at boundaries, print/read edges, `argc/argv`.
   Tests on both targets.
-- [ ] **T-7 Differential testing.** Add a deterministic random-program generator that compares
+- [x] **T-7 Differential testing.** Add a deterministic random-program generator that compares
   x86_64 vs riscv64 vs a gcc-compiled C reference; save any failure as an xfail test. Script lives in
   `scripts/`, failures in `tests/xfail/`.
 - [ ] **T-8 Phase end.** `check.sh --full`, regression sweep, state-of-project entry in

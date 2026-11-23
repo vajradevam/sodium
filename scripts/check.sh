@@ -129,6 +129,11 @@ step "fuzz smoke (deterministic mutations)"
 ./scripts/fuzz_smoke.sh 20261121 1000 > build/last_fuzz.log 2>&1 || die "fuzz smoke (see build/last_fuzz.log)"
 tail -2 build/last_fuzz.log
 
+step "random differential programs (Cyan vs gcc, both targets)"
+python3 scripts/random_diff.py --seed 20261123 --count 8 --opt O1 \
+    > build/last_diff.log 2>&1 || die "random differential (see build/last_diff.log)"
+tail -1 build/last_diff.log
+
 if [ $FULL -eq 1 ]; then
     step "sanitizer build (build-asan/)"
     cmake -S . -B build-asan -DCMAKE_BUILD_TYPE=Debug \
