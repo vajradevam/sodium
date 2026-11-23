@@ -621,3 +621,14 @@ have xfail tests; `scripts/xfail.sh` now reports 14 still-failing cases. The fir
 exposed that `fuzz_smoke.sh` mutated the BF-007 xfail file and rediscovered its crash, so the
 fuzz corpus now excludes `tests/xfail/` just like the runner and sweep. Tests before → after:
 800 / 818 run-equivalents → 834 / 852. No compiler code changed.
+
+## 2026-11-23 — T-4 type/semantics extremes; BF-008..BF-010 found
+Added 5 passing test sources (`tests/edge/`, 10 cases on both targets): a gcc-cross-checked cast
+subset, shift counts 0..65, signed division/modulo matrix, IEEE special values (NaN/inf/-0/denormals),
+and enums/field offsets/fn-pointer tables/pointer differences. A 152-pair cast matrix against gcc
+and targeted probes found three more bugs: BF-008 `as i8/i16/i32` zero-extends (high), BF-009
+`MIN / -1` traps on x86_64 but silently returns MIN on riscv64 (high), BF-010 u64 arithmetic and
+comparisons use signed i64 semantics (high). All have xfail tests; `scripts/xfail.sh` now reports
+19 still-failing cases. Target-specific float→int out-of-range results are documented as a known
+limit (D-038/D-039), not filed as a bug. Tests before → after: 834 / 852 → 844 / 862 run-equivalents.
+No compiler code changed.

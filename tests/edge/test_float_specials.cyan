@@ -1,0 +1,32 @@
+// T-4: IEEE-754 special values produced by arithmetic. NaN compares unequal
+// to itself, infinities format as inf/-inf, negative zero keeps its sign bit
+// and denormals round through %f to 0.000000. Verified on both targets.
+// EXPECT-EXIT: 0
+// EXPECT-STDOUT: inf
+// EXPECT-STDOUT: -inf
+// EXPECT-STDOUT: nan
+// EXPECT-STDOUT: -0.000000
+// EXPECT-STDOUT: 1
+// EXPECT-STDOUT: 0
+// EXPECT-STDOUT: 0
+// EXPECT-STDOUT: nan
+// EXPECT-STDOUT: 0.000000
+// EXPECT-STDOUT: 1
+// EXPECT-STDOUT: 0.000000
+
+function main() {
+    print(1.0 / 0.0);
+    print(0.0 - 1.0 / 0.0);
+    print(0.0 / 0.0);
+    print(-0.0);
+    var nan = 0.0 / 0.0;
+    print(nan != nan);
+    print(nan == nan);
+    print(nan < 0.0);
+    var inf = 1.0 / 0.0;
+    print(inf - inf);
+    print(1.0 / inf);
+    print(inf > 1e308);
+    print(5e-324 / 2.0);
+    return(0);
+}

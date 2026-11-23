@@ -43,3 +43,10 @@ T-2/T-3 add assertions for the substrings of the malformed-input cases that curr
 * A failing edge case caused by a compiler bug goes under `tests/xfail/` with the output it
   *should* produce. `scripts/run_tests.sh` excludes that directory so `check.sh` stays green.
 * `scripts/xfail.sh` runs those tests separately and reports which still fail.
+
+## Known target-specific behaviour (not filed as bugs)
+
+* `(i64::MAX as f64) as i64` returns `i64::MIN` on x86_64 and `i64::MAX` on riscv64. D-038/D-039
+  explicitly say out-of-range float→int results follow the target instruction and are not trapped,
+  so the passing float test asserts only target-independent special values.
+* Shift counts >= 64 use the hardware's masked count on both targets (C leaves this undefined).

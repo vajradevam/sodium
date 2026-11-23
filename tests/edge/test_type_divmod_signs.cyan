@@ -1,0 +1,23 @@
+// T-4: division and modulo follow C's truncate-toward-zero rule and the
+// dividend's sign. Verified against gcc with the same expressions.
+// EXPECT-EXIT: 0
+// EXPECT-STDOUT: -2
+// EXPECT-STDOUT: -1
+// EXPECT-STDOUT: -2
+// EXPECT-STDOUT: 1
+// EXPECT-STDOUT: 2
+// EXPECT-STDOUT: -1
+// EXPECT-STDOUT: 0
+// EXPECT-STDOUT: -3074457345618258602
+
+function main() {
+    print(-7 / 3);
+    print(-7 % 3);
+    print(7 / -3);
+    print(7 % -3);
+    print(-7 / -3);
+    print(-7 % -3);
+    print(0 / 3);
+    print(-9223372036854775807 / 3);
+    return(0);
+}

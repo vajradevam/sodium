@@ -143,3 +143,60 @@ edge case, **low** = cosmetic/diagnostic quality.
 * **Notes:** a nesting-depth limit with a source diagnostic would also be acceptable; a crash is
   not. The passing regression uses 1600 levels (`tests/edge/test_parse_deep_nesting.cyan`).
 * **xfail test path:** `tests/xfail/bf007_deep_nesting_crash.cyan`
+
+## BF-008 — Cast to a signed narrow integer zero-extends instead of sign-extending
+
+* **Severity:** high (silently wrong value and comparison results)
+* **Targets affected:** x86_64 and riscv64
+* **Found on compiler commit:** `a1ec4d935f01b58a4a22d259101b7f2b2f7a78af`
+* **Minimal reproducer:** `tests/xfail/bf008_signed_cast_zero_extend.cyan`
+  ```
+  function main() { print("%u", -1 as i8); return(0); }
+  ```
+* **Expected:** `18446744073709551615` (C: `(uint64_t)(int8_t)-1`).
+* **Actual:** `255`. The same happens for `as i16` (65535 instead of all ones) and `as i32`
+  (4294967295). A 152-pair i8..u64 cast matrix against gcc found 24 mismatches, all of this form.
+* **Notes:** a *typed variable* initialized from the cast (`var x: i8 = -1 as i8;`) reads back
+  correctly, because the store/load path re-sign-extends. The bug is in the value produced by the
+  cast expression itself, so untyped locals and direct comparisons are wrong.
+* **xfail test path:** `tests/xfail/bf008_signed_cast_zero_extend.cyan`
+
+## BF-009 — `INT64_MIN / -1` and `% -1` disagree between targets
+
+* **Severity:** high (silent wrong result on one target)
+* **Targets affected:** riscv64 (x86_64 traps as documented)
+* **Found on compiler commit:** `a1ec4d935f01b58a4a22d259101b7f2b2f7a78af`
+* **Minimal reproducer:** `tests/xfail/bf009_min_div_negative_one.cyan`
+  ```
+  function main() {
+      var m = -9223372036854775807 - 1;
+      print(m / -1);
+      return(0);
+  }
+  ```
+* **Expected:** a trap (exit 136 / C signal), which is what x86_64 does and what D-023 states.
+* **Actual:** riscv64 prints `-9223372036854775808` and exits 0. For `m % -1`, x86_64 traps while
+  riscv64 prints `0` and continues. Reproduces at -O0 and -O1.
+* **xfail test path:** `tests/xfail/bf009_min_div_negative_one.cyan`
+
+## BF-010 — `u64` arithmetic and comparisons use signed `i64` semantics
+
+* **Severity:** high (silently wrong code for half the u64 value range)
+* **Targets affected:** x86_64 and riscv64 (identical wrong values)
+* **Found on compiler commit:** `a1ec4d935f01b58a4a22d259101b7f2b2f7a78af`
+* **Minimal reproducer:** `tests/xfail/bf010_u64_signed_semantics.cyan`
+  ```
+  function main() {
+      var u: u64 = 0 as u64 - 1;
+      print("%u", u >> 1);
+      print("%u", u / 2);
+      print(u < 1);
+      return(0);
+  }
+  ```
+* **Expected (C, `uint64_t`):** `9223372036854775807`, `9223372036854775807`, `0`.
+* **Actual:** `18446744073709551615`, `0`, `1`. All u64 values with the high bit set behave as
+  negative i64 in `>>`, `/`, `%` and ordered comparisons; `u8`/`u16`/`u32` are correct.
+  Separately, `var u: u64 = 9223372036854775807 as u64 + 1;` is rejected at compile time with
+  `Integer overflow in constant expression` even though the u64 result is representable.
+* **xfail test path:** `tests/xfail/bf010_u64_signed_semantics.cyan`
