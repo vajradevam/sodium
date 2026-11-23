@@ -224,7 +224,7 @@ Merge into `main` with `--no-ff` only after `check.sh --full` passes at T-8. Do 
   as BF-001.
 - [x] **T-5 Codegen/regalloc stress.** Spills, 0..20+ args, mixed int/float args, deep expressions,
   recursion depth, big frames with `--stack-probe`. Tests on both targets.
-- [ ] **T-6 Runtime checks.** `--bounds`, `--check-null` at boundaries, print/read edges, `argc/argv`.
+- [x] **T-6 Runtime checks.** `--bounds`, `--check-null` at boundaries, print/read edges, `argc/argv`.
   Tests on both targets.
 - [ ] **T-7 Differential testing.** Add a deterministic random-program generator that compares
   x86_64 vs riscv64 vs a gcc-compiled C reference; save any failure as an xfail test. Script lives in

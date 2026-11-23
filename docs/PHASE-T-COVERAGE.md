@@ -59,3 +59,11 @@ printing `stack overflow`, and compile time for such a frame is ~30 s (too slow 
 Recursive frames are detected correctly (existing `tests/checks/test_stack_probe_fail.cyan`).
 This follows the documented "at function entry" design and is recorded here rather than filed as
 a bug.
+
+## Known limit: null checks test the final address only
+
+`--check-null` compares the address actually dereferenced against zero. A null base plus a
+nonzero offset (`*(p + 1)` where `p == 0`, or `p->b` with a nonzero field offset) produces a
+nonzero address that passes the check and then segfaults. D-035 specifies a check on pointer
+reads/writes but does not require base-pointer tracking, so this is recorded as a limit rather
+than a bug. Direct `*p` reads/writes and offset-zero field writes are checked correctly.

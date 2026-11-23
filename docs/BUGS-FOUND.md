@@ -225,3 +225,25 @@ edge case, **low** = cosmetic/diagnostic quality.
   embedding them in the load/store instruction. The gate keeps a passing 120-term version of the
   stress test.
 * **xfail test path:** `tests/xfail/bf011_riscv_spill_offset.cyan`
+
+## BF-012 — `--bounds` does not check array assignment indices
+
+* **Severity:** high (opt-in safety check silently does nothing for writes)
+* **Targets affected:** x86_64 and riscv64
+* **Found on compiler commit:** `a1ec4d935f01b58a4a22d259101b7f2b2f7a78af`
+* **Minimal reproducer:** `tests/xfail/bf012_bounds_missing_on_write.cyan`
+  ```
+  function main() {
+      var a[4];
+      a[4] = 1;
+      return(0);
+  }
+  ```
+  compiled with `--bounds`.
+* **Expected:** exit 70 and `index out of bounds` (D-035: checks guard *every* array index).
+* **Actual:** exits 0 with no output. A negative write index (`a[-1] = 5`) is also unchecked.
+  Reads are checked correctly (`tests/checks/test_bounds_fail.cyan`,
+  `tests/edge/test_bounds_huge_index.cyan`).
+* **Notes:** the check is emitted in the array-address expression helper used by loads; the
+  store path generates its address without calling that helper. Both -O0 and -O1 affected.
+* **xfail test path:** `tests/xfail/bf012_bounds_missing_on_write.cyan`

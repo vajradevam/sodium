@@ -641,3 +641,12 @@ with every sum checked, mixed int/float argument sequences across the 8-register
 300-term case moved to xfail and the gate keeps a passing 120-term version. The entry-SP-only nature of the stack probe (a single 20 MiB frame segfaults) is
 documented in `docs/PHASE-T-COVERAGE.md` as a known limit, with the compile-time cost noted.
 Tests before → after: 844 / 862 → 856 / 874 run-equivalents. No compiler code changed.
+
+## 2026-11-23 — T-6 runtime-check and I/O edge tests; BF-012 found
+Added 8 passing test sources (`tests/edge/`, 16 cases on both targets): --bounds at first/last
+indices, i64-MAX and 2D out-of-range reads, --check-null with a valid nonzero-offset pointer,
+print edges (empty string, %%, %c, %x/%u/%ld, 24 ordered args), read()/read_eof() at EOF and
+argc/argv with three user arguments. Found BF-012: --bounds does not check array *writes* (high,
+both targets) - xfail added. Null checks on null-base-plus-offset are recorded as a known limit
+rather than a bug (D-035 checks the final address). `scripts/xfail.sh` now reports 22 still-failing
+cases. Tests before → after: 856 / 874 → 872 / 890 run-equivalents. No compiler code changed.

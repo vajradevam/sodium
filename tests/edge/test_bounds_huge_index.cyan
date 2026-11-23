@@ -1,0 +1,11 @@
+// T-6: --bounds must reject an index far outside the array.
+// COMPILE-FLAGS: --bounds
+// EXPECT-EXIT: 70
+// EXPECT-STDOUT: index out of bounds
+
+function main() {
+    var a[4];
+    var i = 9223372036854775807;
+    print(a[i]);
+    return(0);
+}

@@ -1,0 +1,11 @@
+// BF-012: --bounds must guard every array index, including assignment targets.
+// Here a[4] is one past a 4-element array; the check should fire with exit 70.
+// COMPILE-FLAGS: --bounds
+// EXPECT-EXIT: 70
+// EXPECT-STDOUT: index out of bounds
+
+function main() {
+    var a[4];
+    a[4] = 1;
+    return(0);
+}

@@ -1,0 +1,11 @@
+// T-6: --bounds checks each dimension of a multi-dimensional array.
+// COMPILE-FLAGS: --bounds
+// EXPECT-EXIT: 0
+// EXPECT-STDOUT: 7
+
+function main() {
+    var a: i32[2][3];
+    a[1][2] = 7;
+    print(a[1][2]);
+    return(0);
+}
