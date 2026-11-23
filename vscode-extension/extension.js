@@ -1,57 +1,50 @@
 const vscode = require('vscode');
 const path = require('path');
+const { LanguageClient } = require('vscode-languageclient/node');
+
+let client;
 
 /**
  * Activate the extension when a .cyan file is opened.
+ * The LSP server implements diagnostics, completion, hover, go-to-definition,
+ * document symbols, rename, references, signature help and semantic tokens;
+ * the client enables each feature the server advertises at initialize.
  */
 function activate(context) {
-    // The LSP server binary — bundled with the compiler.
-    // Assumes ~/myc/sodium/build/cyan-lsp exists.
-    const isDev = true;
-    let serverPath;
-    if (isDev) {
-        // Development: point directly to the build output
-        serverPath = path.join(__dirname, '..', '..', '..', 'myc', 'sodium', 'build', 'cyan-lsp');
-    } else {
-        // Production: on PATH or specified in settings
-        const config = vscode.workspace.getConfiguration('cyan');
-        serverPath = config.get('lspPath', 'cyan-lsp');
+    const config = vscode.workspace.getConfiguration('cyan');
+    let serverPath = config.get('lspPath', 'cyan-lsp');
+
+    // Development convenience: if no explicit path is configured and a local
+    // build exists in the workspace, prefer it over whatever is on PATH.
+    if (!config.has('lspPath') && vscode.workspace.workspaceFolders) {
+        const root = vscode.workspace.workspaceFolders[0].uri.fsPath;
+        const local = path.join(root, 'build', 'cyan-lsp');
+        const fs = require('fs');
+        if (fs.existsSync(local)) serverPath = local;
     }
 
-    // Server options: spawn cyan-lsp as a child process
     const serverOptions = {
         command: serverPath,
         args: [],
         options: { stdio: ['pipe', 'pipe', 'pipe'] }
     };
 
-    // Client options: only interested in .cyan files
     const clientOptions = {
-        documentSelector: [
-            { scheme: 'file', language: 'cyan' }
-        ],
-        // Full-text sync (change = 1)
+        documentSelector: [{ scheme: 'file', language: 'cyan' }],
         synchronize: {
-            textDocument: { change: 1 }
-        }
+            fileEvents: vscode.workspace.createFileSystemWatcher('**/*.cyan')
+        },
+        outputChannelName: 'Cyan Language Server'
     };
 
-    // Create and start the client
-    const client = new vscode.LanguageClient(
-        'cyan-lsp',
-        'Cyan Language Server',
-        serverOptions,
-        clientOptions
-    );
-
+    client = new LanguageClient('cyan-lsp', 'Cyan Language Server', serverOptions, clientOptions);
     context.subscriptions.push(client.start());
 
     console.log('cyan-lsp: activated');
 }
 
 function deactivate() {
-    // client.stop() is called automatically
-    console.log('cyan-lsp: deactivated');
+    return client ? client.stop() : undefined;
 }
 
 module.exports = { activate, deactivate };

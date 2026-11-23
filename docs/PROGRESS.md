@@ -527,3 +527,12 @@ parameter classification using the tokenizer), both advertised in `initialize` (
 `tests/lsp/test_lsp_signature.py` to the gate covering the label, parameter list, active parameter
 and token types. `scripts/check.sh` green: 776 passed / 0 failed / 18 skipped at both levels; all
 three LSP protocol suites OK. Test counts unchanged (tooling only).
+
+## 2026-11-24 — D3c VS Code extension refresh
+Updated `vscode-extension/syntaxes/cyan.tmLanguage.json` for the current language: preprocessor
+directives, float/hex literals, `f32`/`f64`/`bool`/`char` types, `struct`/`enum`/`asm`/`as`/`type`
+keywords, `null` and `->`. Rewrote `extension.js` to drop the hardcoded development path in favour
+of a `cyan.lspPath` setting (with a workspace-build fallback) and added that setting to
+`package.json`. Added `tests/vscode/test_extension.py`, wired into `check.sh`, which statically
+verifies the grammar and client config. `scripts/check.sh` green: 776 passed / 0 failed / 18 skipped
+at both levels; all LSP suites and the extension check OK. Tooling only; test counts unchanged.

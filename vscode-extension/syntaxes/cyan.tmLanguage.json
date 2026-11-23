@@ -5,6 +5,7 @@
   "fileTypes": [".cyan"],
   "patterns": [
     { "include": "#comments" },
+    { "include": "#preprocessor" },
     { "include": "#strings" },
     { "include": "#numbers" },
     { "include": "#types" },
@@ -27,6 +28,14 @@
         }
       ]
     },
+    "preprocessor": {
+      "patterns": [
+        {
+          "match": "^\\s*#\\s*(define|include|ifdef|ifndef|if|else|endif|pragma|error)\\b.*$",
+          "name": "keyword.control.directive.cyan"
+        }
+      ]
+    },
     "strings": {
       "patterns": [
         {
@@ -45,6 +54,14 @@
     "numbers": {
       "patterns": [
         {
+          "match": "\\b(?:[0-9]+\\.[0-9]*|\\.[0-9]+)(?:[eE][+-]?[0-9]+)?[fF]?\\b|\\b[0-9]+[eE][+-]?[0-9]+[fF]?\\b",
+          "name": "constant.numeric.float.cyan"
+        },
+        {
+          "match": "\\b0[xX][0-9a-fA-F]+\\b",
+          "name": "constant.numeric.hex.cyan"
+        },
+        {
           "match": "\\b[0-9]+\\b",
           "name": "constant.numeric.cyan"
         }
@@ -53,7 +70,7 @@
     "types": {
       "patterns": [
         {
-          "match": "\\b(i8|i16|i32|i64|u8|u16|u32|u64)\\b",
+          "match": "\\b(i8|i16|i32|i64|u8|u16|u32|u64|f32|f64|bool|char)\\b",
           "name": "storage.type.cyan"
         }
       ]
@@ -61,11 +78,11 @@
     "keywords": {
       "patterns": [
         {
-          "match": "\\b(return|var|if|else|while|for|print|function|break|continue|do|switch|case|const|default|global|static)\\b",
+          "match": "\\b(return|var|if|else|while|for|print|function|break|continue|do|switch|case|const|default|global|static|struct|enum|asm|as|type)\\b",
           "name": "keyword.control.cyan"
         },
         {
-          "match": "\\b(true|false)\\b",
+          "match": "\\b(true|false|null)\\b",
           "name": "constant.language.cyan"
         }
       ]
@@ -73,7 +90,7 @@
     "operators": {
       "patterns": [
         {
-          "match": "\\+\\+|--|[-+*/%&|^~]=?|<<=?|>>=?|&&|\\|\\||==|!=|<=?|>=?|=|\\?|:",
+          "match": "\\+\\+|--|[-+*/%&|^~]=?|<<=?|>>=?|&&|\\|\\||==|!=|<=?|>=?|=|\\?|:|->",
           "name": "keyword.operator.cyan"
         }
       ]

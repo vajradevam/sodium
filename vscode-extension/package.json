@@ -42,7 +42,17 @@
         "uiTheme": "vs-dark",
         "path": "./themes/cyan-dark.json"
       }
-    ]
+    ],
+    "configuration": {
+      "title": "Cyan",
+      "properties": {
+        "cyan.lspPath": {
+          "type": "string",
+          "default": "cyan-lsp",
+          "description": "Path to the cyan-lsp language server binary."
+        }
+      }
+    }
   },
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"

@@ -179,7 +179,7 @@ anyway, tick the box, and note "not reproducible" in PROGRESS.md.
 - [x] **D2b `docs/ABI.md` and `docs/BACKENDS.md`:** document calling conventions (integer, FP, aggregates) and both backends from the source; extend the verification harness to cover register names and files.
 - [x] **D3a LSP rename, references and diagnostics lifecycle:** `textDocument/rename`, `textDocument/references`, diagnostics cleared on close (D-041), with scripted protocol tests.
 - [x] **D3b LSP signature help and semantic tokens:** `textDocument/signatureHelp` and `textDocument/semanticTokens/full` (D-041), advertised in initialize, with protocol tests.
-- [ ] **D3c VS Code extension refresh:** TextMate grammar for typed params/floats/enums/asm/preprocessor, declared LSP capabilities and client config (D-041).
+- [x] **D3c VS Code extension refresh:** TextMate grammar for typed params/floats/enums/asm/preprocessor, declared LSP capabilities and client config (D-041).
 - [ ] **D4 `sodium fmt`** (canonical formatter; idempotence test over all tests) and `--version`, `--help`, man-style usage text.
 - [ ] **D5 Install/packaging script tested in a clean temp prefix.**
 - [ ] **P7-END** gate, tag.

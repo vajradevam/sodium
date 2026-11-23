@@ -97,6 +97,10 @@ step "LSP protocol signature help and semantic tokens"
 python3 tests/lsp/test_lsp_signature.py ./build/cyan-lsp > build/last_lsp_signature.log 2>&1 || die "LSP signature/tokens (see build/last_lsp_signature.log)"
 tail -1 build/last_lsp_signature.log
 
+step "VS Code extension grammar and client config"
+python3 tests/vscode/test_extension.py > build/last_vscode.log 2>&1 || die "VS Code extension (see build/last_vscode.log)"
+tail -1 build/last_vscode.log
+
 step "color diagnostics (-fcolor-diagnostics / NO_COLOR)"
 ./scripts/test_color.sh > build/last_color.log 2>&1 || die "color diagnostics (see build/last_color.log)"
 tail -1 build/last_color.log
