@@ -43,7 +43,25 @@ Use `$TMPDIR`/`mktemp -d` for scratch output, never write binaries into the repo
 7. **Commit** (see "Commit protocol"), tick the box in `PLAN.md`, append a line to
    `docs/PROGRESS.md` (date, task ID, what, test count before→after). Commit that with the
    task commit (same commit).
-8. Go to 1. Do not stop after one task. Keep going until a stop condition is hit.
+8. Go to 1. Do not stop after one task. Keep going until the phase ends or a stop condition is
+   hit; at a phase end, follow "Phase boundaries" below.
+
+## Phase boundaries (overrides THE LOOP step 8 at a phase end)
+
+Work autonomously *within* a phase, and stop at the end of it.
+
+1. Work through the unchecked tasks of the CURRENT phase in PLAN.md, top to bottom, using
+   THE LOOP. Do not ask the human for routine decisions inside a phase.
+2. When the last task of the phase is done, run the phase-end checkpoint: `scripts/check.sh --full`,
+   the regression sweep, a "state of the project" entry in PROGRESS.md re-verified against
+   the code, and `git tag phase-N-done`.
+3. Then STOP. Do not start any task from the next phase. Do not push unless the human asked.
+4. Your final message for the phase must contain: tasks completed with commit hashes; test
+   counts before and after (integration / unit / ABI / sweep / fuzz); anything blocked or
+   deferred and why; known limits that still exist; the first unchecked task of the NEXT phase
+   with your recommended plan. Then wait for the human to say "go" for the next phase.
+
+The other stop conditions below still apply mid-phase.
 
 ## Checkpoints (hard gates)
 - **Per commit:** `scripts/check.sh` = build with zero new warnings + all tests pass on
