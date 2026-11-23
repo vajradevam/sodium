@@ -200,3 +200,28 @@ edge case, **low** = cosmetic/diagnostic quality.
   Separately, `var u: u64 = 9223372036854775807 as u64 + 1;` is rejected at compile time with
   `Integer overflow in constant expression` even though the u64 result is representable.
 * **xfail test path:** `tests/xfail/bf010_u64_signed_semantics.cyan`
+
+## BF-011 — riscv64 emits out-of-range `sd`/`ld` spill offsets at -O1
+
+* **Severity:** high (riscv64 programs with deep expressions fail to assemble)
+* **Targets affected:** riscv64 only (x86_64 compiles and runs the same source)
+* **Found on compiler commit:** `a1ec4d935f01b58a4a22d259101b7f2b2f7a78af`
+* **Minimal reproducer:** `tests/xfail/bf011_riscv_spill_offset.cyan` (the original 300-term
+  expression from `test_codegen_deep_expression.cyan`). A 140-term version is enough:
+  ```
+  function one() -> i64 { return(1); }
+  function main() {
+      var x0 = 1; ... var x139 = 7;   // values cycle 1..7
+      print(x0 + ... + x139 + one());
+      return(0);
+  }
+  ```
+* **Expected:** compiles, links and prints `561` (140 terms) / `1198` (300 terms).
+* **Actual:** `sodium -O1 --target riscv64 -S` succeeds but the generated assembly contains
+  `sd t0,-2072(s0)` (and similar). RISC-V `sd`/`ld` take a 12-bit signed immediate (-2048..2047),
+  so `riscv64-linux-gnu-as` rejects it with `Error: illegal operands`. At -O0 and with <= 135
+  variables at -O1 the source works; the first bad offset appears at 140 variables.
+* **Notes:** the backend must materialize large offsets into a scratch register instead of
+  embedding them in the load/store instruction. The gate keeps a passing 120-term version of the
+  stress test.
+* **xfail test path:** `tests/xfail/bf011_riscv_spill_offset.cyan`

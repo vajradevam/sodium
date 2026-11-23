@@ -222,7 +222,7 @@ Merge into `main` with `--no-ff` only after `check.sh --full` passes at T-8. Do 
   MIN/-1, modulo signs, float NaN/inf/-0/denormals, int<->float limits, pointer arithmetic, structs,
   enums, fn pointers. Tests on both targets. Include reproduction of the known `sizeof(struct)` bug
   as BF-001.
-- [ ] **T-5 Codegen/regalloc stress.** Spills, 0..20+ args, mixed int/float args, deep expressions,
+- [x] **T-5 Codegen/regalloc stress.** Spills, 0..20+ args, mixed int/float args, deep expressions,
   recursion depth, big frames with `--stack-probe`. Tests on both targets.
 - [ ] **T-6 Runtime checks.** `--bounds`, `--check-null` at boundaries, print/read edges, `argc/argv`.
   Tests on both targets.

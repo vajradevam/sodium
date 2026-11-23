@@ -1,0 +1,9 @@
+// T-5: recursion 1000 deep without the stack probe.
+// EXPECT-EXIT: 0
+// EXPECT-STDOUT: 1000
+
+function down(n: i64) -> i64 {
+    if (n == 0) { return(0); }
+    return(down(n - 1) + 1);
+}
+function main() { print(down(1000)); return(0); }

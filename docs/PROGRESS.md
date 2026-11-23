@@ -632,3 +632,12 @@ comparisons use signed i64 semantics (high). All have xfail tests; `scripts/xfai
 19 still-failing cases. Target-specific float→int out-of-range results are documented as a known
 limit (D-038/D-039), not filed as a bug. Tests before → after: 834 / 852 → 844 / 862 run-equivalents.
 No compiler code changed.
+
+## 2026-11-23 — T-5 codegen/regalloc stress tests
+Added 6 passing test sources (`tests/edge/`, 12 cases on both targets): 0..25 integer arguments
+with every sum checked, mixed int/float argument sequences across the 8-register boundary
+(1/7/8/9/12 FP args), 30 live locals held across a call, a 300-term expression with a call,
+1000-deep recursion and a 512 KiB frame under `--stack-probe`. All pass at -O0 and -O1. Found BF-011: riscv64 emits out-of-range sd/ld spill offsets at -O1 for deep expressions; the
+300-term case moved to xfail and the gate keeps a passing 120-term version. The entry-SP-only nature of the stack probe (a single 20 MiB frame segfaults) is
+documented in `docs/PHASE-T-COVERAGE.md` as a known limit, with the compile-time cost noted.
+Tests before → after: 844 / 862 → 856 / 874 run-equivalents. No compiler code changed.

@@ -50,3 +50,12 @@ T-2/T-3 add assertions for the substrings of the malformed-input cases that curr
   explicitly say out-of-range float→int results follow the target instruction and are not trapped,
   so the passing float test asserts only target-independent special values.
 * Shift counts >= 64 use the hardware's masked count on both targets (C leaves this undefined).
+
+## Known limit: stack probe checks entry SP only
+
+`--stack-probe` compares SP at function entry against `initial SP - 1 MiB`, before the current
+frame is allocated. Verified by hand: a single 20 MiB frame in `main` segfaults instead of
+printing `stack overflow`, and compile time for such a frame is ~30 s (too slow for a test).
+Recursive frames are detected correctly (existing `tests/checks/test_stack_probe_fail.cyan`).
+This follows the documented "at function entry" design and is recorded here rather than filed as
+a bug.

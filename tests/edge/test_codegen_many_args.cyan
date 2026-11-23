@@ -1,0 +1,38 @@
+// T-5: argument counts from 0 through 25 on both targets. Register and
+// stack argument words must keep their order; sums are the 1..N totals.
+// EXPECT-EXIT: 0
+// EXPECT-STDOUT: 1
+// EXPECT-STDOUT: 15
+// EXPECT-STDOUT: 21
+// EXPECT-STDOUT: 28
+// EXPECT-STDOUT: 36
+// EXPECT-STDOUT: 45
+// EXPECT-STDOUT: 78
+// EXPECT-STDOUT: 136
+// EXPECT-STDOUT: 210
+// EXPECT-STDOUT: 325
+
+function sum0() -> i64 { return(1); }
+function sum5(a0: i64,a1: i64,a2: i64,a3: i64,a4: i64) -> i64 { return(a0+a1+a2+a3+a4); }
+function sum6(a0: i64,a1: i64,a2: i64,a3: i64,a4: i64,a5: i64) -> i64 { return(a0+a1+a2+a3+a4+a5); }
+function sum7(a0: i64,a1: i64,a2: i64,a3: i64,a4: i64,a5: i64,a6: i64) -> i64 { return(a0+a1+a2+a3+a4+a5+a6); }
+function sum8(a0: i64,a1: i64,a2: i64,a3: i64,a4: i64,a5: i64,a6: i64,a7: i64) -> i64 { return(a0+a1+a2+a3+a4+a5+a6+a7); }
+function sum9(a0: i64,a1: i64,a2: i64,a3: i64,a4: i64,a5: i64,a6: i64,a7: i64,a8: i64) -> i64 { return(a0+a1+a2+a3+a4+a5+a6+a7+a8); }
+function sum12(a0: i64,a1: i64,a2: i64,a3: i64,a4: i64,a5: i64,a6: i64,a7: i64,a8: i64,a9: i64,a10: i64,a11: i64) -> i64 { return(a0+a1+a2+a3+a4+a5+a6+a7+a8+a9+a10+a11); }
+function sum16(a0: i64,a1: i64,a2: i64,a3: i64,a4: i64,a5: i64,a6: i64,a7: i64,a8: i64,a9: i64,a10: i64,a11: i64,a12: i64,a13: i64,a14: i64,a15: i64) -> i64 { return(a0+a1+a2+a3+a4+a5+a6+a7+a8+a9+a10+a11+a12+a13+a14+a15); }
+function sum20(a0: i64,a1: i64,a2: i64,a3: i64,a4: i64,a5: i64,a6: i64,a7: i64,a8: i64,a9: i64,a10: i64,a11: i64,a12: i64,a13: i64,a14: i64,a15: i64,a16: i64,a17: i64,a18: i64,a19: i64) -> i64 { return(a0+a1+a2+a3+a4+a5+a6+a7+a8+a9+a10+a11+a12+a13+a14+a15+a16+a17+a18+a19); }
+function sum25(a0: i64,a1: i64,a2: i64,a3: i64,a4: i64,a5: i64,a6: i64,a7: i64,a8: i64,a9: i64,a10: i64,a11: i64,a12: i64,a13: i64,a14: i64,a15: i64,a16: i64,a17: i64,a18: i64,a19: i64,a20: i64,a21: i64,a22: i64,a23: i64,a24: i64) -> i64 { return(a0+a1+a2+a3+a4+a5+a6+a7+a8+a9+a10+a11+a12+a13+a14+a15+a16+a17+a18+a19+a20+a21+a22+a23+a24); }
+
+function main() {
+    print(sum0());
+    print(sum5(1,2,3,4,5));
+    print(sum6(1,2,3,4,5,6));
+    print(sum7(1,2,3,4,5,6,7));
+    print(sum8(1,2,3,4,5,6,7,8));
+    print(sum9(1,2,3,4,5,6,7,8,9));
+    print(sum12(1,2,3,4,5,6,7,8,9,10,11,12));
+    print(sum16(1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16));
+    print(sum20(1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20));
+    print(sum25(1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25));
+    return(0);
+}
